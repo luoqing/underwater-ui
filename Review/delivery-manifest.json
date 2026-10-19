@@ -1,0 +1,34 @@
+[
+  {
+    "source": "d08557c47dd8e5f64a8efb469dbbf92f.loader.js",
+    "filename": "f4c56b3879dc3c6c0d1c8a6867716bf8.loader.js",
+    "decodedBytes": 58344,
+    "transferBytes": 58344,
+    "sha256": "f4c56b3879dc3c6c0d1c8a6867716bf8d63f07d6fa00d593c90cae9e2770f637",
+    "byteIdenticalAfterDecode": true
+  },
+  {
+    "source": "7c9c32a22c9bcbb3751678edb5d5bdea.data",
+    "filename": "e08dd15456ee8d8bbcf59d43f962b5a7.data.gz",
+    "decodedBytes": 364307579,
+    "transferBytes": 319763276,
+    "sha256": "e08dd15456ee8d8bbcf59d43f962b5a79428833f1787fbc9811be4cb25fb7f8a",
+    "byteIdenticalAfterDecode": true
+  },
+  {
+    "source": "7e51b0c6503c230b2ff9a33600ca1039.framework.js",
+    "filename": "a225aa652314365d6a2a2fdcd9f8f755.framework.js.gz",
+    "decodedBytes": 937674,
+    "transferBytes": 182777,
+    "sha256": "a225aa652314365d6a2a2fdcd9f8f7555224f09b343839bd30e1c7d5ad0bcbb1",
+    "byteIdenticalAfterDecode": true
+  },
+  {
+    "source": "f90fb4de53014a56c43bee4a23cf1b7b.wasm",
+    "filename": "1b5ba8c66ad32541133ad96c0480f4a2.wasm.gz",
+    "decodedBytes": 213106915,
+    "transferBytes": 34552376,
+    "sha256": "1b5ba8c66ad32541133ad96c0480f4a2b045f06f3ec93038347232c0982c9606",
+    "byteIdenticalAfterDecode": true
+  }
+]
