@@ -10,7 +10,7 @@ using UnityEngine.SceneManagement;
 public static class UnderwaterBuild
 {
     private const string ScenePath = "Assets/Scenes/UnderwaterJourney.unity";
-    private const string BuildPath = "Build/WebGL";
+    private const string BuildPath = "Build/WebGLPerformance";
 
     [MenuItem("Underwater/Create Benchmark Scene")]
     public static void CreateScene()
@@ -96,7 +96,8 @@ public static class UnderwaterBuild
         PlayerSettings.SetScriptingBackend(NamedBuildTarget.WebGL, ScriptingImplementation.IL2CPP);
         PlayerSettings.SetGraphicsAPIs(BuildTarget.WebGL, new[] { GraphicsDeviceType.OpenGLES3 });
         PlayerSettings.WebGL.compressionFormat = WebGLCompressionFormat.Gzip;
-        PlayerSettings.WebGL.decompressionFallback = true;
+        PlayerSettings.WebGL.decompressionFallback = false;
+        PlayerSettings.WebGL.nameFilesAsHashes = true;
         PlayerSettings.WebGL.dataCaching = true;
         PlayerSettings.WebGL.exceptionSupport = WebGLExceptionSupport.FullWithStacktrace;
 
@@ -135,4 +136,3 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #062f3d; }
 ");
     }
 }
-

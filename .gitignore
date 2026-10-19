@@ -18,4 +18,5 @@
 *.opendb
 *.VC.db
 sysinfo.txt
-
+__pycache__/
+*.py[cod]
