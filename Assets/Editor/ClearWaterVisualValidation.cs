@@ -12,8 +12,8 @@ using UnityEngine.Rendering.Universal;
 public static class ClearWaterVisualValidation
 {
     private const string Key = "Underwater.ClearWaterVisual.";
-    private const string Output = "Logs/clear-water-20261020/visual";
-    private static readonly string[] Names = { "garden", "lantern-close", "rescue-lines", "knot-close", "whale-side" };
+    private const string Output = "Logs/net-rescue-20261020/visual";
+    private static readonly string[] Names = { "garden", "lantern-close", "rescue-net", "net-contact-close", "whale-side", "net-released" };
 
     static ClearWaterVisualValidation()
     {
@@ -73,12 +73,26 @@ public static class ClearWaterVisualValidation
                 if (index == 0) Invoke(director, "StartAdventure");
                 if (index == 2) Invoke(director, "StartRescue");
                 PoseCamera(index, camera, director);
+                if (index == 5)
+                {
+                    Capture(camera, Path.Combine(Output, "net-released-warmup.png"));
+                    director.EquipNetCutter();
+                    director.TryCutNet(0);
+                    FishingLineRescue rescue = Field<FishingLineRescue>(director, "fishingLine");
+                    if (!rescue.Fragments[0].IsReleased || rescue.Fragments[0].IsFinished)
+                        throw new InvalidOperationException("The actual cut did not start a visible net release animation.");
+                    SessionState.SetBool(Key + "Warmed", true);
+                }
                 SessionState.SetBool(Key + "Prepared", true);
-                Delay(2, 0.3f);
+                Delay(2, index == 5 ? 0.16f : 0.3f);
                 return;
             }
             // Follow moving production animals, without disabling their animators.
-            PoseCamera(index, camera, director);
+            if (index != 5) PoseCamera(index, camera, director);
+            RescueNetFragment released = index == 5 ? Field<FishingLineRescue>(director, "fishingLine").Fragments[0] : null;
+            if (index == 5 && (released == null || !released.IsReleased || released.IsFinished
+                || released.ReleaseProgress <= 0f || !released.gameObject.activeInHierarchy))
+                throw new InvalidOperationException("A live released-net animation frame was missed; do not substitute a finished/hidden mesh.");
             bool warmup = !SessionState.GetBool(Key + "Warmed", false);
             string path = Path.Combine(Output, Names[index] + (warmup ? "-warmup" : "") + ".png");
             Capture(camera, path);
@@ -89,7 +103,9 @@ public static class ClearWaterVisualValidation
                 fieldOfView = camera.fieldOfView, warmup = warmup,
                 postProcessing = camera.GetUniversalAdditionalCameraData().renderPostProcessing,
                 hdr = camera.allowHDR, msaa = camera.allowMSAA,
-                fog = RenderSettings.fog, fogColor = RenderSettings.fogColor, fogDensity = RenderSettings.fogDensity
+                fog = RenderSettings.fog, fogColor = RenderSettings.fogColor, fogDensity = RenderSettings.fogDensity,
+                releaseProgress = released == null ? 0f : released.ReleaseProgress,
+                releasedNet = released != null && released.IsReleased
             }, true));
             if (warmup)
             {
@@ -100,7 +116,7 @@ public static class ClearWaterVisualValidation
             Debug.Log("UNDERWATER_CLEAR_WATER_VISUAL_FRAME " + Path.GetFullPath(path));
             if (++index == Names.Length)
             {
-                Debug.Log("UNDERWATER_CLEAR_WATER_VISUAL_PASS five production Play Mode renders; diagnostic camera/mission setup, not manual gameplay");
+                Debug.Log("UNDERWATER_CLEAR_WATER_VISUAL_PASS six production Play Mode renders including a live released net; diagnostic camera/mission setup, not manual gameplay");
                 SessionState.SetInt(Key + "Result", 0);
                 EditorApplication.isPlaying = false;
                 return;
@@ -132,16 +148,18 @@ public static class ClearWaterVisualValidation
             Look(camera, LanternCameraPosition(beacon.transform.position), beacon.transform.position);
             if (!beacon.activeSelf) throw new InvalidOperationException("First production lantern is not active.");
         }
-        else if (index == 2 || index == 3)
+        else if (index == 2 || index == 3 || index == 5)
         {
             GameObject turtle = Field<GameObject>(director, "rescueTurtle");
             FishingLineRescue lines = turtle.GetComponent<FishingLineRescue>();
             if (lines == null || !lines.TryGetNextKnotPosition(out Vector3 knot))
-                throw new InvalidOperationException("Production fishing lines/knot are missing.");
+                throw new InvalidOperationException("Production net/cut targets are missing.");
             Bounds bounds = RendererBounds(turtle);
             Vector3 outward = (knot - bounds.center).normalized;
             if (index == 2)
                 Look(camera, bounds.center + (outward + Vector3.up * 0.25f).normalized * bounds.extents.magnitude * 2.6f, bounds.center);
+            else if (index == 5)
+                Look(camera, turtle.transform.position + (outward + Vector3.up * 0.25f).normalized * 3.2f, bounds.center);
             else
             {
                 camera.fieldOfView = 32f;
@@ -167,7 +185,9 @@ public static class ClearWaterVisualValidation
         bool hasBounds = false;
         foreach (Renderer renderer in renderers)
         {
-            if (renderer is LineRenderer || renderer.GetComponentInParent<MissionInteractable>() != null) continue;
+            if (renderer is LineRenderer || renderer.GetComponentInParent<MissionInteractable>() != null
+                || renderer.GetComponentInParent<RescueNetFragment>() != null
+                || renderer.GetComponentInParent<RescueNetCutter>() != null) continue;
             if (!hasBounds) { bounds = renderer.bounds; hasBounds = true; }
             else bounds.Encapsulate(renderer.bounds);
         }
@@ -259,13 +279,13 @@ public static class ClearWaterVisualValidation
     private sealed class Shot
     {
         public string mode = "Production URP Play Mode rendering; diagnostic mission/camera setup; not manual gameplay; no IMGUI overlay";
-        public string style = "clear-water experimental branch default; original production props and animal assets";
+        public string style = "clear-water production camera; fitted three-dimensional gray-green nylon net; original lantern and animal assets";
         public string subject;
         public int width = 1280, height = 720, frame;
-        public float time, fieldOfView, fogDensity;
+        public float time, fieldOfView, fogDensity, releaseProgress;
         public Vector3 cameraPosition;
         public Quaternion cameraRotation;
         public Color fogColor;
-        public bool warmup, postProcessing, hdr, msaa, fog;
+        public bool warmup, postProcessing, hdr, msaa, fog, releasedNet;
     }
 }

@@ -193,31 +193,35 @@ public static class AdventureReachabilityValidation
         try
         {
             Renderer[] renderers = turtle.GetComponentsInChildren<Renderer>();
-            Bounds bounds = renderers[0].bounds;
-            foreach (Renderer renderer in renderers) bounds.Encapsulate(renderer.bounds);
-            if (!line.TryGetNextKnotPosition(out Vector3 knot)) throw new InvalidOperationException("Rescue knot is missing");
+            Bounds bounds = default;
+            bool foundBody = false;
+            foreach (Renderer renderer in renderers)
+            {
+                if (renderer.GetComponentInParent<RescueNetFragment>() != null
+                    || renderer.GetComponentInParent<MissionInteractable>() != null
+                    || renderer.GetComponentInParent<RescueNetCutter>() != null) continue;
+                if (!foundBody) { bounds = renderer.bounds; foundBody = true; }
+                else bounds.Encapsulate(renderer.bounds);
+            }
+            if (!foundBody || !line.TryGetNextKnotPosition(out Vector3 knot))
+                throw new InvalidOperationException("Rescue turtle body/cut target is missing");
             Physics.SyncTransforms();
-            Vector3 camera = turtle.transform.position + new Vector3(-5.5f, 1.5f, -8f);
+            Vector3 camera = turtle.transform.position + (knot - turtle.transform.position).normalized * 3.2f;
             string bodyBlocker = Blocker(camera, bounds.center, turtle.transform);
             string knotBlocker = Blocker(camera, knot, turtle.transform);
-            Debug.Log($"UNDERWATER_RESCUE_SIGHTLINE camera={camera:F3} turtle={turtle.transform.position:F3} center={bounds.center:F3} knot={knot:F3} bodyBlocker={bodyBlocker} knotBlocker={knotBlocker}");
-            if (bodyBlocker == "clear" && knotBlocker == "clear") return;
-            foreach (float height in new[] { 1.5f, 3f, 4.5f })
+            Debug.Log($"UNDERWATER_RESCUE_SIGHTLINE camera={camera:F3} turtle={turtle.transform.position:F3} center={bounds.center:F3} netTarget={knot:F3} distance={Vector3.Distance(camera, turtle.transform.position):F2} bodyBlocker={bodyBlocker} netBlocker={knotBlocker}");
+            if (bodyBlocker == "clear" && knotBlocker == "clear" && CameraPositionClear(camera, turtle.transform)) return;
+            foreach (float height in new[] { 1f, 2f, 3f })
             for (int angle = 0; angle < 16; angle++)
             {
                 float radians = angle * Mathf.PI / 8f;
-                Vector3 candidate = turtle.transform.position + new Vector3(Mathf.Sin(radians) * 9.7f, height, Mathf.Cos(radians) * 9.7f);
-                candidate.y = Mathf.Min(candidate.y, 7.2f);
-                if (candidate.y < UnderwaterWorld.SampleSeafloorHeight(candidate.x, candidate.z) + 1.85f) continue;
+                Vector3 candidate = turtle.transform.position + new Vector3(Mathf.Sin(radians) * 3.2f, height, Mathf.Cos(radians) * 3.2f);
+                if (Vector3.Distance(candidate, turtle.transform.position) > 4.5f || !CameraPositionClear(candidate, turtle.transform)) continue;
                 if (Blocker(candidate, bounds.center, turtle.transform) != "clear" || Blocker(candidate, knot, turtle.transform) != "clear") continue;
-                bool occupied = false;
-                foreach (Collider collider in Physics.OverlapSphere(candidate, 1.1f, Physics.AllLayers, QueryTriggerInteraction.Ignore))
-                    if (collider.GetComponentInParent<UnderwaterObstacle>() != null && !collider.transform.IsChildOf(turtle.transform)) occupied = true;
-                if (occupied) continue;
-                Debug.Log($"UNDERWATER_RESCUE_CLEAR_VIEW candidate={candidate:F3} bodyAndKnotClear=true radius=1.1 offset={(candidate - turtle.transform.position):F3}");
+                Debug.Log($"UNDERWATER_RESCUE_CLEAR_VIEW candidate={candidate:F3} bodyAndNetClear=true withinCutRange=true radius=1.1 offset={(candidate - turtle.transform.position):F3}");
                 return;
             }
-            Debug.LogWarning("UNDERWATER_RESCUE_CLEAR_VIEW No sampled clear view; additional camera candidates are needed");
+            throw new InvalidOperationException("No sampled unobstructed net-cutting camera within the real 4.5 m range.");
         }
         finally
         {
@@ -227,6 +231,15 @@ public static class AdventureReachabilityValidation
                 UnityEngine.Object.Destroy(line);
             }
         }
+    }
+
+    private static bool CameraPositionClear(Vector3 position, Transform turtle)
+    {
+        if (position.y > UnderwaterWorld.WaterSurfaceHeight - 0.65f
+            || position.y < UnderwaterWorld.SampleSeafloorHeight(position.x, position.z) + 1.1f) return false;
+        foreach (Collider collider in Physics.OverlapSphere(position, 1.1f, Physics.AllLayers, QueryTriggerInteraction.Ignore))
+            if (collider.GetComponentInParent<UnderwaterObstacle>() != null && !collider.transform.IsChildOf(turtle)) return false;
+        return true;
     }
 
     private static string Blocker(Vector3 origin, Vector3 target, Transform turtle)

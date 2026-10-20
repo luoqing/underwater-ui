@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>珊瑚与渔网救援 · 独立试玩</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f3f6f2;color:#183e46;font:16px/1.7 system-ui,sans-serif}main{max-width:1200px;margin:auto;padding:40px 24px}h1{font-weight:500;font-size:clamp(28px,5vw,48px);margin:8px 0}h2{font-weight:500;margin-top:36px}p{margin:8px 0}nav{display:flex;flex-wrap:wrap;gap:12px;margin:22px 0}a{color:inherit;text-underline-offset:4px}nav a{padding:10px 20px;border:1px solid #78999c;border-radius:4px;text-decoration:none}nav a:first-child{background:#183e46;color:white}header{border-bottom:1px solid #c8d8d5;padding-bottom:20px}.muted,figcaption{color:#58757b;font-size:14px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:24px}figure{margin:0}img,video{display:block;width:100%;border-radius:4px;background:#183e46}figcaption{margin-top:8px}footer{margin-top:36px;border-top:1px solid #c8d8d5;padding-top:16px;font-size:14px;color:#58757b}@media(max-width:700px){.grid{grid-template-columns:1fr}main{padding:24px 16px}}
+</style>
+<main>
+<header>
+<p class="muted">独立测试版 · 2026.10.20 · 原试玩版未覆盖</p>
+<h1>珊瑚有层次，海洋更生动。</h1>
+<p>保留浅青蓝海水，以棕绿礁体为底，点缀红橙、紫蓝和金黄；鱼群分散到不同水层。</p>
+<nav><a href="./?water=layered&amp;start=fish&amp;v=net-reef-20261020-r2">进入海景试玩 ↗</a><a href="./?water=layered&amp;mission=rescue&amp;v=net-reef-20261020-r2">试玩渔网救援 ↗</a></nav>
+<p class="muted">左下箭头移动，右侧上浮、下潜。救援：选择角色 → 靠近豆豆到约 3 米 → 点割网刀 → 按住圆点划开三处 → 点选豆豆 → 向上拖动并松开。</p>
+</header>
+<section><h2>探险步骤实录</h2><video controls playsinline preload="metadata" poster="review/mid-reef.png"><source src="review/adventure-steps.mp4" type="video/mp4"></video><p class="muted">约 84 秒。R1 实录剪辑，海景和探险路线与本版相同；本版另修了救援近距拖拽。只剪去等待和长距离行进中段，无加速或插帧。录像无声，软件录制帧率不代表核显实测帧率。</p><p><a href="review/adventure-full.mp4">完整探险原片</a></p></section>
+<section><h2>游戏实际渲染</h2><p class="muted">以下为本版 Unity 渲染，使用检视机位拍摄；不是生成图，也不代替手动通关验证。</p>
+<div class="grid">
+<figure><a href="review/garden.png"><img src="review/garden.png" alt="分散的珊瑚群落与彩色鱼群"></a><figcaption>错开的珊瑚群落，保留可通行水道。</figcaption></figure>
+<figure><a href="review/rescue-net.png"><img src="review/rescue-net.png" alt="海龟与半透明三维渔网" loading="lazy"></a><figcaption>低对比度灰绿尼龙网，龟壳细节仍清晰可见。</figcaption></figure>
+<figure><a href="review/net-contact-close.png"><img src="review/net-contact-close.png" alt="贴合龟壳的圆管渔网近景" loading="lazy"></a><figcaption>圆管网线、小结节与贴壳近景。</figcaption></figure>
+<figure><a href="review/net-released.png"><img src="review/net-released.png" alt="切开后脱离龟壳的渔网片" loading="lazy"></a><figcaption>划开后网片松脱、漂移，随后淡出。</figcaption></figure>
+<figure><a href="review/lantern-close.png"><img src="review/lantern-close.png" alt="金属笼信标灯近景" loading="lazy"></a><figcaption>原有金属笼信标灯，本轮未改灯具。</figcaption></figure>
+<figure><a href="review/whale-side.png"><img src="review/whale-side.png" alt="鲸鱼实际渲染" loading="lazy"></a><figcaption>鲸鱼实际渲染，本轮未改动物模型或动画。</figcaption></figure>
+</div></section>
+<section><h2>建模参考</h2><p class="muted">下图由内置图像工具生成，用于确定材质和缠绕方向；不是游戏截图。</p><a href="review/net-concept.png"><img src="review/net-concept.png" alt="半透明尼龙渔网救援概念参考，非游戏实拍" loading="lazy"></a></section>
+<footer>未降低动物贴图精度。新增鱼群共用现有模型和材质；尚未在真实核显笔记本上验收 1080p / 60 帧。</footer>
+</main>
+</html>

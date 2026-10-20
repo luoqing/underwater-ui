@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Reflection;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -50,6 +51,29 @@ public static class ClearWaterStyleValidation
         Rect[] arrows = UnderwaterHud.GetTravelControlRects();
         Require(arrows[3].xMax < Screen.width * 0.5f && arrows[4].xMin > Screen.width * 0.5f,
             "Movement and depth arrows must remain at opposite bottom corners.");
+        FishSwimmer[] fish = UnityEngine.Object.FindObjectsByType<FishSwimmer>(FindObjectsSortMode.None);
+        HashSet<Vector3> schools = new();
+        HashSet<Mesh> meshes = new();
+        HashSet<Material> materials = new();
+        foreach (FishSwimmer swimmer in fish)
+        {
+            schools.Add(swimmer.schoolCenter);
+            foreach (MeshFilter filter in swimmer.GetComponentsInChildren<MeshFilter>()) meshes.Add(filter.sharedMesh);
+            foreach (Renderer renderer in swimmer.GetComponentsInChildren<Renderer>())
+            {
+                materials.Add(renderer.sharedMaterial);
+                Require(renderer.sharedMaterial.enableInstancing, "A school fish lost its shared instancing-enabled material.");
+            }
+        }
+        Require(fish.Length == 250 && schools.Count == 7, "The reef does not contain 250 fish in seven distributed schools.");
+        Require(meshes.Count == 4 && materials.Count <= 25, "Extra schools created per-fish mesh or material copies.");
+        foreach (string name in new[] { "Warm red coral accent", "Violet coral accent", "Golden coral accent", "Blue coral accent", "Rust orange coral accent" })
+        {
+            GameObject coral = GameObject.Find(name);
+            Require(coral != null && Mathf.Abs(coral.transform.position.x) >= 7f,
+                "A coloured coral colony is missing or blocks the central swim lane.");
+        }
+        Debug.Log($"UNDERWATER_REEF_DISTRIBUTION_VALIDATED fish={fish.Length}; schools={schools.Count}; sharedMeshes={meshes.Count}; sharedMaterials={materials.Count}; five side-bank coral accents; GPU frame rate not measured");
         Debug.Log("UNDERWATER_CLEAR_WATER_LIVE_VALIDATED sharp depth; sun-aligned narrow shafts; split compact arrows");
     }
 

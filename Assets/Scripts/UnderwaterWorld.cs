@@ -625,30 +625,34 @@ public sealed class UnderwaterWorld : MonoBehaviour
 
     private void CreateShallowReef()
     {
-        SpawnResourceModel("Models/Reef", "Left foreground reef", new Vector3(-8.5f, -2.9f, -1f), Quaternion.Euler(0f, 26f, -4f), 27f, CreateFallbackReef);
-        SpawnResourceModel("Models/ReefShelf", "Right foreground reef shelf", new Vector3(7.3f, -3.1f, 5f), Quaternion.Euler(0f, 218f, 1f), 15f, null, new Color(1.03f, 0.97f, 0.94f));
-        SpawnResourceModel("Models/Reef", "Right reef wall", new Vector3(10f, -3.7f, 22f), Quaternion.Euler(0f, 202f, 2f), 30f, CreateFallbackReef);
-        SpawnResourceModel("Models/ReefShelf", "Left coral garden", new Vector3(-7.4f, -3.4f, 25f), Quaternion.Euler(0f, 34f, -2f), 14f, null, new Color(0.96f, 1.02f, 1.03f));
-        SpawnResourceModel("Models/Reef", "Left mid reef wall", new Vector3(-10.5f, -4.2f, 45f), Quaternion.Euler(0f, 34f, -3f), 29f, CreateFallbackReef);
-        SpawnResourceModel("Models/ReefShelf", "Right coral garden", new Vector3(8.4f, -4.2f, 47f), Quaternion.Euler(0f, 194f, 2f), 13.5f, null, new Color(1.02f, 0.94f, 0.91f));
-        SpawnResourceModel("Models/CoralCluster", "Warm red coral accent", new Vector3(4.8f, -2.5f, 12f), Quaternion.Euler(0f, 148f, 0f), 8.5f, null, clearWaterLook ? new Color(1.03f, 0.74f, 0.62f) : new Color(1.18f, 0.48f, 0.38f));
-        SpawnResourceModel("Models/CoralCluster", "Violet coral accent", new Vector3(-5.4f, -2.9f, 20f), Quaternion.Euler(0f, 42f, 1f), 7.5f, null, clearWaterLook ? new Color(0.86f, 0.81f, 0.98f) : new Color(0.72f, 0.55f, 1.16f));
-        SpawnResourceModel("Models/CoralCluster", "Golden coral accent", new Vector3(5.8f, -3.4f, 35f), Quaternion.Euler(0f, 220f, -1f), 8f, null, clearWaterLook ? new Color(1.06f, 0.96f, 0.77f) : new Color(1.18f, 0.92f, 0.48f));
-        SpawnResourceModel("Models/ReefShelf", "Near pink reef shelf", new Vector3(-6.2f, -3.4f, 7f), Quaternion.Euler(0f, 12f, -2f), 11f, null, new Color(1.06f, 0.88f, 0.91f));
-        SpawnResourceModel("Models/ReefShelf", "Mid channel reef shelf", new Vector3(-9.8f, -3.7f, 59f), Quaternion.Euler(0f, 58f, -2f), 7.5f, null, new Color(0.98f, 1.02f, 1.00f));
-        SpawnResourceModel("Models/ReefShelf", "Far channel reef shelf", new Vector3(10.2f, -4f, 72f), Quaternion.Euler(0f, 226f, 1f), 7.2f, null, new Color(1.03f, 0.97f, 0.92f));
+        // Stagger the existing colonies along the banks, with an open central
+        // swim lane. Brown/green reef masses frame the small coloured colonies.
+        SpawnResourceModel("Models/Reef", "Left foreground reef", new Vector3(-11.5f, -2.9f, -1f), Quaternion.Euler(0f, 26f, -4f), 24f, CreateFallbackReef, new Color(1.00f, 0.96f, 0.84f));
+        SpawnResourceModel("Models/ReefShelf", "Right foreground reef shelf", new Vector3(9f, -3.1f, 7f), Quaternion.Euler(0f, 218f, 1f), 13f, null, new Color(0.92f, 1.00f, 0.88f));
+        SpawnResourceModel("Models/Reef", "Right reef wall", new Vector3(13f, -3.7f, 28f), Quaternion.Euler(0f, 202f, 2f), 26f, CreateFallbackReef, new Color(0.96f, 1.00f, 0.88f));
+        SpawnResourceModel("Models/ReefShelf", "Left coral garden", new Vector3(-9f, -3.4f, 28f), Quaternion.Euler(0f, 34f, -2f), 12f, null, new Color(0.88f, 0.98f, 0.88f));
+        SpawnResourceModel("Models/Reef", "Left mid reef wall", new Vector3(-13.5f, -4.2f, 53f), Quaternion.Euler(0f, 34f, -3f), 25f, CreateFallbackReef, new Color(1.00f, 0.94f, 0.82f));
+        SpawnResourceModel("Models/ReefShelf", "Right coral garden", new Vector3(10.5f, -4.2f, 54f), Quaternion.Euler(0f, 194f, 2f), 12f, null, new Color(1.00f, 0.91f, 0.78f));
+        SpawnResourceModel("Models/CoralCluster", "Warm red coral accent", new Vector3(7.5f, -2.5f, 22f), Quaternion.Euler(0f, 148f, 0f), 4.8f, null, clearWaterLook ? new Color(1.12f, 0.56f, 0.42f) : new Color(1.18f, 0.48f, 0.38f));
+        SpawnResourceModel("Models/CoralCluster", "Violet coral accent", new Vector3(-7.2f, -2.9f, 43f), Quaternion.Euler(0f, 42f, 1f), 4.6f, null, clearWaterLook ? new Color(0.74f, 0.60f, 0.94f) : new Color(0.72f, 0.55f, 1.16f));
+        SpawnResourceModel("Models/CoralCluster", "Golden coral accent", new Vector3(7f, -3.4f, 50f), Quaternion.Euler(0f, 220f, -1f), 4.7f, null, clearWaterLook ? new Color(1.10f, 0.87f, 0.46f) : new Color(1.18f, 0.92f, 0.48f));
+        SpawnResourceModel("Models/ReefShelf", "Near pink reef shelf", new Vector3(-8.8f, -3.4f, 15f), Quaternion.Euler(0f, 12f, -2f), 7.4f, null, new Color(1.02f, 0.76f, 0.75f));
+        SpawnResourceModel("Models/ReefShelf", "Mid channel reef shelf", new Vector3(-11.8f, -3.7f, 78f), Quaternion.Euler(0f, 58f, -2f), 7.5f, null, new Color(0.90f, 1.00f, 0.87f));
+        SpawnResourceModel("Models/ReefShelf", "Far channel reef shelf", new Vector3(12.5f, -4f, 94f), Quaternion.Euler(0f, 226f, 1f), 7.2f, null, new Color(1.02f, 0.94f, 0.82f));
+        SpawnResourceModel("Models/CoralCluster", "Blue coral accent", new Vector3(7.8f, -3.6f, 73f), Quaternion.Euler(0f, 78f, 0f), 4.2f, null, new Color(0.55f, 0.71f, 0.97f));
+        SpawnResourceModel("Models/CoralCluster", "Rust orange coral accent", new Vector3(-7.5f, -3.8f, 91f), Quaternion.Euler(0f, 186f, -1f), 4.4f, null, new Color(1.04f, 0.63f, 0.40f));
     }
 
     private void CreateKelpGarden()
     {
         Vector3[] positions =
         {
-            new(-10f, -3.2f, 43f), new(9f, -3.6f, 50f), new(-14f, -4.1f, 61f), new(13f, -4.4f, 68f)
+            new(-17f, -3.2f, 38f), new(17.5f, -3.6f, 48f), new(-18f, -4.1f, 73f), new(18f, -4.4f, 88f)
         };
         for (int i = 0; i < positions.Length; i++)
         {
             Color kelpTint = i % 2 == 0 ? new Color(0.48f, 0.66f, 0.42f) : new Color(0.42f, 0.60f, 0.50f);
-            GameObject kelp = SpawnResourceModel("Models/KelpCluster", $"Kelp Cluster {i + 1}", positions[i], Quaternion.Euler(0f, i * 83f + 18f, 0f), Random.Range(7f, 10f), null, kelpTint);
+            GameObject kelp = SpawnResourceModel("Models/KelpCluster", $"Kelp Cluster {i + 1}", positions[i], Quaternion.Euler(0f, i * 83f + 18f, 0f), Random.Range(6f, 8f), null, kelpTint);
             if (kelp != null)
             {
                 SwayingPlant sway = kelp.AddComponent<SwayingPlant>();
@@ -701,10 +705,15 @@ public sealed class UnderwaterWorld : MonoBehaviour
         Material eyeMaterial = MakeLit("School fish eyes", new Color(0.008f, 0.012f, 0.015f), 0f, 0.86f);
         eyeMaterial.enableInstancing = true;
 
-        CreateFishSchool(new Vector3(-1f, 1.4f, 23f), 44, 6f, bodyMaterials, finMaterials, eyeMaterial, 0.20f);
-        CreateFishSchool(new Vector3(-3f, 1f, 39f), 54, 9f, bodyMaterials, finMaterials, eyeMaterial, 0.17f);
-        CreateFishSchool(new Vector3(4f, 0f, 67f), 52, 12f, bodyMaterials, finMaterials, eyeMaterial, 0.19f);
-        CreateFishSchool(new Vector3(-3f, -6f, 126f), 38, 8f, deepBodyMaterials, deepFinMaterials, eyeMaterial, 0.14f);
+        // 250 fish (+33% over 188), spread across seven depths and side bays.
+        // All schools reuse the same four meshes and existing material palette.
+        CreateFishSchool(new Vector3(-3.2f, 2.4f, 23f), 44, 5f, bodyMaterials, finMaterials, eyeMaterial, 0.20f);
+        CreateFishSchool(new Vector3(7.2f, 4.8f, 40f), 36, 5.5f, bodyMaterials, finMaterials, eyeMaterial, 0.17f);
+        CreateFishSchool(new Vector3(-6.8f, 6.7f, 62f), 40, 6.3f, bodyMaterials, finMaterials, eyeMaterial, 0.19f);
+        CreateFishSchool(new Vector3(6.5f, 1.4f, 84f), 34, 6f, bodyMaterials, finMaterials, eyeMaterial, 0.17f);
+        CreateFishSchool(new Vector3(-5.8f, -0.5f, 105f), 36, 6f, bodyMaterials, finMaterials, eyeMaterial, 0.16f);
+        CreateFishSchool(new Vector3(6f, -5.8f, 128f), 30, 6f, deepBodyMaterials, deepFinMaterials, eyeMaterial, 0.14f);
+        CreateFishSchool(new Vector3(-6.3f, -7.4f, 150f), 30, 5.5f, deepBodyMaterials, deepFinMaterials, eyeMaterial, 0.14f);
     }
 
     private void CreateFishSchool(Vector3 center, int count, float radius, Material[] bodyMaterials, Material[] finMaterials, Material eyeMaterial, float scale)
@@ -949,19 +958,19 @@ public sealed class UnderwaterWorld : MonoBehaviour
 
     private void CreateOpenOcean()
     {
-        SpawnReefFish("Models/BlueTang", "Hero Blue Tang", new Vector3(6.2f, 4.2f, 10.5f), Quaternion.Euler(-2f, 0f, 0f), 3.1f, 0.2f, 0.88f);
-        SpawnReefFish("Models/BlueTang", "Blue Tang companion 1", new Vector3(-4.2f, 3.4f, 14.5f), Quaternion.Euler(-4f, 178f, 0f), 2.1f, 1.7f, 0.72f);
-        SpawnReefFish("Models/BlueTang", "Blue Tang companion 2", new Vector3(4.4f, 2.4f, 24f), Quaternion.Euler(2f, 8f, 0f), 1.7f, 3.1f, 0.58f);
-        SpawnReefFish("Models/BlueTang", "Blue Tang companion 3", new Vector3(-3.6f, 0.8f, 31f), Quaternion.Euler(-3f, 184f, 0f), 1.45f, 4.8f, 0.48f);
-        GameObject clownfish = SpawnReefFish("Models/Clownfish", "Clownfish close pass", new Vector3(-3.4f, 0.6f, 8.5f), Quaternion.Euler(0f, 12f, -2f), 2.35f, 2.4f, 0.68f);
-        SpawnReefFish("Models/Clownfish", "Clownfish garden 1", new Vector3(3.6f, 0.4f, 18f), Quaternion.Euler(0f, 188f, 3f), 1.55f, 4.2f, 0.48f);
-        SpawnReefFish("Models/Clownfish", "Clownfish garden 2", new Vector3(-4.8f, 0.1f, 27f), Quaternion.Euler(0f, 8f, -1f), 1.25f, 5.6f, 0.40f);
+        SpawnReefFish("Models/BlueTang", "Hero Blue Tang", new Vector3(8.6f, 3.8f, 17f), Quaternion.Euler(-2f, 0f, 0f), 3.1f, 0.2f, 0.88f);
+        SpawnReefFish("Models/BlueTang", "Blue Tang companion 1", new Vector3(-8.4f, 2.8f, 30f), Quaternion.Euler(-4f, 178f, 0f), 2.1f, 1.7f, 0.72f);
+        SpawnReefFish("Models/BlueTang", "Blue Tang companion 2", new Vector3(11.5f, 4.2f, 51f), Quaternion.Euler(2f, 8f, 0f), 1.7f, 3.1f, 0.58f);
+        SpawnReefFish("Models/BlueTang", "Blue Tang companion 3", new Vector3(-9.5f, 1.4f, 64f), Quaternion.Euler(-3f, 184f, 0f), 1.45f, 4.8f, 0.48f);
+        GameObject clownfish = SpawnReefFish("Models/Clownfish", "Clownfish close pass", new Vector3(-7.8f, 0.9f, 12f), Quaternion.Euler(0f, 12f, -2f), 2.35f, 2.4f, 0.68f);
+        SpawnReefFish("Models/Clownfish", "Clownfish garden 1", new Vector3(7.7f, 1.0f, 37f), Quaternion.Euler(0f, 188f, 3f), 1.55f, 4.2f, 0.48f);
+        SpawnReefFish("Models/Clownfish", "Clownfish garden 2", new Vector3(-11f, 0.6f, 54f), Quaternion.Euler(0f, 8f, -1f), 1.25f, 5.6f, 0.40f);
         GameObject turtle = SpawnResourceModel("Models/Turtle", "Green Sea Turtle", new Vector3(-6.2f, 1.8f, 20f), Quaternion.Euler(0f, 68f, 0f), 4.8f, null);
         GameObject manta = SpawnResourceModel("Models/Manta", "Oceanic Manta Ray", new Vector3(-8f, 7.2f, 47f), Quaternion.Euler(0f, 98f, 0f), 8.8f, null);
         GameObject turtleCompanion = SpawnResourceModel("Models/Turtle", "Green Sea Turtle Companion", new Vector3(8.5f, 2.7f, 43f), Quaternion.Euler(0f, 214f, 0f), 3.7f, null);
         GameObject mantaCompanion = SpawnResourceModel("Models/Manta", "Oceanic Manta Ray Companion", new Vector3(9f, 5.8f, 76f), Quaternion.Euler(0f, 238f, 0f), 6.5f, null);
-        SpawnReefFish("Models/BlueTang", "Blue Tang companion 4", new Vector3(6.8f, 1.4f, 46f), Quaternion.Euler(1f, 22f, 0f), 1.35f, 6.2f, 0.44f);
-        SpawnReefFish("Models/Clownfish", "Clownfish garden 3", new Vector3(-5.6f, 0.6f, 55f), Quaternion.Euler(-1f, 170f, 2f), 1.15f, 7.1f, 0.38f);
+        SpawnReefFish("Models/BlueTang", "Blue Tang companion 4", new Vector3(10.5f, 2.2f, 91f), Quaternion.Euler(1f, 22f, 0f), 1.35f, 6.2f, 0.44f);
+        SpawnReefFish("Models/Clownfish", "Clownfish garden 3", new Vector3(-8.6f, 0.8f, 82f), Quaternion.Euler(-1f, 170f, 2f), 1.15f, 7.1f, 0.38f);
         AddEncounter(clownfish, "clownfish", "小丑鱼", "喜欢躲在海葵触手之间的珊瑚礁居民。");
         AddEncounter(turtle, "turtle", "绿海龟", "性情温和的远洋旅行者，能够穿越整片海域。");
         AddEncounter(manta, "manta", "远洋魔鬼鱼", "展开宽大的胸鳍，借着水流平稳滑翔。");
@@ -2005,6 +2014,12 @@ public sealed class CinematicDive : MonoBehaviour
     private float lastClickTime = -10f;
     private bool guidingAnimal;
     private bool guidanceStarted;
+    private MissionInteractable netCutTarget;
+    private bool cuttingNet;
+    private bool netCutApplied;
+    private Vector2 netCutStart;
+    private Vector2 previousNetCutPointer;
+    private float netCutDepth;
     private Vector3 freePosition;
     private Vector3 swimVelocity;
     private Vector3 hudMove;
@@ -2221,6 +2236,7 @@ public sealed class CinematicDive : MonoBehaviour
         Keyboard keyboard = Keyboard.current;
         if (keyboard != null && keyboard.rKey.wasPressedThisFrame)
         {
+            CancelNetCut();
             guidingAnimal = false;
             guidanceStarted = false;
             dragging = false;
@@ -2280,6 +2296,7 @@ public sealed class CinematicDive : MonoBehaviour
 
     public void StartMissionAt(Vector3 cameraPosition, Vector3 lookTarget)
     {
+        CancelNetCut();
         guidedEncounter?.SetGuided(false, diveCamera);
         guidedEncounter = null;
         guidingAnimal = false;
@@ -2434,12 +2451,14 @@ public sealed class CinematicDive : MonoBehaviour
         Pointer pointer = Pointer.current;
         if (pointer == null)
         {
+            CancelNetCut();
             return;
         }
 
         Vector2 pointerPosition = pointer.position.ReadValue();
         if (UnderwaterHud.IsPointerOverTravelControls(pointerPosition))
         {
+            CancelNetCut();
             UnderwaterHud.Instance?.SetHover(string.Empty, false, pointerPosition);
             dragging = false;
             if (guidingAnimal)
@@ -2457,12 +2476,24 @@ public sealed class CinematicDive : MonoBehaviour
         UpdateHover(pointerPosition);
         if (WasPointerPressed(pointer))
         {
+            if (TryBeginNetCut(pointerPosition))
+            {
+                dragging = false;
+                guidingAnimal = false;
+                guidanceStarted = false;
+                return;
+            }
             guidingAnimal = guidedEncounter != null && PointerHitsEncounter(pointerPosition, guidedEncounter);
             guidanceStarted = false;
             dragging = !guidingAnimal;
             pressPointer = pointerPosition;
             previousPointer = pointerPosition;
             pointerTravel = 0f;
+        }
+        if (cuttingNet)
+        {
+            UpdateNetCut(pointerPosition, WasPointerReleased(pointer) || !IsPointerPressed(pointer));
+            return;
         }
         if (guidingAnimal && guidedEncounter != null && IsPointerPressed(pointer))
         {
@@ -2526,6 +2557,81 @@ public sealed class CinematicDive : MonoBehaviour
                 diveCamera.fieldOfView = Mathf.Clamp(diveCamera.fieldOfView - scroll * 0.012f, 38f, 75f);
             }
         }
+    }
+
+    private bool TryBeginNetCut(Vector2 pointerPosition)
+    {
+        CancelNetCut();
+        OceanMissionDirector director = OceanMissionDirector.Instance;
+        if (diveCamera == null || director == null || !director.IsNetCuttingStage
+            || !director.NetCutterEquipped || !director.IsNetWithinReach || director.IsMenuOpen
+            || UnderwaterHud.IsPointerOverTravelControls(pointerPosition)) return false;
+        Ray ray = diveCamera.ScreenPointToRay(pointerPosition);
+        // Reach is measured to the animal, not the far-side strand. Keep that
+        // same gate as the director while allowing a ray across the shell.
+        RaycastHit[] hits = Physics.RaycastAll(ray, 7.5f);
+        System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
+        int visibleCount = VisibleHitCount(hits);
+        for (int i = 0; i < visibleCount; i++)
+        {
+            MissionInteractable target = hits[i].collider.GetComponentInParent<MissionInteractable>();
+            if (target == null || target.IsComplete || !director.IsCurrentNetTarget(target)) continue;
+            netCutTarget = target;
+            cuttingNet = true;
+            netCutApplied = false;
+            netCutStart = previousNetCutPointer = pointerPosition;
+            netCutDepth = Mathf.Max(0.3f, Vector3.Dot(target.transform.position - ray.origin, ray.direction));
+            pointerTravel = float.PositiveInfinity;
+            director.NetCutter?.PoseAt(ray.GetPoint(netCutDepth), Vector2.zero);
+            return true;
+        }
+        return false;
+    }
+
+    private void UpdateNetCut(Vector2 pointerPosition, bool released)
+    {
+        if (!cuttingNet) return;
+        if (released)
+        {
+            CancelNetCut();
+            return;
+        }
+        // The final cut changes mission stage while the button is still held.
+        // Keep consuming that press until release instead of selecting the turtle.
+        if (netCutApplied) return;
+        OceanMissionDirector director = OceanMissionDirector.Instance;
+        if (director == null || !director.IsNetCuttingStage || !director.NetCutterEquipped
+            || director.IsMenuOpen || pointerPosition.x < 0f || pointerPosition.x > Screen.width
+            || pointerPosition.y < 0f || pointerPosition.y > Screen.height
+            || UnderwaterHud.IsPointerOverTravelControls(pointerPosition))
+        {
+            CancelNetCut();
+            return;
+        }
+        if (netCutTarget == null || netCutTarget.IsComplete || !director.IsCurrentNetTarget(netCutTarget))
+        {
+            CancelNetCut();
+            return;
+        }
+        Ray ray = diveCamera.ScreenPointToRay(pointerPosition);
+        Vector2 delta = pointerPosition - previousNetCutPointer;
+        previousNetCutPointer = pointerPosition;
+        director.NetCutter?.PoseAt(ray.GetPoint(netCutDepth), delta);
+        if (Vector2.Distance(netCutStart, pointerPosition) < 22f) return;
+        int previousCut = netCutTarget.knotIndex;
+        director.TryCutNet(previousCut);
+        // Keep this press consumed even if its target was rejected (for example
+        // after swimming out of reach). A held stroke can never cut the next span.
+        netCutApplied = true;
+    }
+
+    private void CancelNetCut()
+    {
+        if (cuttingNet) pointerTravel = float.PositiveInfinity;
+        cuttingNet = false;
+        netCutApplied = false;
+        netCutTarget = null;
+        OceanMissionDirector.Instance?.NetCutter?.ResetPose();
     }
 
     private static bool WasPointerPressed(Pointer pointer)
@@ -4121,6 +4227,7 @@ public sealed class MarineEncounter : MonoBehaviour
     private Camera followCamera;
     private float followDistance;
     private Vector3 followVelocity;
+    private Vector3 lastGuidanceVelocity;
 
     public string DisplayName => displayName;
     public bool IsDiscovered => discovered;
@@ -4159,15 +4266,16 @@ public sealed class MarineEncounter : MonoBehaviour
         followCamera = cameraToFollow;
         if (guided)
         {
-            followDistance = Mathf.Clamp(Vector3.Distance(transform.position, followCamera.transform.position), 6f, 13f);
+            followDistance = GuidanceDistance(followCamera, 13f);
             UnderwaterHud.Instance?.ShowStatus($"已选中 {displayName} · 按住并拖动引导它游动");
         }
         else
         {
-            Vector3 releaseVelocity = followVelocity;
+            Vector3 releaseVelocity = lastGuidanceVelocity.sqrMagnitude > 0.000001f ? lastGuidanceVelocity : followVelocity;
             guiding = false;
             SetDriftEnabled(true, releaseVelocity);
             followVelocity = Vector3.zero;
+            lastGuidanceVelocity = Vector3.zero;
             UnderwaterHud.Instance?.ShowStatus($"{displayName} 已恢复自由巡游");
         }
     }
@@ -4180,15 +4288,29 @@ public sealed class MarineEncounter : MonoBehaviour
         }
 
         followCamera = cameraToFollow;
-        followDistance = Mathf.Clamp(Vector3.Distance(transform.position, followCamera.transform.position), 6f, 15f);
+        followDistance = GuidanceDistance(followCamera, 15f);
         guiding = true;
         followVelocity *= 0.35f;
+        lastGuidanceVelocity = Vector3.zero;
         SetDriftEnabled(false);
     }
 
     public void GuideTowardsPointer(Vector2 pointerPosition, Vector2 pointerDelta)
     {
-        if (!guided || !guiding || followCamera == null)
+        GuideTowardsPointerStep(pointerPosition, pointerDelta, Time.deltaTime);
+    }
+
+    private float GuidanceDistance(Camera camera, float maximum)
+    {
+        Ray ray = camera.ScreenPointToRay(camera.WorldToScreenPoint(transform.position));
+        // ScreenPointToRay starts on the near plane, not at the camera origin.
+        // Preserve an already close animal instead of pushing it out to 6 m.
+        return Mathf.Clamp(Vector3.Dot(transform.position - ray.origin, ray.direction), 1f, maximum);
+    }
+
+    private void GuideTowardsPointerStep(Vector2 pointerPosition, Vector2 pointerDelta, float deltaTime)
+    {
+        if (!guided || !guiding || followCamera == null || deltaTime <= 0f)
         {
             return;
         }
@@ -4200,10 +4322,12 @@ public sealed class MarineEncounter : MonoBehaviour
         if (distance > 0.04f)
         {
             float targetSpeed = Mathf.Clamp(distance * 1.45f, 1.2f, 9.5f);
-            Vector3 desiredVelocity = direction / distance * targetSpeed;
-            followVelocity = Vector3.MoveTowards(followVelocity, desiredVelocity, 12f * Time.deltaTime);
+            float speed = Mathf.MoveTowards(followVelocity.magnitude, targetSpeed, 12f * deltaTime);
             Vector3 beforeMove = transform.position;
-            Vector3 desiredPosition = beforeMove + followVelocity * Time.deltaTime;
+            // Integrate towards the target, bounded by the remaining distance.
+            // Low frame rates must not overshoot and feed a reversal back into
+            // the body's heading while the child pauses before releasing.
+            Vector3 desiredPosition = Vector3.MoveTowards(beforeMove, target, speed * deltaTime);
             OceanCreatureDrift creatureDrift = GetComponent<OceanCreatureDrift>();
             bool isManta = creatureDrift != null && creatureDrift.useMantaAxes;
             bool isLargeCreature = creatureDrift != null;
@@ -4217,16 +4341,16 @@ public sealed class MarineEncounter : MonoBehaviour
                 collisionRadius,
                 floorClearance,
                 noseDistance,
-                out bool avoidedObstacle);
-            if (avoidedObstacle)
-            {
-                followVelocity = (transform.position - beforeMove) / Mathf.Max(Time.deltaTime, 0.0001f);
-            }
+                out _);
+            followVelocity = (transform.position - beforeMove) / deltaTime;
+            if (followVelocity.sqrMagnitude <= 0.000001f || Vector3.Dot(followVelocity, direction) <= 0f) return;
+            lastGuidanceVelocity = followVelocity;
 
             float bank = Mathf.Clamp(-pointerDelta.x * 0.16f, -12f, 12f);
             Quaternion swimRotation = RotationForVelocity(followVelocity, bank);
-            transform.rotation = Quaternion.Slerp(transform.rotation, swimRotation, 1f - Mathf.Exp(-Time.deltaTime * 5.5f));
+            transform.rotation = Quaternion.Slerp(transform.rotation, swimRotation, 1f - Mathf.Exp(-deltaTime * 5.5f));
         }
+        else followVelocity = Vector3.zero;
     }
 
     public void EndGuidance()
@@ -4236,10 +4360,11 @@ public sealed class MarineEncounter : MonoBehaviour
             return;
         }
 
-        Vector3 releaseVelocity = followVelocity;
+        Vector3 releaseVelocity = lastGuidanceVelocity.sqrMagnitude > 0.000001f ? lastGuidanceVelocity : followVelocity;
         guiding = false;
         SetDriftEnabled(true, releaseVelocity);
         followVelocity = Vector3.zero;
+        lastGuidanceVelocity = Vector3.zero;
     }
 
     private Quaternion RotationForVelocity(Vector3 velocity, float bank)

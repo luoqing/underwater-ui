@@ -12,6 +12,9 @@ public static class MissionGameplayValidation
     private const BindingFlags PrivateInstance = BindingFlags.Instance | BindingFlags.NonPublic;
     private static readonly string[] Roles = { "Turtle", "Manta", "Clownfish", "Whale" };
     private static Dictionary<MonoBehaviour, Vector3> motionSamples;
+    private static RescueNetFragment releaseSample;
+    private static FishingLineRescue releaseNet;
+    private static Vector3 releaseOrigin;
 
     static MissionGameplayValidation()
     {
@@ -121,8 +124,51 @@ public static class MissionGameplayValidation
                 if (index == 8)
                 {
                     ValidateImportedArch();
-                    SessionState.SetString(Key + "Phase", "MotionStart");
+                    SessionState.SetString(Key + "Phase", "NetReleaseStart");
                 }
+                WaitForFrames(0.1f);
+            }
+            else if (phase == "NetReleaseStart")
+            {
+                Call(director, "StartRescue");
+                GameObject turtle = Read<GameObject>(director, "rescueTurtle");
+                FishingLineRescue net = Read<FishingLineRescue>(director, "fishingLine");
+                PositionNearNetTarget(net, turtle);
+                director.EquipNetCutter();
+                releaseSample = net.Fragments[0];
+                releaseNet = net;
+                releaseOrigin = releaseSample.transform.position;
+                for (int cut = 0; cut < 3; cut++)
+                {
+                    PositionNearNetTarget(net, turtle);
+                    director.TryCutNet(cut);
+                }
+                Require(releaseSample.IsReleased && !releaseSample.IsFinished && releaseSample.gameObject.activeInHierarchy,
+                    "A cut net disappears instead of beginning its release animation.");
+                SessionState.SetString(Key + "Phase", "NetReleaseMoving");
+                WaitForFrames(0.12f);
+            }
+            else if (phase == "NetReleaseMoving")
+            {
+                Require(releaseSample != null && releaseSample.IsReleased && !releaseSample.IsFinished
+                    && releaseSample.ReleaseProgress > 0f && releaseSample.gameObject.activeInHierarchy
+                    && Vector3.Distance(releaseOrigin, releaseSample.transform.position) > 0.00001f,
+                    "Real Play Mode frames did not visibly detach and drift the cut net.");
+                SessionState.SetString(Key + "Phase", "NetReleaseFinished");
+                SessionState.SetFloat(Key + "ReleaseFinishTime", Time.time + RescueNetFragment.ReleaseDuration + 0.1f);
+                WaitForFrames(RescueNetFragment.ReleaseDuration + 0.1f);
+            }
+            else if (phase == "NetReleaseFinished")
+            {
+                if (Time.time < SessionState.GetFloat(Key + "ReleaseFinishTime", 0f)) return;
+                Require(releaseSample == null || releaseSample.IsFinished && !releaseSample.gameObject.activeInHierarchy,
+                    "A detached net fragment never finished its fade-out.");
+                Require(releaseNet != null && releaseNet.Fragments.Count == 0 && releaseNet.SharedNetMaterial == null,
+                    "All three finished net patches retain their meshes/material ownership.");
+                Call(director, "ResetMission");
+                RequireNoActiveRescueProps();
+                Debug.Log("UNDERWATER_NET_RELEASE_VALIDATED actual Play Mode Update frames; detached drift before completion; delayed fade; reset clears detached patches and cutter");
+                SessionState.SetString(Key + "Phase", "MotionStart");
                 WaitForFrames(0.1f);
             }
             else if (phase == "MotionStart")
@@ -214,6 +260,7 @@ public static class MissionGameplayValidation
                 Call(director, "ResetMission");
                 Require(turtle.GetComponentsInChildren<MissionInteractable>().Length == 0,
                     "Abandoned rescue knots remain active during immediate replay.");
+                RequireNoActiveRescueProps();
                 Call(director, "ChooseMission", Choice("MissionMode", mission));
                 Call(director, "StartAsRole", Choice("PlayerRole", role));
                 line = Read<FishingLineRescue>(director, "fishingLine");
@@ -222,25 +269,17 @@ public static class MissionGameplayValidation
             Require(drift != null && drift.enabled && line != null, "Rescue initialization froze the turtle or omitted the fishing line.");
             RescueRopeValidation.ValidateInstance(line);
             CinematicDive pointerDive = Camera.main.GetComponent<CinematicDive>();
-            Require(line.TryGetNextKnotPosition(out Vector3 firstKnot), "Rescue has no next knot position.");
-            Vector3 knotPointer = Camera.main.WorldToScreenPoint(firstKnot);
-            Require(!(bool)Call(pointerDive, "PointerHitsEncounter", new Vector2(knotPointer.x, knotPointer.y), turtle.GetComponent<MarineEncounter>()),
+            Vector2 knotPointer = PositionNearNetTarget(line, turtle);
+            Require(!(bool)Call(pointerDive, "PointerHitsEncounter", knotPointer, turtle.GetComponent<MarineEncounter>()),
                 "An already selected turtle steals presses from its rescue knots.");
             Require(turtle.transform.position.y < UnderwaterWorld.WaterSurfaceHeight - 1f, "Replayed rescue started with the turtle still at the surface.");
             Require(Mathf.Abs(turtle.transform.position.y - (UnderwaterWorld.WaterSurfaceHeight - 6f)) < 0.01f,
                 "Rescue starts too deep for the short child-friendly ascent.");
             if (role == "Turtle") AdventureReachabilityValidation.ValidateRescueSightline();
-            foreach (LineRenderer loop in Read<List<LineRenderer>>(line, "loops")) ValidateMaterials(new Renderer[] { loop });
-            foreach (MissionInteractable knot in Read<List<MissionInteractable>>(line, "knots"))
-                ValidateMaterials(knot.GetComponentsInChildren<Renderer>());
-            director.TryUntie(2);
-            Require(line.NextKnot == 0, "An out-of-order knot incorrectly advanced the rescue.");
-            for (int knot = 0; knot < line.KnotCount; knot++)
-            {
-                director.TryUntie(knot);
-                Require(line.NextKnot == knot + 1, "An in-order knot did not release.");
-            }
-            Require(Read<int>(director, "stage") == 1 && drift.enabled, "Untying three knots did not start the breathing stage.");
+            foreach (RescueNetFragment fragment in line.Fragments)
+                ValidateMaterials(fragment.GetComponentsInChildren<Renderer>());
+            ValidateNetCutting(director, line, turtle, role == "Turtle");
+            Require(Read<int>(director, "stage") == 1 && drift.enabled, "Cutting three net patches did not start the breathing stage.");
             CinematicDive dive = Camera.main.GetComponent<CinematicDive>();
             Require(director.ActionHint == "点一下豆豆，选中它", "The rescue introduced dragging before selecting the turtle.");
             Require(Read<bool>(drift, "awaitingGuidance"), "The freed turtle swims out of reach while the child reads.");
@@ -278,9 +317,122 @@ public static class MissionGameplayValidation
         Require(Read<AudioClip>(director, "pendingDialogueClip") == null && narration.clip == null && !narration.isPlaying,
             "Reset retained queued or playing narration.");
         Require(Read<FishingLineRescue>(director, "fishingLine") == null, "Reset retained fishing line ownership.");
+        RequireNoActiveRescueProps();
         foreach (GameObject beacon in Read<List<GameObject>>(director, "adventureBeacons"))
             Require(!beacon.activeSelf, "Reset left a route lantern active.");
         foreach (MonoBehaviour animal in Animals()) Require(animal.isActiveAndEnabled, "A mission disabled an animal's normal motion.");
+    }
+
+    private static void ValidateNetCutting(OceanMissionDirector director, FishingLineRescue net, GameObject turtle, bool testGesture)
+    {
+        Require(director.IsNetCuttingStage && !director.NetCutterEquipped && director.NetCutter == null,
+            "A replay started with an old equipped cutter.");
+        List<MissionInteractable> targets = Read<List<MissionInteractable>>(net, "knots");
+        director.TryCutNet(0);
+        Require(net.NextKnot == 0, "A net was cut without equipping the tool.");
+        targets[0].Activate();
+        Require(net.NextKnot == 0 && director.NetCutterEquipped && director.NetCutter != null,
+            "A short target click cuts the net instead of only equipping the cutter.");
+        RescueNetCutter cutter = director.NetCutter;
+        ValidateMaterials(cutter.GetComponentsInChildren<Renderer>());
+        foreach (Collider collider in cutter.GetComponentsInChildren<Collider>())
+            Require(!collider.enabled, "The held cutter blocks animal/net raycasts.");
+        CinematicDive dive = Camera.main.GetComponent<CinematicDive>();
+        dive.StartMissionAt(turtle.transform.position + Vector3.back * 9f, turtle.transform.position);
+        director.TryCutNet(0);
+        Require(net.NextKnot == 0, "The child can cut the net from beyond 4.5 m.");
+        Vector3 farPointer = Camera.main.WorldToScreenPoint(targets[0].transform.position);
+        Require(!director.IsNetWithinReach && !(bool)Call(dive, "TryBeginNetCut", new Vector2(farPointer.x, farPointer.y)),
+            "The cutter starts a gesture while the animal is outside the director's reach gate.");
+        PositionNearNetTarget(net, turtle);
+        director.TryCutNet(2);
+        Require(net.NextKnot == 0 && director.IsCurrentNetTarget(targets[0]) && !director.IsCurrentNetTarget(targets[2]),
+            "An out-of-order net target incorrectly advanced the rescue.");
+        Call(director, "OpenMenu");
+        director.TryCutNet(0);
+        Require(net.NextKnot == 0, "An open mission menu lets cutting through.");
+        typeof(OceanMissionDirector).GetField("showMenu", PrivateInstance).SetValue(director, false);
+        if (testGesture)
+        {
+            Require(net.TryGetNextKnotPosition(out Vector3 farSideTarget), "The reach-boundary cut target is missing.");
+            Vector3 nearSide = (farSideTarget - turtle.transform.position).normalized;
+            dive.StartMissionAt(turtle.transform.position - nearSide * 4.4f, farSideTarget);
+            Physics.SyncTransforms();
+            Vector3 projected = Camera.main.WorldToScreenPoint(farSideTarget);
+            Require(director.IsNetWithinReach && Vector3.Distance(Camera.main.transform.position, farSideTarget) > 4.5f,
+                "The boundary case does not actually put the animal within reach and its far-side strand beyond 4.5 m.");
+            Require((bool)Call(dive, "TryBeginNetCut", new Vector2(projected.x, projected.y)),
+                "The animal is within reach but its far-side strand cannot begin a stroke.");
+            Call(dive, "CancelNetCut");
+            Vector2 pointer = PositionNearNetTarget(net, turtle);
+            Require((bool)Call(dive, "TryBeginNetCut", pointer), "A real raycast on the current near net cannot begin a cut.");
+            Call(dive, "UpdateNetCut", pointer + Vector2.right * 21f, false);
+            Require(net.NextKnot == 0, "A stroke shorter than 22 pixels cut the net.");
+            Call(dive, "UpdateNetCut", pointer + Vector2.right * 80f, true);
+            Require(net.NextKnot == 0, "Mouse-up incorrectly completes an unperformed stroke.");
+            Require((bool)Call(dive, "TryBeginNetCut", pointer), "Releasing a short stroke did not allow a new hold.");
+            Call(dive, "UpdateNetCut", pointer, false);
+            Require(net.NextKnot == 0, "A zero-length hold cut the net.");
+            Call(dive, "UpdateNetCut", pointer + Vector2.right * 22f, false);
+            Require(net.NextKnot == 1, "A valid 22-pixel stroke did not cut exactly one patch.");
+            Call(dive, "UpdateNetCut", pointer + Vector2.right * 180f, false);
+            Require(net.NextKnot == 1, "One held stroke cut multiple net patches.");
+            Call(dive, "UpdateNetCut", pointer + Vector2.right * 180f, true);
+            pointer = PositionNearNetTarget(net, turtle);
+            Require((bool)Call(dive, "TryBeginNetCut", pointer), "The next ordered patch could not start after release.");
+            Call(dive, "CancelNetCut");
+            Call(dive, "UpdateNetCut", pointer + Vector2.right * 100f, false);
+            Require(net.NextKnot == 1, "A canceled stroke still cuts the next patch.");
+            Require(!(bool)Call(dive, "TryBeginNetCut", new Vector2(-100f, -100f)), "Empty off-screen space starts a net stroke.");
+            Rect arrow = UnderwaterHud.GetTravelControlRects()[0];
+            Vector2 arrowPointer = new(arrow.center.x, Screen.height - arrow.center.y);
+            Require(!(bool)Call(dive, "TryBeginNetCut", arrowPointer), "A movement arrow starts a net stroke.");
+            Debug.Log("UNDERWATER_NET_POINTER_GESTURE_VALIDATED production raycasts/private input algorithm; short/zero/release/cancel/UI/empty strokes do not cut; 22px cuts once; release required for next hold; not browser manual gameplay");
+        }
+        for (int target = net.NextKnot; target < net.KnotCount; target++)
+        {
+            Vector2 pointer = PositionNearNetTarget(net, turtle);
+            if (testGesture && target == net.KnotCount - 1)
+            {
+                Require((bool)Call(dive, "TryBeginNetCut", pointer), "The final net stroke could not begin.");
+                Call(dive, "UpdateNetCut", pointer + Vector2.right * 22f, false);
+                Call(dive, "UpdateNetCut", pointer + Vector2.right * 80f, false);
+                Require(Read<bool>(dive, "cuttingNet"), "The final cut stopped consuming its held press after the mission changed stage.");
+                Call(dive, "UpdateNetCut", pointer + Vector2.right * 80f, true);
+                Require(!Read<bool>(dive, "cuttingNet") && float.IsPositiveInfinity(Read<float>(dive, "pointerTravel")),
+                    "The final net release can click through into animal selection.");
+            }
+            else director.TryCutNet(target);
+            Require(net.NextKnot == target + 1, "An equipped in-range ordered cut did not release its patch.");
+        }
+        foreach (RescueNetFragment fragment in net.Fragments)
+            Require(fragment.IsReleased && !fragment.IsFinished && fragment.gameObject.activeInHierarchy
+                && !fragment.transform.IsChildOf(turtle.transform), "A cut net disappears instantly or remains rigidly attached to the turtle.");
+        Require(!director.IsNetCuttingStage && !director.NetCutterEquipped && !cutter.gameObject.activeSelf,
+            "The breathing stage retains the equipped cutter or cutting target.");
+    }
+
+    private static Vector2 PositionNearNetTarget(FishingLineRescue net, GameObject turtle)
+    {
+        Require(net.TryGetNextKnotPosition(out Vector3 target), "The next ordered cut target is missing.");
+        Vector3 direction = (target - turtle.transform.position).normalized;
+        if (direction.sqrMagnitude < 0.1f) direction = Vector3.back;
+        CinematicDive dive = Camera.main.GetComponent<CinematicDive>();
+        dive.StartMissionAt(turtle.transform.position + direction * 3.2f, target);
+        Physics.SyncTransforms();
+        Require(Vector3.Distance(Camera.main.transform.position, turtle.transform.position) <= 4.5f,
+            "The net test camera is outside the real cutting range.");
+        Vector3 pointer = Camera.main.WorldToScreenPoint(target);
+        Require(pointer.z > 0f, "The cut target is behind the test camera.");
+        return new Vector2(pointer.x, pointer.y);
+    }
+
+    private static void RequireNoActiveRescueProps()
+    {
+        foreach (RescueNetFragment fragment in UnityEngine.Object.FindObjectsByType<RescueNetFragment>(FindObjectsSortMode.None))
+            Require(!fragment.gameObject.activeInHierarchy, "Replay/reset left an old intact or detached net fragment active.");
+        foreach (RescueNetCutter cutter in UnityEngine.Object.FindObjectsByType<RescueNetCutter>(FindObjectsSortMode.None))
+            Require(!cutter.IsEquipped && !cutter.gameObject.activeInHierarchy, "Replay/reset left an old cutter equipped or visible.");
     }
 
     private static IEnumerable<MonoBehaviour> Animals()

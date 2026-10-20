@@ -58,6 +58,7 @@ public sealed class OceanMissionDirector : MonoBehaviour
     private string rescueDisplayName;
     private OceanCreatureDrift rescueDrift;
     private FishingLineRescue fishingLine;
+    private RescueNetCutter netCutter;
     private CinematicDive diver;
     private AudioSource dialogueSource;
     private AudioClip pendingDialogueClip;
@@ -68,11 +69,16 @@ public sealed class OceanMissionDirector : MonoBehaviour
 
     public bool IsMissionActive => mode == MissionMode.Adventure || mode == MissionMode.Rescue;
     public bool IsMenuOpen => showMenu;
+    public bool IsNetCuttingStage => mode == MissionMode.Rescue && stage == 0 && fishingLine != null;
+    public bool NetCutterEquipped => netCutter != null && netCutter.IsEquipped;
+    public bool IsNetWithinReach => RescueDistance() <= 4.5f;
+    public RescueNetCutter NetCutter => netCutter;
     public bool SubtitlesVisible => showSubtitles && Time.unscaledTime < dialogueUntil && !string.IsNullOrEmpty(dialogue);
     private string CurrentObjective => mode == MissionMode.None
         ? UnderwaterHud.Instance?.FreeRoamObjective ?? "四处游游，认识海洋伙伴" : objective;
     public string ActionHint => mode != MissionMode.Rescue ? string.Empty
-        : stage == 0 ? "点一下标记处的绳结"
+        : stage == 0 ? RescueDistance() > 4.5f ? "按住 ↑，靠近豆豆"
+            : !NetCutterEquipped ? "点割网刀，准备救援" : "按住标记处，划开网绳"
         : rescueTurtle != null && rescueTurtle.transform.position.y >= UnderwaterWorld.WaterSurfaceHeight - 1.5f
             ? diver != null && diver.IsGuidingAnimal ? "松开，豆豆会继续往上游" : "跟着豆豆，往水面游"
         : diver != null && rescueEncounter != null && diver.GuidedEncounter == rescueEncounter
@@ -120,6 +126,7 @@ public sealed class OceanMissionDirector : MonoBehaviour
 
     private void OnDestroy()
     {
+        if (netCutter != null) Destroy(netCutter.gameObject);
         if (Instance == this) Instance = null;
         if (panelTexture != null) Destroy(panelTexture);
         if (accentTexture != null) Destroy(accentTexture);
@@ -159,7 +166,7 @@ public sealed class OceanMissionDirector : MonoBehaviour
             {
                 CompleteMission(
                     "海龟豆豆",
-                    "我换好气啦！谢谢你把我安全送到水面。以后看到旧鱼线，我们一起把它带离海洋。",
+                    "我换好气啦！谢谢你把我安全送到水面。以后看到旧渔网，我们一起保护海洋。",
                     "解锁：海洋守护员徽章 · 海龟图鉴");
             }
         }
@@ -169,15 +176,36 @@ public sealed class OceanMissionDirector : MonoBehaviour
     {
         Vector2 guiPoint = new(screenPointer.x, Screen.height - screenPointer.y);
         if (showMenu) return true;
-        return GetMissionButtonRect().Contains(guiPoint);
+        return GetMissionButtonRect().Contains(guiPoint)
+            || IsNetCuttingStage && GetNetCutterButtonRect().Contains(guiPoint);
     }
 
-    public void TryUntie(int knotIndex)
+    private float RescueDistance() => rescueTurtle == null || Camera.main == null
+        ? float.PositiveInfinity : Vector3.Distance(Camera.main.transform.position, rescueTurtle.transform.position);
+
+    public bool IsCurrentNetTarget(MissionInteractable target) => IsNetCuttingStage && target != null
+        && target.director == this && !target.IsComplete && target.knotIndex == fishingLine.NextKnot;
+
+    public void EquipNetCutter()
     {
-        if (mode != MissionMode.Rescue || stage != 0 || fishingLine == null) return;
+        if (!IsNetCuttingStage || showMenu) return;
+        if (netCutter == null) netCutter = RescueNetCutter.Create(Camera.main);
+        netCutter?.SetEquipped(true);
+        UnderwaterHud.Instance?.ShowStatus(RescueDistance() > 4.5f ? "先靠近豆豆，再割网" : "按住标记处，划开网绳");
+    }
+
+    // Only the completed pointer stroke calls this; a click just equips the tool.
+    public void TryCutNet(int knotIndex)
+    {
+        if (!IsNetCuttingStage || !NetCutterEquipped || showMenu) return;
+        if (RescueDistance() > 4.5f)
+        {
+            UnderwaterHud.Instance?.ShowStatus("先靠近豆豆，再割网");
+            return;
+        }
         if (knotIndex != fishingLine.NextKnot)
         {
-            ShowDialogue("海龟豆豆", "先解开标记处的绳结，再解下一个。", 4.8f, "rescue_order");
+            UnderwaterHud.Instance?.ShowStatus("先划开标记处的网绳");
             return;
         }
 
@@ -185,21 +213,18 @@ public sealed class OceanMissionDirector : MonoBehaviour
         int remaining = fishingLine.KnotCount - fishingLine.NextKnot;
         if (remaining > 0)
         {
-            objective = $"点一下标记处的绳结（{fishingLine.NextKnot + 1}/3）";
-            bool firstKnot = remaining == 2;
-            ShowDialogue(
-                "小丑鱼点点",
-                firstKnot ? "第一处松开了！鱼线还绕在龟壳边缘。" : "只剩最后一个结，在礁石这一侧。",
-                3.6f,
-                firstKnot ? "rescue_knot_1" : "rescue_knot_2");
+            objective = $"划开标记处的网绳（割网 {fishingLine.NextKnot}/3）";
+            ShowDialogue("小丑鱼点点", remaining == 2 ? "割开一处了，继续找下一个标记。" : "还剩最后一处。", 3.6f, string.Empty);
             return;
         }
 
         stage = 1;
+        netCutter.SetEquipped(false);
         rescueDrift?.SetEntangled(false);
         rescueDrift?.WaitForGuidance();
         objective = "带豆豆浮到水面";
-        ShowDialogue("海龟豆豆", "鱼线解开了！请带我往上游。我松开以后，也会沿着你给的方向继续前进。", 6.5f, "rescue_freed");
+        UnderwaterHud.Instance?.ShowStatus("割网 3/3 · 豆豆脱困了");
+        ShowDialogue("海龟豆豆", "渔网割开了！点一下我，再按住向上拖。", 5f, string.Empty);
     }
 
     private void OnGUI()
@@ -216,6 +241,8 @@ public sealed class OceanMissionDirector : MonoBehaviour
             OpenMenu();
             return;
         }
+        if (IsNetCuttingStage && GUI.Button(GetNetCutterButtonRect(), NetCutterEquipped ? "已装备" : "割网刀", buttonStyle))
+            EquipNetCutter();
 
         float scale = UiScale();
         Rect goal = GetObjectiveRect();
@@ -231,6 +258,7 @@ public sealed class OceanMissionDirector : MonoBehaviour
 
     private void OpenMenu()
     {
+        netCutter?.ResetPose();
         menuPage = MenuPage.Mission;
         menuScroll = Vector2.zero;
         showMenu = true;
@@ -433,8 +461,8 @@ public sealed class OceanMissionDirector : MonoBehaviour
         fishingLine.Initialize(this);
         Vector3 turtlePosition = rescueTurtle.transform.position;
         diver?.StartMissionAt(turtlePosition + new Vector3(-5.5f, 1.5f, -8f), turtlePosition);
-        objective = "点一下标记处的绳结（1/3）";
-        ShowDialogue("小丑鱼点点", "海龟豆豆被旧鱼线缠住了。它没有受伤，但要先解开三个绳结，才能游到水面呼吸。", 7f, "rescue_intro");
+        objective = "帮豆豆割开渔网（割网 0/3）";
+        ShowDialogue("小丑鱼点点", "豆豆被渔网缠住了。先靠近它，再拿割网刀划开标记处的网绳。", 6f, string.Empty);
     }
 
     private void CompleteMission(string who, string line, string reward)
@@ -448,6 +476,12 @@ public sealed class OceanMissionDirector : MonoBehaviour
 
     private void ResetMission()
     {
+        if (netCutter != null)
+        {
+            netCutter.SetEquipped(false);
+            Destroy(netCutter.gameObject);
+            netCutter = null;
+        }
         foreach (GameObject beacon in adventureBeacons) beacon.SetActive(false);
         if (fishingLine != null)
         {
@@ -567,7 +601,7 @@ public sealed class OceanMissionDirector : MonoBehaviour
         if (dialogueSource != null) dialogueSource.Stop();
         speaker = who;
         dialogue = line;
-        AudioClip clip = Resources.Load<AudioClip>($"Audio/Dialogues/{clipName}");
+        AudioClip clip = string.IsNullOrEmpty(clipName) ? null : Resources.Load<AudioClip>($"Audio/Dialogues/{clipName}");
         if (clip != null && dialogueSource != null)
         {
             if (UnderwaterAudio.HasUserGesture())
@@ -597,6 +631,9 @@ public sealed class OceanMissionDirector : MonoBehaviour
         if (camera == null) return;
 
         Vector3 screen = camera.WorldToScreenPoint(target);
+        if (IsNetCuttingStage && screen.z > 0f && screen.x >= 0f && screen.x <= Screen.width
+            && screen.y >= 0f && screen.y <= Screen.height)
+            UnderwaterHud.DrawOverlayLabel(new Rect(screen.x - 8f, Screen.height - screen.y - 8f, 16f, 16f), "○", markerStyle);
         Vector3 localTarget = camera.transform.InverseTransformPoint(target);
         string direction = string.Empty;
         if (screen.z < 0f) direction = localTarget.x < 0f ? "向左转" : "向右转";
@@ -614,7 +651,7 @@ public sealed class OceanMissionDirector : MonoBehaviour
         int distance = Mathf.Max(0, Mathf.RoundToInt(Vector3.Distance(camera.transform.position, target)));
         if (mode == MissionMode.Rescue && stage == 1)
             distance = Mathf.CeilToInt(Mathf.Max(0f, RescueSurfaceHeight - rescueTurtle.transform.position.y));
-        string label = mode == MissionMode.Adventure ? "星光灯" : stage == 1 ? "水面" : "绳结";
+        string label = mode == MissionMode.Adventure ? "星光灯" : stage == 1 ? "水面" : "割网处";
         string text = string.IsNullOrEmpty(direction) ? $"{label} · {distance} 米" : $"{direction} · {distance} 米";
         float width = markerStyle.CalcSize(new GUIContent(text)).x + 12f * scale;
         float height = 28f * scale;
@@ -756,6 +793,13 @@ public sealed class OceanMissionDirector : MonoBehaviour
         return new Rect(Screen.width - 80f * scale, 20f * scale, 56f * scale, 34f * scale);
     }
 
+    private static Rect GetNetCutterButtonRect()
+    {
+        Rect ascend = UnderwaterHud.GetTravelControlRects()[4];
+        const float width = 76f;
+        return new Rect(ascend.xMax - width, ascend.y - 46f, width, 34f);
+    }
+
     private static Texture2D MakeTexture(Color color)
     {
         Texture2D texture = new(1, 1, TextureFormat.RGBA32, false)
@@ -800,7 +844,7 @@ public sealed class MissionInteractable : MonoBehaviour
 
     public void Activate()
     {
-        if (!IsComplete) director?.TryUntie(knotIndex);
+        if (!IsComplete) director?.EquipNetCutter();
     }
 
     public void MarkComplete()
@@ -812,71 +856,67 @@ public sealed class MissionInteractable : MonoBehaviour
 
 public sealed class FishingLineRescue : MonoBehaviour
 {
-    private readonly List<LineRenderer> loops = new();
     private readonly List<MissionInteractable> knots = new();
+    private readonly List<RescueNetFragment> fragments = new();
+    private readonly List<Vector3> shellSamples = new();
+    private readonly List<Vector3> shellNormals = new();
     private Material lineMaterial;
-    private Mesh knotMesh;
     private int shellSampleHits;
     private int shellSampleCount;
-    private OceanMissionDirector director;
 
     public int NextKnot { get; private set; }
     public int KnotCount => 3;
+    public IReadOnlyList<RescueNetFragment> Fragments => fragments;
+    public Material SharedNetMaterial => lineMaterial;
+    public int NetTriangleCount { get; private set; }
+    public int ShellSampleHits => shellSampleHits;
+    public int ShellSampleCount => shellSampleCount;
+    public IReadOnlyList<Vector3> ShellSamples => shellSamples;
+    public IReadOnlyList<Vector3> ShellNormals => shellNormals;
+    public float BodyWorldSize { get; private set; }
+    public float ShellLocalSize { get; private set; }
+    public float ShellCastRadius { get; private set; }
+    public int FilteredFlipperTriangleCount { get; private set; }
+    public int ShellSamplingTriangleCount { get; private set; }
 
     public void Initialize(OceanMissionDirector owner)
     {
-        director = owner;
         lineMaterial = new Material(Resources.Load<Material>("Materials/TransparentGlow"))
         {
-            name = "Thin translucent fishing line"
+            name = "Weathered grey-green translucent nylon net"
         };
-        lineMaterial.SetColor("_BaseColor", new Color(0.63f, 0.71f, 0.66f, 0.42f));
+        lineMaterial.SetColor("_BaseColor", new Color(0.61f, 0.68f, 0.63f, 0.38f));
         lineMaterial.SetFloat("_EmissionStrength", 0f);
         lineMaterial.SetFloat("_LitFilament", 1f);
         lineMaterial.SetFloat("_Speed", 0f);
-        knotMesh = RescueRopeGeometry.CreateKnot();
-
+        RescueNetGeometry.Patch[] patches = FitToShell();
         for (int i = 0; i < KnotCount; i++)
         {
-            GameObject lineObject = new($"Old fishing line loop {i + 1}");
-            lineObject.transform.SetParent(transform, false);
-            LineRenderer line = lineObject.AddComponent<LineRenderer>();
-            line.useWorldSpace = false;
-            line.loop = true;
-            line.positionCount = 96;
-            line.numCapVertices = 4;
-            line.numCornerVertices = 3;
-            line.generateLightingData = true;
-            line.sharedMaterial = lineMaterial;
-            loops.Add(line);
-
-            GameObject knot = new($"Fishing line knot {i + 1}");
-            knot.transform.SetParent(transform, false);
-            // Keep the generous existing click target even though the visible
-            // rope is smaller and no longer a large glowing outline.
-            knot.AddComponent<SphereCollider>().radius = 1.15f * 0.075f / 0.045f;
-            CreateKnotStrands(knot.transform);
+            GameObject patch = new($"Entangled nylon net fragment {i + 1}");
+            patch.transform.SetParent(transform, false);
+            RescueNetFragment fragment = patch.AddComponent<RescueNetFragment>();
+            fragment.Initialize(patches[i], lineMaterial, BodyWorldSize, ShellLocalSize);
+            fragments.Add(fragment);
+            NetTriangleCount += fragment.TriangleCount;
+            GameObject knot = new($"Nylon net cut target {i + 1}");
+            knot.transform.SetParent(patch.transform, false);
+            knot.transform.localPosition = patches[i].CutPosition;
+            // The physical strand stays thin; its interaction target does not.
+            knot.AddComponent<SphereCollider>().radius = ShellLocalSize * 0.075f;
             MissionInteractable interactable = knot.AddComponent<MissionInteractable>();
-            interactable.director = director;
+            interactable.director = owner;
             interactable.knotIndex = i;
-            interactable.displayName = $"旧鱼线结 {i + 1} / {KnotCount}";
+            interactable.displayName = $"割开渔网 {i + 1} / {KnotCount}";
             knots.Add(interactable);
         }
-        FitToShell();
-    }
-
-    private void CreateKnotStrands(Transform parent)
-    {
-        parent.gameObject.AddComponent<MeshFilter>().sharedMesh = knotMesh;
-        parent.gameObject.AddComponent<MeshRenderer>().sharedMaterial = lineMaterial;
     }
 
     public void ReleaseKnot(int index)
     {
-        if (index != NextKnot || index < 0 || index >= loops.Count) return;
-        loops[index].gameObject.SetActive(false);
+        if (index != NextKnot || index < 0 || index >= fragments.Count) return;
         knots[index].MarkComplete();
         NextKnot++;
+        fragments[index].Release(OnFragmentFinished);
     }
 
     public bool TryGetNextKnotPosition(out Vector3 position)
@@ -893,12 +933,12 @@ public sealed class FishingLineRescue : MonoBehaviour
 
     public void RemoveAll()
     {
-        foreach (LineRenderer line in loops)
+        foreach (RescueNetFragment fragment in fragments)
         {
-            if (line != null)
+            if (fragment != null)
             {
-                line.gameObject.SetActive(false);
-                Destroy(line.gameObject);
+                fragment.gameObject.SetActive(false);
+                Destroy(fragment.gameObject);
             }
         }
         foreach (MissionInteractable knot in knots)
@@ -909,18 +949,27 @@ public sealed class FishingLineRescue : MonoBehaviour
                 Destroy(knot.gameObject);
             }
         }
-        loops.Clear();
+        fragments.Clear();
         knots.Clear();
+        shellSamples.Clear();
+        shellNormals.Clear();
+        shellSampleHits = 0;
+        shellSampleCount = 0;
         if (lineMaterial != null) Destroy(lineMaterial);
-        if (knotMesh != null) Destroy(knotMesh);
+        lineMaterial = null;
+        NetTriangleCount = 0;
     }
 
-    private void OnDestroy()
+    private void OnFragmentFinished()
     {
-        if (loops.Count > 0 || knots.Count > 0) RemoveAll();
+        if (NextKnot < KnotCount) return;
+        foreach (RescueNetFragment fragment in fragments) if (fragment != null && !fragment.IsFinished) return;
+        RemoveAll();
     }
 
-    private void FitToShell()
+    private void OnDestroy() => RemoveAll();
+
+    private RescueNetGeometry.Patch[] FitToShell()
     {
         // Bake only once. The shell is rigid while the flippers keep animating;
         // the fitted paths then inherit the turtle's movement without rebuilding.
@@ -930,7 +979,7 @@ public sealed class FishingLineRescue : MonoBehaviour
         bool hasBounds = false;
         foreach (MeshFilter filter in GetComponentsInChildren<MeshFilter>())
         {
-            if (filter.sharedMesh == null || filter.sharedMesh == knotMesh) continue;
+            if (filter.sharedMesh == null || filter.GetComponentInParent<RescueNetFragment>() != null) continue;
             AddSurface(filter.transform, filter.sharedMesh, surfaces, ref bounds, ref hasBounds);
         }
         foreach (SkinnedMeshRenderer skin in GetComponentsInChildren<SkinnedMeshRenderer>())
@@ -940,59 +989,134 @@ public sealed class FishingLineRescue : MonoBehaviour
             // collider inherits that same scale, so baking it in again inflates
             // the fitted line and makes the knots float away from the shell.
             skin.BakeMesh(baked, true);
+            RemoveAnimatedFlipperTriangles(skin, baked);
             baked.RecalculateBounds();
             bakedMeshes.Add(baked);
             AddSurface(skin.transform, baked, surfaces, ref bounds, ref hasBounds);
         }
         Physics.SyncTransforms();
-        float size = Mathf.Max(bounds.size.x, bounds.size.y, bounds.size.z);
-        float worldSize = transform.TransformVector(Vector3.right * size).magnitude;
-        for (int loopIndex = 0; loopIndex < loops.Count; loopIndex++)
-        {
-            LineRenderer line = loops[loopIndex];
-            line.startWidth = line.endWidth = worldSize * 0.0016f;
-            // Keep the three wraps on the central rigid shell. The positive-Z
-            // flipper plane has long thin protrusions rather than a body ring.
-            Vector3 loopCenter = bounds.center + Vector3.forward * ((loopIndex - 2) * bounds.size.z * 0.08f);
-            int knotPoint = Mathf.RoundToInt((0.38f + loopIndex * 1.05f) / (Mathf.PI * 2f) * line.positionCount);
-            for (int point = 0; point < line.positionCount; point++)
-            {
-                float angle = point / (float)line.positionCount * Mathf.PI * 2f;
-                Vector3 radial = new(Mathf.Cos(angle), Mathf.Sin(angle), 0f);
-                Vector3 start = transform.TransformPoint(loopCenter + radial * size);
-                Vector3 end = transform.TransformPoint(loopCenter);
-                Ray ray = new(start, (end - start).normalized);
-                float nearest = Vector3.Distance(start, end);
-                Vector3 position = loopCenter + new Vector3(radial.x * bounds.size.z * 0.25f, radial.y * bounds.size.y * 0.5f, 0f);
-                Vector3 outward = radial;
-                bool hitShell = false;
-                foreach (MeshCollider surface in surfaces)
-                {
-                    if (!surface.Raycast(ray, out RaycastHit hit, nearest)) continue;
-                    nearest = hit.distance;
-                    position = transform.InverseTransformPoint(hit.point);
-                    outward = transform.InverseTransformDirection(hit.normal).normalized;
-                    hitShell = true;
-                }
-                shellSampleCount++;
-                if (hitShell) shellSampleHits++;
-                // A small offset keeps the fine filament above the actual shell
-                // rather than drawing a large, floating world-bounds ellipse.
-                position += outward * size * 0.003f;
-                line.SetPosition(point, position);
-                if (point != knotPoint) continue;
-                Transform knot = knots[loopIndex].transform;
-                knot.localPosition = position + outward * size * 0.014f;
-                knot.localRotation = Quaternion.LookRotation(outward, Vector3.forward);
-                knot.localScale = Vector3.one * size * 0.045f;
-            }
-        }
+        ShellLocalSize = Mathf.Max(bounds.size.x, bounds.size.y, bounds.size.z);
+        BodyWorldSize = transform.TransformVector(Vector3.right * ShellLocalSize).magnitude;
+        ShellCastRadius = MeasureShellCastRadius(bounds, surfaces);
+        RescueNetGeometry.Patch[] patches = RescueNetGeometry.Create(ShellLocalSize, bounds.size.z,
+            (angle, z) => SampleShell(angle, z, bounds, surfaces));
         foreach (MeshCollider surface in surfaces)
         {
             surface.gameObject.SetActive(false);
             Destroy(surface.gameObject);
         }
         foreach (Mesh mesh in bakedMeshes) Destroy(mesh);
+        return patches;
+    }
+
+    private void RemoveAnimatedFlipperTriangles(SkinnedMeshRenderer skin, Mesh baked)
+    {
+        Transform[] bones = skin.bones;
+        bool[] flipperBones = new bool[bones.Length];
+        for (int bone = 0; bone < bones.Length; bone++)
+            flipperBones[bone] = bones[bone] != null && bones[bone].name.Contains("Flipper");
+        BoneWeight[] weights = skin.sharedMesh.boneWeights;
+        Vector3[] vertices = baked.vertices;
+        int[] originalTriangles = baked.triangles;
+        if (weights.Length != vertices.Length)
+            throw new MissingReferenceException("Rescue shell fitting requires the turtle's original skin weights.");
+        bool[] movingFin = new bool[weights.Length];
+        for (int vertex = 0; vertex < weights.Length; vertex++)
+        {
+            BoneWeight weight = weights[vertex];
+            float influence = (weight.weight0 > 0f && flipperBones[weight.boneIndex0] ? weight.weight0 : 0f)
+                + (weight.weight1 > 0f && flipperBones[weight.boneIndex1] ? weight.weight1 : 0f)
+                + (weight.weight2 > 0f && flipperBones[weight.boneIndex2] ? weight.weight2 : 0f)
+                + (weight.weight3 > 0f && flipperBones[weight.boneIndex3] ? weight.weight3 : 0f);
+            movingFin[vertex] = influence > 0.001f;
+        }
+        // This is a temporary sampling mesh only. The rendered animal retains
+        // every triangle and bone. A raised inner fin root can hide the shell
+        // even inside a small ray radius, so exclude its skin-weighted faces.
+        List<Vector3> shellVertices = new();
+        List<int> shellTriangles = new();
+        int[] remap = new int[vertices.Length];
+        for (int vertex = 0; vertex < remap.Length; vertex++) remap[vertex] = -1;
+        for (int triangle = 0; triangle < originalTriangles.Length; triangle += 3)
+        {
+            int a = originalTriangles[triangle], b = originalTriangles[triangle + 1], c = originalTriangles[triangle + 2];
+            if (movingFin[a] || movingFin[b] || movingFin[c])
+            {
+                FilteredFlipperTriangleCount++;
+                continue;
+            }
+            for (int corner = 0; corner < 3; corner++)
+            {
+                int vertex = originalTriangles[triangle + corner];
+                if (remap[vertex] < 0)
+                {
+                    remap[vertex] = shellVertices.Count;
+                    shellVertices.Add(vertices[vertex]);
+                }
+                shellTriangles.Add(remap[vertex]);
+            }
+        }
+        ShellSamplingTriangleCount += shellTriangles.Count / 3;
+        // Compact away unused fin vertices as well, otherwise RecalculateBounds
+        // would still let the current flipper pose move the net's fitting frame.
+        baked.Clear();
+        baked.SetVertices(shellVertices);
+        baked.SetTriangles(shellTriangles, 0);
+        baked.RecalculateNormals();
+    }
+
+    private RescueNetGeometry.SurfacePoint SampleShell(float angle, float z, Bounds bounds, List<MeshCollider> surfaces)
+    {
+        Vector3 radial = new(Mathf.Cos(angle), Mathf.Sin(angle), 0f);
+        Vector3 center = bounds.center + Vector3.forward * z;
+        // Start outside the measured carapace, not outside the flippers. Their
+        // raised tips can otherwise occlude the shell and create 30 cm spikes.
+        Vector3 start = transform.TransformPoint(center + radial * ShellCastRadius);
+        Vector3 end = transform.TransformPoint(center);
+        Ray ray = new(start, (end - start).normalized);
+        float nearest = Vector3.Distance(start, end);
+        Vector3 position = center + new Vector3(radial.x * bounds.size.z * 0.25f, radial.y * bounds.size.y * 0.5f, 0f);
+        Vector3 outward = radial;
+        bool hitShell = false;
+        foreach (MeshCollider surface in surfaces)
+        {
+            if (!surface.Raycast(ray, out RaycastHit hit, nearest)) continue;
+            nearest = hit.distance;
+            position = transform.InverseTransformPoint(hit.point);
+            outward = transform.InverseTransformDirection(hit.normal).normalized;
+            hitShell = true;
+        }
+        if (Vector3.Dot(outward, radial) < 0f) outward = -outward;
+        shellSampleCount++;
+        if (hitShell) shellSampleHits++;
+        position += outward * ShellLocalSize * 0.0022f;
+        shellSamples.Add(position);
+        shellNormals.Add(outward);
+        return new RescueNetGeometry.SurfacePoint(position, outward);
+    }
+
+    private float MeasureShellCastRadius(Bounds bounds, List<MeshCollider> surfaces)
+    {
+        float halfWidth = 0f;
+        // These rear/central sections exclude the front-flipper plane. Measure
+        // both sides so the fitted domain follows this actual imported turtle.
+        foreach (float fraction in new[] { -0.18f, -0.10f, -0.04f })
+        for (int side = -1; side <= 1; side += 2)
+        {
+            Vector3 center = bounds.center + Vector3.forward * (bounds.size.z * fraction);
+            Vector3 start = transform.TransformPoint(center + Vector3.right * (side * ShellLocalSize));
+            Vector3 end = transform.TransformPoint(center);
+            Ray ray = new(start, (end - start).normalized);
+            float nearest = Vector3.Distance(start, end);
+            foreach (MeshCollider surface in surfaces)
+            {
+                if (!surface.Raycast(ray, out RaycastHit hit, nearest)) continue;
+                nearest = hit.distance;
+                Vector3 local = transform.InverseTransformPoint(hit.point);
+                halfWidth = Mathf.Max(halfWidth, Mathf.Abs(local.x - center.x));
+            }
+        }
+        return halfWidth * 1.12f + ShellLocalSize * 0.003f;
     }
 
     private void AddSurface(Transform source, Mesh mesh, List<MeshCollider> surfaces, ref Bounds bounds, ref bool hasBounds)
