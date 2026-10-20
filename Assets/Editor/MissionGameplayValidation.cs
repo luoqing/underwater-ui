@@ -291,6 +291,10 @@ public static class MissionGameplayValidation
 
     private static void ValidateMinimalHud(OceanMissionDirector director, UnderwaterHud hud)
     {
+        Require(Mathf.Abs(Read<Texture2D>(director, "panelTexture").GetPixel(0, 0).a - 0.58f) < 0.004f
+            && Mathf.Abs(Read<Texture2D>(director, "buttonTexture").GetPixel(0, 0).a - 0.42f) < 0.004f
+            && Mathf.Abs(Read<Texture2D>(director, "buttonHoverTexture").GetPixel(0, 0).a - 0.62f) < 0.004f,
+            "Mission menu transparency no longer matches the glass-panel preview.");
         Require(!Read<bool>(hud, "discoveryOpen") && !Read<bool>(director, "showSubtitles"),
             "The field guide or story subtitles must not open over the scenery by default.");
         Rect guideButton = UnderwaterHud.GetDiscoveryRect();

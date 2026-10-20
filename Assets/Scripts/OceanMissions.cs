@@ -85,10 +85,10 @@ public sealed class OceanMissionDirector : MonoBehaviour
     {
         Instance = this;
         chineseFont = Resources.Load<Font>("Fonts/BlueLanternUI");
-        panelTexture = MakeTexture(new Color(0.008f, 0.055f, 0.09f, 0.92f));
+        panelTexture = MakeTexture(new Color(0.008f, 0.055f, 0.09f, 0.58f));
         accentTexture = MakeTexture(new Color(0.20f, 0.82f, 0.84f, 0.94f));
-        buttonTexture = MakeTexture(new Color(0.025f, 0.20f, 0.26f, 0.96f));
-        buttonHoverTexture = MakeTexture(new Color(0.04f, 0.34f, 0.40f, 0.98f));
+        buttonTexture = MakeTexture(new Color(0.025f, 0.20f, 0.26f, 0.42f));
+        buttonHoverTexture = MakeTexture(new Color(0.04f, 0.34f, 0.40f, 0.62f));
         dialogueSource = gameObject.AddComponent<AudioSource>();
         dialogueSource.playOnAwake = false;
         dialogueSource.loop = false;

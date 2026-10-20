@@ -23,6 +23,9 @@ Do not edit, switch, overwrite or deploy the original project at
   parameters and depth of field only in its separate `Build/WebGLClearWater`
   output. The previous 8896 build must remain intact. `look=original&water=layered`
   provides a same-build comparison; new screenshots/recordings are not approval.
+- The user requested a more transparent mission panel on 2026-10-20.
+  Branch `visual/translucent-menu-20261020` uses `Build/WebGLGlassMenu`;
+  preserve both existing 8896 and 8897 outputs and previews.
 - Keep changes reviewable and reversible. Do not merge, push or publish without
   explicit user direction. Do not initialize Git in the original live project.
 - The original project is still evolving. This is a verified source snapshot,

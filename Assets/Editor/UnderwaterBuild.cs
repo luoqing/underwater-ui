@@ -10,7 +10,7 @@ using UnityEngine.SceneManagement;
 public static class UnderwaterBuild
 {
     private const string ScenePath = "Assets/Scenes/UnderwaterJourney.unity";
-    private const string BuildPath = "Build/WebGLClearWater";
+    private const string BuildPath = "Build/WebGLGlassMenu";
 
     [MenuItem("Underwater/Create Benchmark Scene")]
     public static void CreateScene()
