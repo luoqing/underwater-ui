@@ -109,6 +109,8 @@ dev 已将鲸鱼和字体交由本任务处理，仍负责蓝色鱼与小鱼群�
 进程退出码 0，总大小 133,475,406 字节。最终 `r5` 已实际打开并选择救援海龟，
 检查近水面任务入场、中文/数字/箭头及提示布局。截图：
 `browser-r5/final-rescue-856.png`，未捕获 JavaScript exception 或资源加载失败。
+随后在同一最终包中正常点开三结，进入上浮阶段并显示还需上浮约 6 米：
+`browser-r5/final-rescue-knots-play.png`。未把此记录称作已手动完成最后拖动上浮。
 这不是“Unity 日志绝无警告”的声明：HTTP 下 Unity Cache API 与媒体设备提示
 仍存在；内部未支持 shader 的日志也不能被 `errors: []` 自动排除。
 
