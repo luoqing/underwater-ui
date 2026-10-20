@@ -35,7 +35,6 @@ public sealed class OceanMissionDirector : MonoBehaviour
     private PlayerRole selectedRole = PlayerRole.Turtle;
     private string selectedRoleName = "海龟";
     private int stage;
-    private string missionTitle;
     private string objective;
     private string speaker;
     private string dialogue;
@@ -46,6 +45,9 @@ public sealed class OceanMissionDirector : MonoBehaviour
     private GUIStyle bodyStyle;
     private GUIStyle buttonStyle;
     private GUIStyle objectiveStyle;
+    private GUIStyle menuButtonStyle;
+    private GUIStyle markerStyle;
+    private GUIStyle subtitleStyle;
     private Texture2D panelTexture;
     private Texture2D accentTexture;
     private Texture2D buttonTexture;
@@ -60,13 +62,20 @@ public sealed class OceanMissionDirector : MonoBehaviour
     private AudioSource dialogueSource;
     private AudioClip pendingDialogueClip;
     private Vector2 menuScroll;
-    private int missionLayoutWidth;
-    private int missionLayoutHeight;
-    private bool missionPanelCollapsed;
+    private bool showSubtitles;
 
     private const float RescueSurfaceHeight = UnderwaterWorld.WaterSurfaceHeight - 0.3f;
 
     public bool IsMissionActive => mode == MissionMode.Adventure || mode == MissionMode.Rescue;
+    public bool IsMenuOpen => showMenu;
+    public bool SubtitlesVisible => showSubtitles && Time.unscaledTime < dialogueUntil && !string.IsNullOrEmpty(dialogue);
+    private string CurrentObjective => mode == MissionMode.None
+        ? UnderwaterHud.Instance?.FreeRoamObjective ?? "四处游游，认识海洋伙伴" : objective;
+    public string ActionHint => mode != MissionMode.Rescue ? string.Empty
+        : stage == 0 ? "点一下标记处的橙色绳结"
+        : diver != null && rescueEncounter != null && diver.GuidedEncounter == rescueEncounter
+            ? diver.IsGuidingAnimal ? "向上拖，带豆豆靠近水面" : "按住豆豆，向上拖"
+            : "双击豆豆，选中它";
 
     private void Awake()
     {
@@ -132,7 +141,7 @@ public sealed class OceanMissionDirector : MonoBehaviour
         {
             GameObject target = adventureBeacons[stage];
             float distance = Vector3.Distance(camera.transform.position, target.transform.position);
-            objective = AdventureObjective(stage, distance);
+            objective = AdventureObjective(stage);
             if (distance < 4.2f)
             {
                 ReachAdventureBeacon();
@@ -141,8 +150,7 @@ public sealed class OceanMissionDirector : MonoBehaviour
         else if (mode == MissionMode.Rescue && stage == 1 && rescueTurtle != null)
         {
             float height = rescueTurtle.transform.position.y;
-            float remainingHeight = Mathf.Max(0f, RescueSurfaceHeight - height);
-            objective = $"双击豆豆，再按住它往上拖。\n松手后它会继续游，离水面还有 {remainingHeight:0} 米。";
+            objective = "带豆豆浮到水面";
             if (height >= RescueSurfaceHeight)
             {
                 CompleteMission(
@@ -156,10 +164,7 @@ public sealed class OceanMissionDirector : MonoBehaviour
     public bool IsPointerOverUi(Vector2 screenPointer)
     {
         Vector2 guiPoint = new(screenPointer.x, Screen.height - screenPointer.y);
-        if (showMenu && GetMenuRect().Contains(guiPoint)) return true;
-        if (mode != MissionMode.None && GetMissionRect().Contains(guiPoint)) return true;
-        if (bodyStyle != null && Time.unscaledTime < dialogueUntil && !string.IsNullOrEmpty(dialogue)
-            && GetDialogueRect().Contains(guiPoint)) return true;
+        if (showMenu) return true;
         return GetMissionButtonRect().Contains(guiPoint);
     }
 
@@ -176,7 +181,7 @@ public sealed class OceanMissionDirector : MonoBehaviour
         int remaining = fishingLine.KnotCount - fishingLine.NextKnot;
         if (remaining > 0)
         {
-            objective = $"跟着标记，点一下豆豆身上的橙色绳结\n第 {fishingLine.NextKnot + 1} / {fishingLine.KnotCount} 个结；还剩 {remaining} 个";
+            objective = $"点一下豆豆身上的橙色绳结（{fishingLine.NextKnot + 1}/3）";
             bool firstKnot = remaining == 2;
             ShowDialogue(
                 "小丑鱼点点",
@@ -189,7 +194,7 @@ public sealed class OceanMissionDirector : MonoBehaviour
         stage = 1;
         rescueDrift?.SetEntangled(false);
         if (rescueDrift != null) rescueDrift.enabled = true;
-        objective = "双击豆豆，按住它往上拖。\n松手后它会继续游到水面。";
+        objective = "带豆豆浮到水面";
         ShowDialogue("海龟豆豆", "鱼线解开了！请带我往上游。我松开以后，也会沿着你给的方向继续前进。", 6.5f, "rescue_freed");
     }
 
@@ -198,57 +203,34 @@ public sealed class OceanMissionDirector : MonoBehaviour
         EnsureStyles();
         if (showMenu)
         {
-            missionLayoutWidth = 0;
             DrawMissionMenu();
             return;
         }
 
-        if (mode == MissionMode.None)
+        if (GUI.Button(GetMissionButtonRect(), "菜单", menuButtonStyle))
         {
-            missionLayoutWidth = 0;
-            if (GUI.Button(GetMissionButtonRect(), "任务", buttonStyle))
-            {
-                menuPage = MenuPage.Mission;
-                showMenu = true;
-            }
+            OpenMenu();
             return;
         }
 
-        if (missionLayoutWidth != Screen.width || missionLayoutHeight != Screen.height)
-        {
-            missionLayoutWidth = Screen.width;
-            missionLayoutHeight = Screen.height;
-            if (GetMissionRect().yMax > TravelControlsTop() - 8f) missionPanelCollapsed = true;
-        }
-        Rect panel = GetMissionRect();
-        GUI.DrawTexture(panel, panelTexture, ScaleMode.StretchToFill);
-        GUI.DrawTexture(new Rect(panel.x, panel.y, 5f, panel.height), accentTexture, ScaleMode.StretchToFill);
         float scale = UiScale();
-        float titleHeight = Mathf.Max(28f * scale, titleStyle.CalcHeight(new GUIContent(missionTitle), panel.width - 180f * scale));
-        GUI.Label(new Rect(panel.x + 20f * scale, panel.y + 10f * scale, panel.width - 180f * scale, titleHeight), missionTitle, titleStyle);
-        if (GUI.Button(new Rect(panel.xMax - 80f * scale, panel.y + 10f * scale, 64f * scale, 28f * scale),
-            missionPanelCollapsed ? "展开" : "收起", buttonStyle)) missionPanelCollapsed = !missionPanelCollapsed;
-        if (GUI.Button(new Rect(panel.xMax - 160f * scale, panel.y + 10f * scale, 72f * scale, 28f * scale), "菜单", buttonStyle))
-        {
-            ResetMission();
-            menuPage = MenuPage.Mission;
-            showMenu = true;
-        }
-        float objectiveY = panel.y + 18f * scale + titleHeight;
-        if (!missionPanelCollapsed)
-        {
-            DrawObjective(new Rect(panel.x + 20f * scale, objectiveY, panel.width - 40f * scale, panel.height));
-        }
+        Rect goal = GetObjectiveRect();
+        GUI.DrawTexture(new Rect(24f * scale, goal.y + 12f * scale, 6f * scale, 6f * scale), accentTexture);
+        UnderwaterHud.DrawOverlayLabel(goal, CurrentObjective, objectiveStyle);
 
-        if (Time.unscaledTime < dialogueUntil && !string.IsNullOrEmpty(dialogue))
+        if (SubtitlesVisible)
         {
-            Rect dialoguePanel = GetDialogueRect();
-            float textHeight = bodyStyle.CalcHeight(new GUIContent(dialogue), dialoguePanel.width - 44f * scale);
-            GUI.DrawTexture(dialoguePanel, panelTexture, ScaleMode.StretchToFill);
-            GUI.Label(new Rect(dialoguePanel.x + 22f * scale, dialoguePanel.y + 10f * scale, 180f * scale, 30f * scale), speaker, titleStyle);
-            GUI.Label(new Rect(dialoguePanel.x + 22f * scale, dialoguePanel.y + 43f * scale, dialoguePanel.width - 44f * scale, textHeight), dialogue, bodyStyle);
+            UnderwaterHud.DrawOverlayLabel(GetDialogueRect(), $"{speaker}：{dialogue}", subtitleStyle);
         }
         DrawTargetGuide();
+    }
+
+    private void OpenMenu()
+    {
+        menuPage = MenuPage.Mission;
+        menuScroll = Vector2.zero;
+        showMenu = true;
+        diver?.SetHudMove(Vector3.zero);
     }
 
     private void DrawMissionMenu()
@@ -266,7 +248,7 @@ public sealed class OceanMissionDirector : MonoBehaviour
         menuScroll = GUI.BeginScrollView(panel, menuScroll, new Rect(0f, 0f, panel.width - 18f, 430f * scale));
         float width = panel.width - 18f;
         GUI.Label(new Rect(28f * scale, 22f * scale, width - 56f * scale, 42f * scale), "选择今天的海底任务", titleStyle);
-        GUI.Label(new Rect(32f * scale, 68f * scale, width - 64f * scale, 64f * scale), "先选任务，再选海洋伙伴。跟着目标标记前进，提示会告诉你下一步怎么做。", bodyStyle);
+        GUI.Label(new Rect(32f * scale, 68f * scale, width - 64f * scale, 64f * scale), "选一个任务，再选你的海洋伙伴。", bodyStyle);
 
         if (GUI.Button(new Rect(34f * scale, 140f * scale, width - 68f * scale, 66f * scale), "探险：追着鲸歌找星光", buttonStyle))
         {
@@ -276,7 +258,13 @@ public sealed class OceanMissionDirector : MonoBehaviour
         {
             ChooseMission(MissionMode.Rescue);
         }
-        if (GUI.Button(new Rect(width - 152f * scale, 382f * scale, 124f * scale, 32f * scale), "继续漫游", buttonStyle))
+        showSubtitles = GUI.Toggle(new Rect(34f * scale, 312f * scale, width - 68f * scale, 38f * scale), showSubtitles, showSubtitles ? "对白字幕：开" : "对白字幕：关", menuButtonStyle);
+        if (mode != MissionMode.None && GUI.Button(new Rect(34f * scale, 382f * scale, 124f * scale, 32f * scale), "退出任务", buttonStyle))
+        {
+            ResetMission();
+            showMenu = false;
+        }
+        if (GUI.Button(new Rect(width - 152f * scale, 382f * scale, 124f * scale, 32f * scale), IsMissionActive ? "继续任务" : "继续漫游", buttonStyle))
         {
             showMenu = false;
         }
@@ -329,7 +317,6 @@ public sealed class OceanMissionDirector : MonoBehaviour
         pendingMission = mission;
         menuPage = MenuPage.Role;
         menuScroll = Vector2.zero;
-        missionPanelCollapsed = false;
         showMenu = true;
     }
 
@@ -389,9 +376,9 @@ public sealed class OceanMissionDirector : MonoBehaviour
         ResetMission();
         showMenu = false;
         mode = MissionMode.Adventure;
-        missionTitle = "点亮三盏星光灯";
         stage = 0;
         adventureBeacons[0].SetActive(true);
+        objective = AdventureObjective(stage);
         diver?.StartMissionAt(new Vector3(0f, 4.3f, -7f), new Vector3(0f, 2.3f, 18f));
         ShowDialogue("海龟悠悠", "昨晚的洋流冲散了海底拱门的三盏星光灯。跟着鱼群和鲸歌，把回家的路重新点亮吧。", 7f, "adventure_intro");
     }
@@ -424,7 +411,6 @@ public sealed class OceanMissionDirector : MonoBehaviour
         ResetMission();
         showMenu = false;
         mode = MissionMode.Rescue;
-        missionTitle = "救救海龟豆豆";
         stage = 0;
 
         if (rescueTurtle == null)
@@ -443,9 +429,7 @@ public sealed class OceanMissionDirector : MonoBehaviour
         fishingLine.Initialize(this);
         Vector3 turtlePosition = rescueTurtle.transform.position;
         diver?.StartMissionAt(turtlePosition + new Vector3(-5.5f, 1.5f, -8f), turtlePosition);
-        objective = selectedRole == PlayerRole.Turtle
-            ? "豆豆就在前面，点一下前鳍旁的橙色绳结\n第 1 / 3 个结；点一下就能解开"
-            : "找到海龟豆豆，点一下标记处的橙色绳结\n第 1 / 3 个结；点一下就能解开";
+        objective = "点一下豆豆前鳍旁的橙色绳结（1/3）";
         ShowDialogue("小丑鱼点点", "海龟豆豆被旧鱼线缠住了。它没有受伤，但要先解开三个绳结，才能游到水面呼吸。", 7f, "rescue_intro");
     }
 
@@ -453,8 +437,8 @@ public sealed class OceanMissionDirector : MonoBehaviour
     {
         completedMission = mode;
         mode = MissionMode.Complete;
-        missionTitle = completedMission == MissionMode.Adventure ? "探险完成" : "救援完成";
-        objective = reward;
+        objective = completedMission == MissionMode.Adventure ? "三盏星光灯都亮了，探险完成！" : "豆豆换好气了，救援完成！";
+        UnderwaterHud.Instance?.ShowStatus(reward);
         ShowDialogue(who, line, 12f, completedMission == MissionMode.Adventure ? "adventure_complete" : "rescue_complete");
     }
 
@@ -477,7 +461,6 @@ public sealed class OceanMissionDirector : MonoBehaviour
         mode = MissionMode.None;
         pendingMission = MissionMode.None;
         stage = 0;
-        missionTitle = string.Empty;
         objective = string.Empty;
         dialogue = string.Empty;
         speaker = string.Empty;
@@ -563,15 +546,15 @@ public sealed class OceanMissionDirector : MonoBehaviour
         Destroy(part.GetComponent<Collider>());
     }
 
-    private string AdventureObjective(int currentStage, float distance)
+    private string AdventureObjective(int currentStage)
     {
         string[] prompts =
         {
-            "去珊瑚花园，找到第一盏星光灯",
-            "去魔鬼鱼水道，找到第二盏星光灯",
-            "去岩石拱门，找到最后一盏星光灯"
+            "游向珊瑚花园，靠近星光灯（1/3）",
+            "游向魔鬼鱼水道，靠近星光灯（2/3）",
+            "游向岩石拱门，靠近星光灯（3/3）"
         };
-        return $"{prompts[Mathf.Clamp(currentStage, 0, prompts.Length - 1)]}。\n按左侧 ↑ 前进，拖空白处转向；靠近灯就点亮。";
+        return prompts[Mathf.Clamp(currentStage, 0, prompts.Length - 1)];
     }
 
     private void ShowDialogue(string who, string line, float seconds, string clipName)
@@ -603,33 +586,6 @@ public sealed class OceanMissionDirector : MonoBehaviour
         dialogueSource.Play();
     }
 
-    private void DrawObjective(Rect area)
-    {
-        string[] lines = (objective ?? string.Empty).Split('\n');
-        float y = area.y;
-        for (int i = 0; i < lines.Length; i++)
-        {
-            GUIStyle style = i == 0 ? objectiveStyle : bodyStyle;
-            float height = style.CalcHeight(new GUIContent(lines[i]), area.width);
-            GUI.Label(new Rect(area.x, y, area.width, height), lines[i], style);
-            y += height + 6f * UiScale();
-        }
-    }
-
-    private float ObjectiveHeight(float width)
-    {
-        if (objectiveStyle == null || bodyStyle == null) return 82f * UiScale();
-        string[] lines = (objective ?? string.Empty).Split('\n');
-        float height = 0f;
-        for (int i = 0; i < lines.Length; i++)
-        {
-            GUIStyle style = i == 0 ? objectiveStyle : bodyStyle;
-            if (i > 0) height += 6f * UiScale();
-            height += style.CalcHeight(new GUIContent(lines[i]), width);
-        }
-        return height;
-    }
-
     private void DrawTargetGuide()
     {
         if (!TryGetCurrentTarget(out Vector3 target)) return;
@@ -651,33 +607,22 @@ public sealed class OceanMissionDirector : MonoBehaviour
         }
 
         float scale = UiScale();
-        float width = 148f * scale;
-        float height = 50f * scale;
-        float x = Mathf.Clamp(screen.x - width * 0.5f, 14f * scale, Screen.width - width - 14f * scale);
-        float bottom = Screen.height - height - 84f * scale;
-        float y = Mathf.Clamp(Screen.height - screen.y - height - 18f * scale, 14f * scale, bottom);
-        Rect marker = new(x, y, width, height);
-        Rect missionPanel = GetMissionRect();
-        Rect discoveryPanel = UnderwaterHud.GetDiscoveryRect();
-        Rect[] controls = UnderwaterHud.GetTravelControlRects();
-        for (int pass = 0; pass < 2; pass++)
-        {
-            foreach (Rect control in controls)
-                if (marker.Overlaps(control)) marker.y = Mathf.Max(14f * scale, controls[0].y - height - 8f * scale);
-            if (Time.unscaledTime < dialogueUntil && !string.IsNullOrEmpty(dialogue) && marker.Overlaps(GetDialogueRect()))
-                marker.y = Mathf.Max(14f * scale, GetDialogueRect().y - height - 8f * scale);
-            if (marker.Overlaps(missionPanel))
-                marker.x = Mathf.Max(14f * scale, missionPanel.x - width - 8f * scale);
-            if (marker.Overlaps(discoveryPanel)) marker.x = discoveryPanel.xMax + 8f * scale;
-        }
-        GUI.DrawTexture(marker, buttonTexture, ScaleMode.StretchToFill);
         int distance = Mathf.Max(0, Mathf.RoundToInt(Vector3.Distance(camera.transform.position, target)));
         if (mode == MissionMode.Rescue && stage == 1)
             distance = Mathf.CeilToInt(Mathf.Max(0f, RescueSurfaceHeight - rescueTurtle.transform.position.y));
-        string label = mode == MissionMode.Adventure ? $"星光灯 {stage + 1}/3"
-            : stage == 1 ? "水面" : $"绳结 {fishingLine.NextKnot + 1}/3";
-        string distanceText = string.IsNullOrEmpty(direction) ? $"{distance} 米" : $"{direction} · {distance} 米";
-        GUI.Label(marker, $"{label}\n{distanceText}", buttonStyle);
+        string label = mode == MissionMode.Adventure ? "星光灯" : stage == 1 ? "水面" : "绳结";
+        string text = string.IsNullOrEmpty(direction) ? $"{label} · {distance} 米" : $"{direction} · {distance} 米";
+        float width = markerStyle.CalcSize(new GUIContent(text)).x + 12f * scale;
+        float height = 28f * scale;
+        float top = GetObjectiveRect().yMax + 16f * scale;
+        float x = Mathf.Clamp(screen.x - width * 0.5f, 14f * scale, Screen.width - width - 14f * scale);
+        float bottom = TravelControlsTop() - height - 12f * scale;
+        float y = Mathf.Clamp(Screen.height - screen.y - height - 18f * scale, top, Mathf.Max(top, bottom));
+        Rect marker = new(x, y, width, height);
+        Rect discoveryPanel = UnderwaterHud.GetDiscoveryRect();
+        if (marker.Overlaps(discoveryPanel)) marker.x = Mathf.Max(14f * scale, discoveryPanel.x - width - 8f * scale);
+        if (SubtitlesVisible && marker.Overlaps(GetDialogueRect())) marker.y = GetDialogueRect().y - height - 8f * scale;
+        UnderwaterHud.DrawOverlayLabel(marker, text, markerStyle);
     }
 
     private bool TryGetCurrentTarget(out Vector3 target)
@@ -725,11 +670,22 @@ public sealed class OceanMissionDirector : MonoBehaviour
 
         objectiveStyle ??= new GUIStyle(bodyStyle)
         {
-            fontSize = Mathf.RoundToInt(18f * scale),
-            fontStyle = FontStyle.Normal,
+            fontSize = Mathf.RoundToInt(22f * scale),
+            fontStyle = FontStyle.Bold,
             alignment = TextAnchor.UpperLeft
         };
-        objectiveStyle.normal.textColor = new Color(0.58f, 0.96f, 0.92f);
+        objectiveStyle.normal.textColor = new Color(0.97f, 0.97f, 0.91f);
+
+        menuButtonStyle ??= new GUIStyle(GUI.skin.label)
+        {
+            font = chineseFont,
+            alignment = TextAnchor.MiddleCenter
+        };
+        menuButtonStyle.normal.textColor = new Color(0.9f, 0.97f, 0.98f);
+        menuButtonStyle.hover.background = buttonHoverTexture;
+        menuButtonStyle.onNormal.textColor = new Color(0.45f, 0.95f, 0.90f);
+        markerStyle ??= new GUIStyle(menuButtonStyle);
+        subtitleStyle ??= new GUIStyle(bodyStyle) { alignment = TextAnchor.MiddleCenter };
 
         buttonStyle ??= new GUIStyle(GUI.skin.button)
         {
@@ -748,8 +704,11 @@ public sealed class OceanMissionDirector : MonoBehaviour
         buttonStyle.active.textColor = Color.white;
         titleStyle.fontSize = Mathf.RoundToInt(22f * scale);
         bodyStyle.fontSize = Mathf.RoundToInt(17f * scale);
-        objectiveStyle.fontSize = Mathf.RoundToInt(18f * scale);
+        objectiveStyle.fontSize = Mathf.RoundToInt(22f * scale);
         buttonStyle.fontSize = Mathf.RoundToInt(15f * scale);
+        menuButtonStyle.fontSize = Mathf.RoundToInt(15f * scale);
+        markerStyle.fontSize = Mathf.RoundToInt(14f * scale);
+        subtitleStyle.fontSize = Mathf.RoundToInt(15f * scale);
     }
 
     private static float UiScale() => Mathf.Clamp(Mathf.Min(Screen.width / 1440f, Screen.height / 900f), 0.82f, 1.35f);
@@ -762,14 +721,12 @@ public sealed class OceanMissionDirector : MonoBehaviour
         return new Rect((Screen.width - width) * 0.5f, (Screen.height - height) * 0.5f, width, height);
     }
 
-    private Rect GetMissionRect()
+    private Rect GetObjectiveRect()
     {
         float scale = UiScale();
-        float width = Mathf.Min(430f * scale, Screen.width * 0.39f);
-        float titleHeight = titleStyle == null ? 34f * scale : Mathf.Max(28f * scale, titleStyle.CalcHeight(new GUIContent(missionTitle), width - 180f * scale));
-        float height = missionPanelCollapsed ? titleHeight + 20f * scale
-            : 18f * scale + titleHeight + ObjectiveHeight(width - 40f * scale) + 12f * scale;
-        return new Rect(Screen.width - width - 22f * scale, 55f * scale, width, height);
+        float width = Screen.width - 240f * scale;
+        float height = objectiveStyle == null ? 56f * scale : Mathf.Max(32f * scale, objectiveStyle.CalcHeight(new GUIContent(CurrentObjective), width));
+        return new Rect(42f * scale, 22f * scale, width, height);
     }
 
     private Rect GetDialogueRect()
@@ -779,10 +736,9 @@ public sealed class OceanMissionDirector : MonoBehaviour
         float left = controls[3].xMax + 12f;
         float right = controls[4].xMin - 12f;
         float width = Mathf.Min(760f * scale, right - left);
-        float textHeight = bodyStyle.CalcHeight(new GUIContent(dialogue), width - 44f * scale);
-        float height = Mathf.Max(116f * scale, textHeight + 58f * scale);
+        float height = subtitleStyle.CalcHeight(new GUIContent($"{speaker}：{dialogue}"), width);
         float x = left + (right - left - width) * 0.5f;
-        return new Rect(x, Screen.height - 72f * scale - height, width, height);
+        return new Rect(x, Screen.height - 80f - height, width, height);
     }
 
     private static float TravelControlsTop()
@@ -793,7 +749,7 @@ public sealed class OceanMissionDirector : MonoBehaviour
     private static Rect GetMissionButtonRect()
     {
         float scale = UiScale();
-        return new Rect(Screen.width - 146f * scale, 68f * scale, 124f * scale, 40f * scale);
+        return new Rect(Screen.width - 80f * scale, 20f * scale, 56f * scale, 34f * scale);
     }
 
     private static Texture2D MakeTexture(Color color)

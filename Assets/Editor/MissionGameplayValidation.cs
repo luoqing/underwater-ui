@@ -158,6 +158,7 @@ public static class MissionGameplayValidation
                     Require(control.width >= 44f && control.width <= 48f && control.xMin >= 0f && control.yMin >= 0f
                         && control.xMax <= Screen.width && control.yMax <= Screen.height, "A swim arrow is oversized or outside the viewport.");
                 UnderwaterHud hud = UnderwaterHud.Instance;
+                ValidateMinimalHud(director, hud);
                 foreach (string id in new[] { "clownfish", "turtle", "manta", "whale" }) hud.Discover(id, id, string.Empty);
                 Require(Read<HashSet<string>>(hud, "discoveries").Count == 4 && ((string)Call(hud, "BuildDiscoveryLine")).Contains("座头鲸"),
                     "Whale is missing from the four-species field guide.");
@@ -179,6 +180,14 @@ public static class MissionGameplayValidation
         Require(Read<object>(director, "mode").ToString() == mission && director.IsMissionActive,
             $"{mission}/{role}: normal role selection did not start the mission.");
         Require(Read<object>(director, "selectedRole").ToString() == role, "Selected role changed during mission setup.");
+        string prompt = Read<string>(director, "objective");
+        Require(!string.IsNullOrEmpty(prompt) && !prompt.Contains("\n") && prompt.Length <= 40,
+            "The current objective is missing or has expanded into a multi-line instruction block.");
+        Call(director, "OpenMenu");
+        Require(director.IsMenuOpen && director.IsMissionActive && Read<int>(director, "stage") == 0,
+            "Opening the menu reset the current mission.");
+        Require(director.IsPointerOverUi(Vector2.zero), "An open menu lets world interactions through outside its panel.");
+        typeof(OceanMissionDirector).GetField("showMenu", PrivateInstance).SetValue(director, false);
         if (mission == "Adventure")
         {
             List<GameObject> beacons = Read<List<GameObject>>(director, "adventureBeacons");
@@ -214,6 +223,14 @@ public static class MissionGameplayValidation
                 Require(line.NextKnot == knot + 1, "An in-order knot did not release.");
             }
             Require(Read<int>(director, "stage") == 1 && drift.enabled, "Untying three knots did not start the breathing stage.");
+            CinematicDive dive = Camera.main.GetComponent<CinematicDive>();
+            Require(director.ActionHint == "双击豆豆，选中它", "The rescue introduced dragging before selecting the turtle.");
+            typeof(CinematicDive).GetField("guidedEncounter", PrivateInstance).SetValue(dive, turtle.GetComponent<MarineEncounter>());
+            Require(director.ActionHint == "按住豆豆，向上拖", "Selecting the turtle did not advance its action hint.");
+            typeof(CinematicDive).GetField("guidingAnimal", PrivateInstance).SetValue(dive, true);
+            Require(director.ActionHint == "向上拖，带豆豆靠近水面", "Dragging the turtle did not advance its action hint.");
+            typeof(CinematicDive).GetField("guidedEncounter", PrivateInstance).SetValue(dive, null);
+            typeof(CinematicDive).GetField("guidingAnimal", PrivateInstance).SetValue(dive, false);
             object[] target = { Vector3.zero };
             float surface = GameObject.Find("Moving Water Surface").transform.position.y;
             Require((bool)Call(director, "TryGetCurrentTarget", target) && Mathf.Abs(((Vector3)target[0]).y - (surface - 0.3f)) < 0.001f,
@@ -245,6 +262,70 @@ public static class MissionGameplayValidation
     {
         foreach (MonoBehaviour value in UnityEngine.Object.FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None))
             if (value is ReefFishDrift || value is OceanCreatureDrift || value is HeroWhaleDrift) yield return value;
+    }
+
+    private static void ValidateMinimalHud(OceanMissionDirector director, UnderwaterHud hud)
+    {
+        Require(!Read<bool>(hud, "discoveryOpen") && !Read<bool>(director, "showSubtitles"),
+            "The field guide or story subtitles must not open over the scenery by default.");
+        Rect guideButton = UnderwaterHud.GetDiscoveryRect();
+        Require(guideButton.height <= 46f && guideButton.width <= 98f, "The closed guide still occupies a large panel.");
+        Vector2 guidePointer = new(guideButton.center.x, Screen.height - guideButton.center.y);
+        Require(UnderwaterHud.IsPointerOverTravelControls(guidePointer), "The visible field-guide button is not protected from world clicks.");
+        float scale = Mathf.Clamp(Screen.width / 1440f, 0.72f, 1.08f);
+        GUIStyle guideTextStyle = Read<GUIStyle>(hud, "panelTextStyle");
+        GUIStyle guideTitleStyle = Read<GUIStyle>(hud, "panelTitleStyle");
+        // Batch Play Mode does not dispatch OnGUI. Measure with the game's label
+        // skin and production font/settings, then verify in a browser.
+        if (guideTextStyle == null)
+        {
+            Font font = Resources.Load<Font>("Fonts/BlueLanternUI");
+            GUIStyle label = EditorGUIUtility.GetBuiltinSkin(EditorSkin.Game).label;
+            guideTextStyle = new GUIStyle(label) { font = font, fontSize = Mathf.Max(11, Mathf.RoundToInt(12f * scale)), richText = true, wordWrap = true };
+            guideTitleStyle = new GUIStyle(label) { font = font, fontSize = Mathf.Max(12, Mathf.RoundToInt(14f * scale)), fontStyle = FontStyle.Bold };
+            typeof(UnderwaterHud).GetField("panelTextStyle", PrivateInstance).SetValue(hud, guideTextStyle);
+            typeof(UnderwaterHud).GetField("panelTitleStyle", PrivateInstance).SetValue(hud, guideTitleStyle);
+        }
+        typeof(UnderwaterHud).GetField("discoveryOpen", PrivateInstance).SetValue(hud, true);
+        Rect guidePanel = UnderwaterHud.GetDiscoveryRect();
+        float headerHeight = guideTitleStyle.CalcHeight(new GUIContent("海洋图鉴   0 / 4"), guidePanel.width - 32f * scale);
+        float bodyHeight = guideTextStyle.CalcHeight(new GUIContent((string)Call(hud, "BuildDiscoveryLine")), guidePanel.width - 32f * scale);
+        float requiredHeight = headerHeight + bodyHeight + 48f * scale;
+        Require(guidePanel.height + 0.01f >= requiredHeight,
+            $"The four-species guide clips its second line: panel={guidePanel.height}, required={requiredHeight}, header={headerHeight}, body={bodyHeight}, scale={scale}.");
+        Vector2 panelPointer = new(guidePanel.center.x, Screen.height - guidePanel.center.y);
+        Require(UnderwaterHud.IsPointerOverTravelControls(panelPointer), "The expanded guide lets world clicks through.");
+        typeof(UnderwaterHud).GetField("discoveryOpen", PrivateInstance).SetValue(hud, false);
+        Require(!UnderwaterHud.IsPointerOverTravelControls(panelPointer), "The hidden field-guide panel still blocks the scenery.");
+        Rect objective = (Rect)Call(director, "GetObjectiveRect");
+        Require(objective.x < Screen.width * 0.1f && objective.y < Screen.height * 0.1f,
+            "The current objective is not in the upper-left corner.");
+        Require(!director.IsPointerOverUi(new Vector2(objective.center.x, Screen.height - objective.center.y)),
+            "Non-interactive objective text still creates an invisible input blocker.");
+        CinematicDive dive = Camera.main.GetComponent<CinematicDive>();
+        typeof(UnderwaterHud).GetField("manualTravelDistance", PrivateInstance).SetValue(hud, 0f);
+        typeof(UnderwaterHud).GetField("manualLookPixels", PrivateInstance).SetValue(hud, 0f);
+        hud.SetHover(string.Empty, false, Vector2.zero);
+        Require(((string)Call(hud, "BuildControlsHint", dive)).Contains("往前游"), "Movement must be introduced first.");
+        Call(director, "OpenMenu");
+        hud.RecordManualTravel(2f);
+        Require(Read<float>(hud, "manualTravelDistance") == 0f, "Opening a menu advanced the movement lesson.");
+        typeof(OceanMissionDirector).GetField("showMenu", PrivateInstance).SetValue(director, false);
+        hud.RecordManualTravel(0f);
+        Require(((string)Call(hud, "BuildControlsHint", dive)).Contains("往前游"), "Blocked movement advanced the lesson.");
+        hud.RecordManualTravel(0.7f);
+        Require(((string)Call(hud, "BuildControlsHint", dive)).Contains("看看四周"), "Real movement did not introduce looking around.");
+        hud.RecordManualLook(20f);
+        Require(((string)Call(hud, "BuildControlsHint", dive)).Contains("看看四周"), "A tiny drag dismissed the looking lesson.");
+        hud.RecordManualLook(20f);
+        Require(string.IsNullOrEmpty((string)Call(hud, "BuildControlsHint", dive)), "Completed basic instructions remained on screen.");
+        hud.SetHover("海龟", false, Vector2.zero);
+        Require(((string)Call(hud, "BuildControlsHint", dive)).Contains("点一下海龟"), "A new animal does not get its contextual action.");
+        hud.SetHover("海龟", true, Vector2.zero);
+        Require(((string)Call(hud, "BuildControlsHint", dive)).Contains("双击海龟"), "Discovery did not advance the animal interaction hint.");
+        hud.SetHover(string.Empty, false, Vector2.zero);
+        Debug.Log("UNDERWATER_PROGRESSIVE_HINTS_VALIDATED movement then look; no menu/blocked-motion advancement; context-aware animal actions; completed basics hidden");
+        Debug.Log("UNDERWATER_MINIMAL_HUD_VALIDATED short objectives; on-demand guide/subtitles; menu preserves mission; visible input regions");
     }
 
     private static void ValidateImportedArch()

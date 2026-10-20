@@ -2217,6 +2217,8 @@ public sealed class CinematicDive : MonoBehaviour
     }
 
     public void SetHudMove(Vector3 move) => hudMove = Vector3.ClampMagnitude(move, 1f);
+    public MarineEncounter GuidedEncounter => guidedEncounter;
+    public bool IsGuidingAnimal => guidingAnimal;
 
     public void StartMissionAt(Vector3 cameraPosition, Vector3 lookTarget)
     {
@@ -2268,7 +2270,7 @@ public sealed class CinematicDive : MonoBehaviour
         freePitch = NormalizeAngle(angles.x);
         yawOffset = 0f;
         pitchOffset = 0f;
-        UnderwaterHud.Instance?.ShowStatus("自由漫游：W/S 前后，A/D 左右，Q/E 升降");
+        UnderwaterHud.Instance?.ShowStatus("开始自由探索");
     }
 
     private void ReturnToAutoTour()
@@ -2342,6 +2344,8 @@ public sealed class CinematicDive : MonoBehaviour
 
         float breathingRoll = Mathf.Sin(Time.time * 0.36f + 0.8f) * (0.35f + motion * 0.25f);
         Quaternion targetRotation = Quaternion.Euler(freePitch, freeYaw, breathingRoll);
+        if (moveInput.sqrMagnitude > 0.001f)
+            UnderwaterHud.Instance?.RecordManualTravel(Vector3.Distance(transform.position, freePosition));
         transform.position = freePosition;
         transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, 1f - Mathf.Exp(-Time.deltaTime * 7.5f));
     }
@@ -2377,6 +2381,7 @@ public sealed class CinematicDive : MonoBehaviour
         Vector2 pointerPosition = pointer.position.ReadValue();
         if (UnderwaterHud.IsPointerOverTravelControls(pointerPosition))
         {
+            UnderwaterHud.Instance?.SetHover(string.Empty, false, pointerPosition);
             dragging = false;
             if (guidingAnimal)
             {
@@ -2410,6 +2415,7 @@ public sealed class CinematicDive : MonoBehaviour
             Vector2 delta = pointerPosition - previousPointer;
             previousPointer = pointerPosition;
             pointerTravel += delta.magnitude;
+            UnderwaterHud.Instance?.RecordManualLook(delta.magnitude);
             if (autoTour)
             {
                 yawOffset += delta.x * 0.11f * playerTurnScale;
@@ -3688,25 +3694,49 @@ public sealed class UnderwaterHud : MonoBehaviour
     public static UnderwaterHud Instance { get; private set; }
 
     private readonly HashSet<string> discoveries = new();
-    private GUIStyle titleStyle;
-    private GUIStyle hintStyle;
     private GUIStyle panelTitleStyle;
     private GUIStyle panelTextStyle;
     private GUIStyle toastTitleStyle;
     private GUIStyle toastTextStyle;
     private GUIStyle touchButtonStyle;
+    private GUIStyle menuButtonStyle;
     private Texture2D panelTexture;
     private Texture2D softPanelTexture;
     private Texture2D progressTexture;
     private Texture2D travelButtonTexture;
     private Font chineseFont;
-    private float alpha = 1f;
+    private bool discoveryOpen;
+    private float manualTravelDistance;
+    private float manualLookPixels;
     private float toastUntil;
     private string toastTitle;
     private string toastMessage;
     private string hoverName;
     private bool hoverDiscovered;
     private Vector2 hoverPointer;
+
+    public string FreeRoamObjective => discoveries.Count > 0 ? "继续探索，认识更多海洋伙伴"
+        : manualTravelDistance < 0.65f ? "四处游游，认识海洋伙伴"
+        : manualLookPixels < 36f ? "看看四周，找一位海洋伙伴" : "找一位海洋伙伴，点一下认识它";
+
+    public void RecordManualTravel(float distance)
+    {
+        if (!(OceanMissionDirector.Instance?.IsMenuOpen ?? false)) manualTravelDistance += Mathf.Max(0f, distance);
+    }
+
+    public void RecordManualLook(float pixels) => manualLookPixels += Mathf.Max(0f, pixels);
+
+    private string BuildControlsHint(CinematicDive dive)
+    {
+        string missionHint = OceanMissionDirector.Instance?.ActionHint;
+        if (!string.IsNullOrEmpty(missionHint)) return missionHint;
+        if (dive != null && dive.IsGuidingAnimal) return "松开后，伙伴会沿这个方向继续游";
+        if (dive != null && dive.GuidedEncounter != null) return $"按住{dive.GuidedEncounter.DisplayName}，拖动引导它";
+        if (!string.IsNullOrEmpty(hoverName)) return hoverDiscovered ? $"双击{hoverName}，选中它" : $"点一下{hoverName}，认识它";
+        if (manualTravelDistance < 0.65f) return "按住左侧 ↑，往前游";
+        if (manualLookPixels < 36f) return "拖动空白处，看看四周";
+        return string.Empty;
+    }
 
     private void Awake()
     {
@@ -3759,6 +3789,8 @@ public sealed class UnderwaterHud : MonoBehaviour
             return true;
         }
         Vector2 guiPoint = new(screenPointer.x, Screen.height - screenPointer.y);
+        if (Instance != null && (GetDiscoveryButtonRect().Contains(guiPoint)
+            || Instance.discoveryOpen && GetDiscoveryRect().Contains(guiPoint))) return true;
         foreach (Rect rect in GetTravelControlRects())
         {
             if (rect.Contains(guiPoint))
@@ -3771,23 +3803,13 @@ public sealed class UnderwaterHud : MonoBehaviour
 
     private void OnGUI()
     {
+        CinematicDive dive = Camera.main == null ? null : Camera.main.GetComponent<CinematicDive>();
+        if (OceanMissionDirector.Instance != null && OceanMissionDirector.Instance.IsMenuOpen)
+        {
+            dive?.SetHudMove(Vector3.zero);
+            return;
+        }
         float uiScale = Mathf.Clamp(Screen.width / 1440f, 0.72f, 1.08f);
-        titleStyle ??= new GUIStyle(GUI.skin.label)
-        {
-            font = chineseFont,
-            alignment = TextAnchor.MiddleCenter,
-            fontSize = Mathf.Clamp(Screen.width / 42, 18, 36),
-            fontStyle = FontStyle.Normal
-        };
-        titleStyle.normal.textColor = new Color(0.86f, 0.98f, 1f, alpha * 0.88f);
-
-        hintStyle ??= new GUIStyle(GUI.skin.label)
-        {
-            font = chineseFont,
-            alignment = TextAnchor.MiddleCenter,
-            fontSize = Mathf.Clamp(Screen.width / 95, 11, 17)
-        };
-        hintStyle.normal.textColor = new Color(0.75f, 0.92f, 0.95f, alpha * 0.64f);
 
         panelTitleStyle ??= new GUIStyle(GUI.skin.label)
         {
@@ -3811,6 +3833,7 @@ public sealed class UnderwaterHud : MonoBehaviour
         toastTitleStyle ??= new GUIStyle(panelTitleStyle)
         {
             alignment = TextAnchor.MiddleCenter,
+            wordWrap = true,
             fontSize = Mathf.RoundToInt(17f * uiScale)
         };
         toastTextStyle ??= new GUIStyle(panelTextStyle)
@@ -3831,45 +3854,42 @@ public sealed class UnderwaterHud : MonoBehaviour
         touchButtonStyle.normal.textColor = new Color(0.86f, 0.98f, 1f, 0.90f);
         touchButtonStyle.hover.textColor = Color.white;
         touchButtonStyle.active.textColor = Color.white;
+        menuButtonStyle ??= new GUIStyle(GUI.skin.label)
+        {
+            font = chineseFont,
+            alignment = TextAnchor.MiddleCenter
+        };
+        menuButtonStyle.normal.textColor = new Color(0.90f, 0.97f, 0.98f);
+        menuButtonStyle.hover.background = softPanelTexture;
 
-        titleStyle.fontSize = Mathf.Clamp(Screen.width / 42, 18, 36);
-        hintStyle.fontSize = Mathf.Clamp(Screen.width / 95, 11, 17);
-        panelTitleStyle.fontSize = Mathf.RoundToInt(14f * uiScale);
-        panelTextStyle.fontSize = Mathf.RoundToInt(12f * uiScale);
-        toastTitleStyle.fontSize = Mathf.RoundToInt(17f * uiScale);
-        toastTextStyle.fontSize = Mathf.RoundToInt(13f * uiScale);
+        panelTitleStyle.fontSize = Mathf.Max(12, Mathf.RoundToInt(14f * uiScale));
+        panelTextStyle.fontSize = Mathf.Max(11, Mathf.RoundToInt(12f * uiScale));
+        toastTitleStyle.fontSize = Mathf.Max(14, Mathf.RoundToInt(17f * uiScale));
+        toastTextStyle.fontSize = Mathf.Max(13, Mathf.RoundToInt(13f * uiScale));
         touchButtonStyle.fontSize = Mathf.RoundToInt(25f * uiScale);
+        menuButtonStyle.fontSize = Mathf.RoundToInt(15f * Mathf.Clamp(Mathf.Min(Screen.width / 1440f, Screen.height / 900f), 0.82f, 1.35f));
 
-        if (OceanMissionDirector.Instance == null || !OceanMissionDirector.Instance.IsMissionActive)
-            GUI.Label(new Rect(0f, Screen.height * 0.07f, Screen.width, 48f), "深海漫游", titleStyle);
-
-        Rect logPanel = GetDiscoveryRect();
-        GUI.DrawTexture(logPanel, panelTexture, ScaleMode.StretchToFill);
-        GUI.Label(new Rect(logPanel.x + 16f * uiScale, logPanel.y + 12f * uiScale, logPanel.width - 32f * uiScale, 24f * uiScale), $"海洋图鉴   {discoveries.Count} / 4", panelTitleStyle);
-        GUI.Label(new Rect(logPanel.x + 16f * uiScale, logPanel.y + 40f * uiScale, logPanel.width - 32f * uiScale, 40f * uiScale), BuildDiscoveryLine(), panelTextStyle);
-        Rect progressBack = new Rect(logPanel.x + 16f * uiScale, logPanel.yMax - 19f * uiScale, logPanel.width - 32f * uiScale, 3f * uiScale);
-        GUI.DrawTexture(progressBack, softPanelTexture, ScaleMode.StretchToFill);
-        if (discoveries.Count > 0)
+        if (GUI.Button(GetDiscoveryButtonRect(), discoveryOpen ? "收起图鉴" : "图鉴", menuButtonStyle)) discoveryOpen = !discoveryOpen;
+        if (discoveryOpen)
         {
-            GUI.DrawTexture(new Rect(progressBack.x, progressBack.y, progressBack.width * discoveries.Count / 4f, progressBack.height), progressTexture, ScaleMode.StretchToFill);
+            Rect logPanel = GetDiscoveryRect();
+            float contentWidth = logPanel.width - 32f * uiScale;
+            float headerHeight = panelTitleStyle.CalcHeight(new GUIContent($"海洋图鉴   {discoveries.Count} / 4"), contentWidth);
+            float bodyHeight = panelTextStyle.CalcHeight(new GUIContent(BuildDiscoveryLine()), contentWidth);
+            GUI.DrawTexture(logPanel, panelTexture, ScaleMode.StretchToFill);
+            GUI.Label(new Rect(logPanel.x + 16f * uiScale, logPanel.y + 12f * uiScale, contentWidth, headerHeight), $"海洋图鉴   {discoveries.Count} / 4", panelTitleStyle);
+            GUI.Label(new Rect(logPanel.x + 16f * uiScale, logPanel.y + 18f * uiScale + headerHeight, contentWidth, bodyHeight), BuildDiscoveryLine(), panelTextStyle);
+            Rect progressBack = new Rect(logPanel.x + 16f * uiScale, logPanel.yMax - 19f * uiScale, logPanel.width - 32f * uiScale, 3f * uiScale);
+            GUI.DrawTexture(progressBack, softPanelTexture, ScaleMode.StretchToFill);
+            if (discoveries.Count > 0)
+                GUI.DrawTexture(new Rect(progressBack.x, progressBack.y, progressBack.width * discoveries.Count / 4f, progressBack.height), progressTexture, ScaleMode.StretchToFill);
         }
 
-        CinematicDive dive = Camera.main == null ? null : Camera.main.GetComponent<CinematicDive>();
-        if (dive != null && dive.IsFreeDive)
-        {
-            Rect pauseBadge = new Rect(Screen.width - 150f * uiScale, 22f * uiScale, 126f * uiScale, 34f * uiScale);
-            GUI.DrawTexture(pauseBadge, panelTexture, ScaleMode.StretchToFill);
-            GUI.Label(pauseBadge, "自由漫游", toastTextStyle);
-        }
-
-        string controls = string.IsNullOrEmpty(hoverName)
-            ? "左侧箭头移动 · 右侧箭头升降 · 拖空白处转向"
-            : hoverDiscovered ? $"双击选中 · 按住并拖动引导 · 松开结束 · {hoverName}" : $"单击收录图鉴 · 双击选中 · {hoverName}";
-        float controlsWidth = Mathf.Min(740f * uiScale, Screen.width - 24f);
+        string controls = BuildControlsHint(dive);
+        float controlsWidth = Mathf.Min(600f * uiScale, Screen.width - 24f);
         float controlsHeight = Mathf.Max(30f * uiScale, toastTextStyle.CalcHeight(new GUIContent(controls), controlsWidth - 12f));
         Rect controlsPanel = new Rect((Screen.width - controlsWidth) * 0.5f, Screen.height - controlsHeight - 16f, controlsWidth, controlsHeight);
-        GUI.DrawTexture(controlsPanel, softPanelTexture, ScaleMode.StretchToFill);
-        GUI.Label(controlsPanel, controls, toastTextStyle);
+        if (!string.IsNullOrEmpty(controls)) DrawOverlayLabel(controlsPanel, controls, toastTextStyle);
 
         if (dive != null)
         {
@@ -3885,29 +3905,52 @@ public sealed class UnderwaterHud : MonoBehaviour
                 Mathf.Clamp(guiPointer.y - 40f * uiScale, 8f, Screen.height - 36f * uiScale),
                 tooltipWidth,
                 30f * uiScale);
-            GUI.DrawTexture(tooltip, panelTexture, ScaleMode.StretchToFill);
-            GUI.Label(tooltip, hoverName, toastTextStyle);
+            DrawOverlayLabel(tooltip, hoverName, toastTextStyle);
         }
 
-        if (Time.unscaledTime < toastUntil)
+        if (Time.unscaledTime < toastUntil && !(OceanMissionDirector.Instance?.SubtitlesVisible ?? false))
         {
-            float toastHeight = string.IsNullOrEmpty(toastMessage) ? 62f : 94f;
-            Rect toastPanel = new Rect(Screen.width * 0.5f - 235f * uiScale, Screen.height * 0.67f, 470f * uiScale, toastHeight * uiScale);
-            GUI.DrawTexture(toastPanel, panelTexture, ScaleMode.StretchToFill);
-            GUI.Label(new Rect(toastPanel.x + 18f * uiScale, toastPanel.y + 10f * uiScale, toastPanel.width - 36f * uiScale, 28f * uiScale), toastTitle, toastTitleStyle);
+            Rect[] arrows = GetTravelControlRects();
+            float left = arrows[3].xMax + 12f;
+            float right = arrows[4].xMin - 12f;
+            float width = Mathf.Min(540f * uiScale, right - left);
+            float bodyHeight = string.IsNullOrEmpty(toastMessage) ? 0f : toastTextStyle.CalcHeight(new GUIContent(toastMessage), width);
+            float titleHeight = toastTitleStyle.CalcHeight(new GUIContent(toastTitle), width);
+            Rect toastPanel = new Rect((left + right - width) * 0.5f, Screen.height - 80f - titleHeight - bodyHeight, width, titleHeight + bodyHeight);
+            DrawOverlayLabel(new Rect(toastPanel.x, toastPanel.y, width, titleHeight), toastTitle, toastTitleStyle);
             if (!string.IsNullOrEmpty(toastMessage))
             {
-                GUI.Label(new Rect(toastPanel.x + 22f * uiScale, toastPanel.y + 42f * uiScale, toastPanel.width - 44f * uiScale, 40f * uiScale), toastMessage, toastTextStyle);
+                DrawOverlayLabel(new Rect(toastPanel.x, toastPanel.y + titleHeight, width, bodyHeight), toastMessage, toastTextStyle);
             }
         }
-
-        alpha = Mathf.MoveTowards(alpha, Time.time < 4f ? 1f : 0f, Time.deltaTime * 0.25f);
     }
 
     public static Rect GetDiscoveryRect()
     {
         float scale = Mathf.Clamp(Screen.width / 1440f, 0.72f, 1.08f);
-        return new Rect(24f * scale, 22f * scale, 286f * scale, 110f * scale);
+        if (Instance == null || !Instance.discoveryOpen) return GetDiscoveryButtonRect();
+        float width = 286f * scale;
+        float contentWidth = width - 32f * scale;
+        float headerHeight = Instance.panelTitleStyle == null ? 24f * scale
+            : Instance.panelTitleStyle.CalcHeight(new GUIContent($"海洋图鉴   {Instance.discoveries.Count} / 4"), contentWidth);
+        float bodyHeight = Instance.panelTextStyle == null ? 40f * scale
+            : Instance.panelTextStyle.CalcHeight(new GUIContent(Instance.BuildDiscoveryLine()), contentWidth);
+        return new Rect(Screen.width - 310f * scale, 68f * scale, width, Mathf.Max(110f * scale, headerHeight + bodyHeight + 48f * scale));
+    }
+
+    private static Rect GetDiscoveryButtonRect()
+    {
+        float scale = Mathf.Clamp(Mathf.Min(Screen.width / 1440f, Screen.height / 900f), 0.82f, 1.35f);
+        return new Rect(Screen.width - 160f * scale, 20f * scale, 72f * scale, 34f * scale);
+    }
+
+    public static void DrawOverlayLabel(Rect rect, string text, GUIStyle style)
+    {
+        Color color = style.normal.textColor;
+        style.normal.textColor = new Color(0.005f, 0.035f, 0.055f, 0.75f);
+        GUI.Label(new Rect(rect.x + 1f, rect.y + 1f, rect.width, rect.height), text, style);
+        style.normal.textColor = color;
+        GUI.Label(rect, text, style);
     }
 
     public static Rect[] GetTravelControlRects()
@@ -3941,6 +3984,8 @@ public sealed class UnderwaterHud : MonoBehaviour
             (right ? 1f : 0f) - (left ? 1f : 0f),
             (ascend ? 1f : 0f) - (descend ? 1f : 0f),
             (forward ? 1f : 0f) - (backward ? 1f : 0f)));
+        DrawOverlayLabel(new Rect(rects[2].x, rects[2].yMax + 6f, rects[3].xMax - rects[2].x, 24f), "移动", toastTextStyle);
+        DrawOverlayLabel(new Rect(rects[5].x - 8f, rects[5].yMax + 6f, rects[5].width + 16f, 24f), "升降", toastTextStyle);
     }
 
     private string BuildDiscoveryLine()
