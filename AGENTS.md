@@ -18,6 +18,11 @@ Do not edit, switch, overwrite or deploy the original project at
   158 MB result as a result for this branch.
 - Changes with possible visual impact require a separate experimental branch,
   controlled visual comparisons, and explicit user acceptance before integration.
+- The user requested a lighter-water/coral/light reference preview on 2026-10-20.
+  Branch `visual/clear-water-preview-20261020` may change those runtime grading
+  parameters and depth of field only in its separate `Build/WebGLClearWater`
+  output. The previous 8896 build must remain intact. `look=original&water=layered`
+  provides a same-build comparison; new screenshots/recordings are not approval.
 - Keep changes reviewable and reversible. Do not merge, push or publish without
   explicit user direction. Do not initialize Git in the original live project.
 - The original project is still evolving. This is a verified source snapshot,

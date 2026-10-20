@@ -25,6 +25,8 @@ public static class MissionGameplayValidation
     {
         try
         {
+            ClearWaterStyleValidation.Run();
+            RescueRopeValidation.Run();
             MovementSeafloorValidation.Run();
             CreatureGuidanceValidation.Run();
             Run();
@@ -158,6 +160,7 @@ public static class MissionGameplayValidation
                     Require(control.width >= 44f && control.width <= 48f && control.xMin >= 0f && control.yMin >= 0f
                         && control.xMax <= Screen.width && control.yMax <= Screen.height, "A swim arrow is oversized or outside the viewport.");
                 UnderwaterHud hud = UnderwaterHud.Instance;
+                ClearWaterStyleValidation.ValidateLive();
                 ValidateMinimalHud(director, hud);
                 foreach (string id in new[] { "clownfish", "turtle", "manta", "whale" }) hud.Discover(id, id, string.Empty);
                 Require(Read<HashSet<string>>(hud, "discoveries").Count == 4 && ((string)Call(hud, "BuildDiscoveryLine")).Contains("座头鲸"),
@@ -206,8 +209,23 @@ public static class MissionGameplayValidation
         {
             GameObject turtle = Read<GameObject>(director, "rescueTurtle");
             FishingLineRescue line = Read<FishingLineRescue>(director, "fishingLine");
+            if (role == "Turtle")
+            {
+                Call(director, "ResetMission");
+                Require(turtle.GetComponentsInChildren<MissionInteractable>().Length == 0,
+                    "Abandoned rescue knots remain active during immediate replay.");
+                Call(director, "ChooseMission", Choice("MissionMode", mission));
+                Call(director, "StartAsRole", Choice("PlayerRole", role));
+                line = Read<FishingLineRescue>(director, "fishingLine");
+            }
             OceanCreatureDrift drift = turtle.GetComponent<OceanCreatureDrift>();
             Require(drift != null && drift.enabled && line != null, "Rescue initialization froze the turtle or omitted the fishing line.");
+            RescueRopeValidation.ValidateInstance(line);
+            CinematicDive pointerDive = Camera.main.GetComponent<CinematicDive>();
+            Require(line.TryGetNextKnotPosition(out Vector3 firstKnot), "Rescue has no next knot position.");
+            Vector3 knotPointer = Camera.main.WorldToScreenPoint(firstKnot);
+            Require(!(bool)Call(pointerDive, "PointerHitsEncounter", new Vector2(knotPointer.x, knotPointer.y), turtle.GetComponent<MarineEncounter>()),
+                "An already selected turtle steals presses from its rescue knots.");
             Require(turtle.transform.position.y < UnderwaterWorld.WaterSurfaceHeight - 1f, "Replayed rescue started with the turtle still at the surface.");
             Require(Mathf.Abs(turtle.transform.position.y - (UnderwaterWorld.WaterSurfaceHeight - 6f)) < 0.01f,
                 "Rescue starts too deep for the short child-friendly ascent.");
@@ -224,11 +242,18 @@ public static class MissionGameplayValidation
             }
             Require(Read<int>(director, "stage") == 1 && drift.enabled, "Untying three knots did not start the breathing stage.");
             CinematicDive dive = Camera.main.GetComponent<CinematicDive>();
-            Require(director.ActionHint == "双击豆豆，选中它", "The rescue introduced dragging before selecting the turtle.");
-            typeof(CinematicDive).GetField("guidedEncounter", PrivateInstance).SetValue(dive, turtle.GetComponent<MarineEncounter>());
+            Require(director.ActionHint == "点一下豆豆，选中它", "The rescue introduced dragging before selecting the turtle.");
+            Require(Read<bool>(drift, "awaitingGuidance"), "The freed turtle swims out of reach while the child reads.");
+            Vector3 turtlePointer = Camera.main.WorldToScreenPoint(turtle.transform.position);
+            Call(dive, "TryDiscover", new Vector2(turtlePointer.x, turtlePointer.y));
+            Require(dive.GuidedEncounter == turtle.GetComponent<MarineEncounter>(), "One real hit on the rescue turtle did not select it.");
             Require(director.ActionHint == "按住豆豆，向上拖", "Selecting the turtle did not advance its action hint.");
             typeof(CinematicDive).GetField("guidingAnimal", PrivateInstance).SetValue(dive, true);
             Require(director.ActionHint == "向上拖，带豆豆靠近水面", "Dragging the turtle did not advance its action hint.");
+            Vector3 beforeReleaseHint = turtle.transform.position;
+            turtle.transform.position = new Vector3(beforeReleaseHint.x, UnderwaterWorld.WaterSurfaceHeight - 1.1f, beforeReleaseHint.z);
+            Require(director.ActionHint == "松开，豆豆会继续往上游", "The final ascent omits the release instruction.");
+            turtle.transform.position = beforeReleaseHint;
             typeof(CinematicDive).GetField("guidedEncounter", PrivateInstance).SetValue(dive, null);
             typeof(CinematicDive).GetField("guidingAnimal", PrivateInstance).SetValue(dive, false);
             object[] target = { Vector3.zero };

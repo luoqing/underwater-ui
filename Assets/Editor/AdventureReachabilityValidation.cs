@@ -183,7 +183,7 @@ public static class AdventureReachabilityValidation
         OceanMissionDirector director = OceanMissionDirector.Instance;
         GameObject turtle = (GameObject)typeof(OceanMissionDirector).GetField("rescueTurtle", Fields).GetValue(director);
         if (turtle == null) throw new InvalidOperationException("Rescue turtle missing in production world");
-        FishingLineRescue line = turtle.GetComponent<FishingLineRescue>();
+        FishingLineRescue line = (FishingLineRescue)typeof(OceanMissionDirector).GetField("fishingLine", Fields).GetValue(director);
         bool temporary = line == null;
         if (temporary)
         {

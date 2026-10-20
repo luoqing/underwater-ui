@@ -6,6 +6,7 @@ Shader "Underwater/TransparentGlow"
         _EmissionStrength ("Emission", Range(0, 8)) = 2
         _PatternScale ("Pattern Scale", Range(0.01, 4)) = 0.5
         _Speed ("Speed", Range(0, 3)) = 0.3
+        _LitFilament ("Lit fishing filament", Range(0, 1)) = 0
     }
     SubShader
     {
@@ -22,6 +23,7 @@ Shader "Underwater/TransparentGlow"
             #pragma vertex vert
             #pragma fragment frag
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
 
             struct Attributes
             {
@@ -44,6 +46,7 @@ Shader "Underwater/TransparentGlow"
                 float _EmissionStrength;
                 float _PatternScale;
                 float _Speed;
+                float _LitFilament;
             CBUFFER_END
 
             Varyings vert(Attributes input)
@@ -64,6 +67,19 @@ Shader "Underwater/TransparentGlow"
                 float waveB = sin((input.positionWS.x * 0.7 - input.positionWS.z * 1.2) * _PatternScale - _Time.y * _Speed * 1.37);
                 float pulse = 0.78 + (waveA + waveB) * 0.055;
                 float fresnel = pow(1.0 - saturate(dot(normalize(input.normalWS), normalize(_WorldSpaceCameraPos - input.positionWS))), 2.0);
+                if (_LitFilament > 0.5)
+                {
+                    half3 normal = normalize(input.normalWS);
+                    half3 view = SafeNormalize(_WorldSpaceCameraPos - input.positionWS);
+                    Light sun = GetMainLight();
+                    half diffuse = abs(dot(normal, sun.direction));
+                    half3 filament = _BaseColor.rgb * (SampleSH(normal) + sun.color * (0.12h + diffuse * 0.58h));
+                    half glint = pow(saturate(abs(dot(normal, SafeNormalize(view + sun.direction)))), 48.0h) * 0.035h;
+                    filament += sun.color * glint;
+                    // Shared by line strips and round knot tubes. Tube UV.y is
+                    // arc length, not ribbon width; a width mask cuts it apart.
+                    return half4(MixFog(filament, input.fogFactor), _BaseColor.a);
+                }
                 float radial = saturate(1.0 - length(input.uv - 0.5) * 2.0);
                 radial = radial * radial * (3.0 - 2.0 * radial);
                 half3 color = _BaseColor.rgb * (_EmissionStrength * pulse + fresnel * 0.6);
@@ -74,4 +90,3 @@ Shader "Underwater/TransparentGlow"
         }
     }
 }
-

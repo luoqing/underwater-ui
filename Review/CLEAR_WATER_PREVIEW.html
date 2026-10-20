@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>浅水版 · 海底世界</title>
+<style>
+  :root { color-scheme: light; --ink:#183e46; --muted:#58757b; --line:#cfdddd; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:#f3f6f2; color:var(--ink); font-family:"Noto Serif CJK SC","Songti SC",serif; line-height:1.65; }
+  main { max-width:1200px; margin:auto; padding:44px 24px 60px; }
+  header { border-bottom:1px solid var(--line); padding-bottom:30px; margin-bottom:30px; }
+  .eyebrow { font-size:12px; letter-spacing:.16em; color:var(--muted); }
+  h1 { margin:9px 0 12px; font-size:clamp(32px,5vw,58px); font-weight:500; letter-spacing:-.04em; }
+  p { margin:8px 0; }
+  .muted, figcaption { color:var(--muted); font-size:14px; }
+  nav { display:flex; flex-wrap:wrap; gap:12px; margin-top:24px; }
+  a { color:inherit; text-underline-offset:4px; }
+  nav a { padding:11px 20px; border:1px solid #9db8bb; border-radius:5px; text-decoration:none; }
+  nav a:first-child { background:var(--ink); color:#fff; border-color:var(--ink); }
+  h2 { margin:32px 0 12px; font-size:25px; font-weight:500; }
+  video, img { width:100%; display:block; background:#153e4b; border-radius:5px; }
+  video { max-height:650px; }
+  figure { margin:0; }
+  figcaption { margin-top:9px; }
+  .grid { display:grid; grid-template-columns:1fr 1fr; gap:28px 22px; }
+  footer { margin-top:36px; border-top:1px solid var(--line); padding-top:16px; font-size:13px; color:var(--muted); }
+  @media(max-width:700px) { main{padding:28px 16px;} .grid{grid-template-columns:1fr;} }
+</style>
+<main>
+  <header>
+    <div class="eyebrow">独立对照版 / 2026.10.20</div>
+    <h1>海水浅一点，细节留下来。</h1>
+    <p>浅青蓝海水、偏暖的礁石与沙地、顺着主光的柔和光束。模型和动物贴图没有降质压缩。</p>
+    <p class="muted">左下移动，右下升降。目标留一句，操作提示跟着当前步骤出现。</p>
+    <nav>
+      <a href="./?water=layered&amp;start=turtle&amp;v=clear-water-20261020-r1" target="_blank" rel="noopener">进入新版试玩 ↗</a>
+      <a href="./?water=layered&amp;look=original&amp;start=turtle&amp;v=clear-water-20261020-r1" target="_blank" rel="noopener">对照旧配色（同版模型） ↗</a>
+    </nav>
+  </header>
+  <section>
+    <h2>救援步骤实录</h2>
+    <video controls playsinline preload="metadata" poster="review/rescue-start.png">
+      <source src="review/gameplay-steps.mp4" type="video/mp4">
+      <track src="review/gameplay-steps.vtt" kind="subtitles" srclang="zh" label="步骤提示" default>
+      当前浏览器无法播放，请下载录像查看。
+    </video>
+    <p class="muted">约 1 分 43 秒。实录剪辑，剪去定位与等待，没有跳关、加速或插帧。录屏无声；软件渲染的录制帧率不代表核显实测帧率。</p>
+    <p><a href="review/gameplay-steps.mp4" download>下载步骤版</a>　·　<a href="review/gameplay-full.mp4" download>查看未剪辑原片</a></p>
+  </section>
+  <section>
+    <h2>海景配色对照</h2>
+    <div class="grid">
+      <figure><a href="review/clear-water-1080.png"><img src="review/clear-water-1080.png" loading="lazy" alt="浅水新版1080p实际画面"></a><figcaption>新版浅水配色 · 1080p 实拍</figcaption></figure>
+      <figure><a href="review/original-water-1080.png"><img src="review/original-water-1080.png" loading="lazy" alt="旧配色同场景1080p实际画面"></a><figcaption>旧配色对照 · 同一入口，动物持续游动</figcaption></figure>
+    </div>
+  </section>
+  <section>
+    <h2>道具与动物近景</h2>
+    <p class="muted">以下是同版 Unity 实际渲染，使用检视机位拍摄，不是概念图，也不作为手动通关证据。</p>
+    <div class="grid">
+      <figure><a href="review/rescue-lines.png"><img src="review/rescue-lines.png" loading="lazy" alt="海龟身上贴合的半透明鱼线"></a><figcaption>鱼线：细、半透明，观察它与龟壳的缠绕关系。</figcaption></figure>
+      <figure><a href="review/knot-close.png"><img src="review/knot-close.png" loading="lazy" alt="同一根尼龙鱼线打成的立体绳结近景"></a><figcaption>绳结：与鱼线共用材质、保持同样粗细，圆管交叠，保留线尾。</figcaption></figure>
+      <figure><a href="review/lantern-close.png"><img src="review/lantern-close.png" loading="lazy" alt="金属笼结构信标灯近景"></a><figcaption>信标灯：当前金属笼架与发光芯的实际效果，仍可继续验收旧化与材质。</figcaption></figure>
+      <figure><a href="review/whale-side.png"><img src="review/whale-side.png" loading="lazy" alt="新海水配色下鲸鱼侧面"></a><figcaption>鲸鱼：保留原贴图，检查鲸身连续性与近景细节。</figcaption></figure>
+    </div>
+  </section>
+  <footer>这是待你确认的独立试版，未覆盖现有预览。录像展示到哪里，以画面中的任务进度为准。</footer>
+</main>
+</html>

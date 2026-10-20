@@ -49,17 +49,17 @@ public sealed class UnderwaterWorld : MonoBehaviour
     private Color layeredTop = new(0.10f, 0.52f, 0.63f);
     private Color layeredHorizon = new(0.025f, 0.30f, 0.45f);
     private Color layeredBottom = new(0.006f, 0.07f, 0.14f);
+    private bool clearWaterLook;
 
     private void Awake()
     {
         Random.InitState(73021);
-        ConfigureWaterLook();
+        ConfigureWaterLook(Application.absoluteURL);
         BuildWorld();
     }
 
-    private void ConfigureWaterLook()
+    private void ConfigureWaterLook(string url)
     {
-        string url = Application.absoluteURL;
         if (url.Contains("water=layered"))
         {
             useLayeredFog = true;
@@ -166,6 +166,42 @@ public sealed class UnderwaterWorld : MonoBehaviour
             surfaceShallow = new Color(0.075f, 0.47f, 0.61f, 0.12f);
             surfaceDeep = new Color(0.012f, 0.095f, 0.19f, 0.20f);
         }
+
+        // This isolated build defaults to the new reference look. The original
+        // layered-water treatment remains available for same-build comparison.
+        clearWaterLook = !url.Contains("look=original");
+        if (!clearWaterLook) return;
+        useLayeredFog = true;
+        shallowWater = new Color(0.16f, 0.49f, 0.59f);
+        midWater = new Color(0.065f, 0.30f, 0.42f);
+        deepWater = new Color(0.024f, 0.14f, 0.24f);
+        shallowSky = new Color(0.31f, 0.54f, 0.58f);
+        midSky = new Color(0.15f, 0.34f, 0.41f);
+        shallowEquator = new Color(0.16f, 0.32f, 0.33f);
+        deepEquator = new Color(0.07f, 0.16f, 0.22f);
+        backgroundDeep = new Color(0.035f, 0.17f, 0.26f);
+        shallowSun = new Color(0.96f, 0.98f, 0.94f);
+        midSun = new Color(0.70f, 0.86f, 0.91f);
+        deepSun = new Color(0.43f, 0.65f, 0.79f);
+        shallowSunIntensity = 2.42f;
+        midSunIntensity = 1.50f;
+        deepSunIntensity = 0.80f;
+        shallowFogStart = 16f;
+        midFogStart = 10f;
+        deepFogStart = 6f;
+        shallowFogEnd = 145f;
+        midFogEnd = 110f;
+        deepFogEnd = 76f;
+        layeredTop = new Color(0.24f, 0.62f, 0.69f);
+        layeredHorizon = new Color(0.105f, 0.39f, 0.51f);
+        layeredBottom = new Color(0.025f, 0.15f, 0.24f);
+        postExposure = 0.72f;
+        postSaturation = 2f;
+        beamAlpha = 0.026f;
+        beamIntensity = 0.94f;
+        causticStrength = 0.19f;
+        surfaceShallow = new Color(0.24f, 0.68f, 0.74f, 0.10f);
+        surfaceDeep = new Color(0.055f, 0.23f, 0.32f, 0.16f);
     }
 
     private void Update()
@@ -217,7 +253,7 @@ public sealed class UnderwaterWorld : MonoBehaviour
         RenderSettings.ambientMode = AmbientMode.Trilight;
         RenderSettings.ambientSkyColor = shallowSky;
         RenderSettings.ambientEquatorColor = shallowEquator;
-        RenderSettings.ambientGroundColor = new Color(0.055f, 0.17f, 0.17f);
+        RenderSettings.ambientGroundColor = clearWaterLook ? new Color(0.10f, 0.17f, 0.17f) : new Color(0.055f, 0.17f, 0.17f);
         RenderSettings.reflectionIntensity = 0.72f;
         RenderSettings.fog = true;
         RenderSettings.fogMode = useLayeredFog ? FogMode.Linear : FogMode.ExponentialSquared;
@@ -255,7 +291,7 @@ public sealed class UnderwaterWorld : MonoBehaviour
         sunlight.color = shallowSun;
         sunlight.intensity = shallowSunIntensity;
         sunlight.shadows = LightShadows.Soft;
-        sunlight.shadowStrength = 0.64f;
+        sunlight.shadowStrength = clearWaterLook ? 0.72f : 0.64f;
         sunlight.shadowBias = 0.04f;
         sunlight.shadowNormalBias = 0.4f;
         sunlight.GetUniversalAdditionalLightData().usePipelineSettings = false;
@@ -276,7 +312,7 @@ public sealed class UnderwaterWorld : MonoBehaviour
         Light light = go.AddComponent<Light>();
         light.type = LightType.Point;
         light.color = color;
-        light.intensity = intensity;
+        light.intensity = intensity * (clearWaterLook ? 0.65f : 1f);
         light.range = range;
         light.shadows = LightShadows.None;
     }
@@ -295,6 +331,14 @@ public sealed class UnderwaterWorld : MonoBehaviour
         light.spotAngle = spotAngle;
         light.innerSpotAngle = spotAngle * 0.48f;
         light.shadows = LightShadows.None;
+        if (clearWaterLook)
+        {
+            Vector3 floor = new(position.x, SampleSeafloorHeight(position.x, position.z), position.z);
+            Vector3 direction = sunlight.transform.forward;
+            go.transform.position = floor - direction * ((position.y - floor.y) / -direction.y);
+            go.transform.rotation = sunlight.transform.rotation;
+            light.color = new Color(0.81f, 0.92f, 0.94f);
+        }
     }
 
     private void CreateCamera()
@@ -347,7 +391,7 @@ public sealed class UnderwaterWorld : MonoBehaviour
         postVolume.profile = profile;
 
         Bloom bloom = profile.Add<Bloom>(true);
-        bloom.intensity.Override(0.30f);
+        bloom.intensity.Override(clearWaterLook ? 0.18f : 0.30f);
         bloom.threshold.Override(0.95f);
         bloom.scatter.Override(0.62f);
 
@@ -355,11 +399,11 @@ public sealed class UnderwaterWorld : MonoBehaviour
         color.postExposure.Override(postExposure);
         color.contrast.Override(6f);
         color.saturation.Override(postSaturation);
-        color.colorFilter.Override(new Color(0.96f, 1f, 1f));
+        color.colorFilter.Override(clearWaterLook ? new Color(0.99f, 1f, 0.99f) : new Color(0.96f, 1f, 1f));
 
         Vignette vignette = profile.Add<Vignette>(true);
         vignette.color.Override(new Color(0.01f, 0.05f, 0.08f));
-        vignette.intensity.Override(0.08f);
+        vignette.intensity.Override(clearWaterLook ? 0.05f : 0.08f);
         vignette.smoothness.Override(0.78f);
 
         WhiteBalance whiteBalance = profile.Add<WhiteBalance>(true);
@@ -371,10 +415,10 @@ public sealed class UnderwaterWorld : MonoBehaviour
         lens.scale.Override(0.985f);
 
         ChromaticAberration chromatic = profile.Add<ChromaticAberration>(true);
-        chromatic.intensity.Override(0.018f);
+        chromatic.intensity.Override(clearWaterLook ? 0.006f : 0.018f);
 
         FilmGrain grain = profile.Add<FilmGrain>(true);
-        grain.intensity.Override(0.055f);
+        grain.intensity.Override(clearWaterLook ? 0.02f : 0.055f);
         grain.response.Override(0.72f);
 
         DepthOfField depthOfField = profile.Add<DepthOfField>(true);
@@ -383,6 +427,7 @@ public sealed class UnderwaterWorld : MonoBehaviour
         depthOfField.gaussianEnd.Override(42f);
         depthOfField.gaussianMaxRadius.Override(0.48f);
         depthOfField.highQualitySampling.Override(false);
+        depthOfField.active = !clearWaterLook;
     }
 
     private void CreateLayeredBackdrop()
@@ -546,6 +591,13 @@ public sealed class UnderwaterWorld : MonoBehaviour
             shaft.transform.position = shaftPositions[i];
             shaft.transform.rotation = Quaternion.Euler(Random.Range(-1.0f, 1.0f), -28f + Random.Range(-8f, 8f), Random.Range(5f, 11f));
             shaft.transform.localScale = new Vector3(Random.Range(8f, 14f), Random.Range(72f, 98f), Random.Range(8f, 14f));
+            if (clearWaterLook)
+            {
+                float azimuth = shaft.transform.eulerAngles.y;
+                shaft.transform.rotation = Quaternion.FromToRotation(Vector3.up, -sunlight.transform.forward) * Quaternion.Euler(0f, azimuth, 0f);
+                Vector3 scale = shaft.transform.localScale;
+                shaft.transform.localScale = new Vector3(scale.x * 0.52f, scale.y, scale.z * 0.52f);
+            }
             shaft.AddComponent<MeshFilter>().sharedMesh = beamMesh;
             shaft.AddComponent<MeshRenderer>().sharedMaterial = shaftMaterial;
             shaft.AddComponent<SoftPulse>().speed = Random.Range(0.15f, 0.35f);
@@ -579,9 +631,9 @@ public sealed class UnderwaterWorld : MonoBehaviour
         SpawnResourceModel("Models/ReefShelf", "Left coral garden", new Vector3(-7.4f, -3.4f, 25f), Quaternion.Euler(0f, 34f, -2f), 14f, null, new Color(0.96f, 1.02f, 1.03f));
         SpawnResourceModel("Models/Reef", "Left mid reef wall", new Vector3(-10.5f, -4.2f, 45f), Quaternion.Euler(0f, 34f, -3f), 29f, CreateFallbackReef);
         SpawnResourceModel("Models/ReefShelf", "Right coral garden", new Vector3(8.4f, -4.2f, 47f), Quaternion.Euler(0f, 194f, 2f), 13.5f, null, new Color(1.02f, 0.94f, 0.91f));
-        SpawnResourceModel("Models/CoralCluster", "Warm red coral accent", new Vector3(4.8f, -2.5f, 12f), Quaternion.Euler(0f, 148f, 0f), 8.5f, null, new Color(1.18f, 0.48f, 0.38f));
-        SpawnResourceModel("Models/CoralCluster", "Violet coral accent", new Vector3(-5.4f, -2.9f, 20f), Quaternion.Euler(0f, 42f, 1f), 7.5f, null, new Color(0.72f, 0.55f, 1.16f));
-        SpawnResourceModel("Models/CoralCluster", "Golden coral accent", new Vector3(5.8f, -3.4f, 35f), Quaternion.Euler(0f, 220f, -1f), 8f, null, new Color(1.18f, 0.92f, 0.48f));
+        SpawnResourceModel("Models/CoralCluster", "Warm red coral accent", new Vector3(4.8f, -2.5f, 12f), Quaternion.Euler(0f, 148f, 0f), 8.5f, null, clearWaterLook ? new Color(1.03f, 0.74f, 0.62f) : new Color(1.18f, 0.48f, 0.38f));
+        SpawnResourceModel("Models/CoralCluster", "Violet coral accent", new Vector3(-5.4f, -2.9f, 20f), Quaternion.Euler(0f, 42f, 1f), 7.5f, null, clearWaterLook ? new Color(0.86f, 0.81f, 0.98f) : new Color(0.72f, 0.55f, 1.16f));
+        SpawnResourceModel("Models/CoralCluster", "Golden coral accent", new Vector3(5.8f, -3.4f, 35f), Quaternion.Euler(0f, 220f, -1f), 8f, null, clearWaterLook ? new Color(1.06f, 0.96f, 0.77f) : new Color(1.18f, 0.92f, 0.48f));
         SpawnResourceModel("Models/ReefShelf", "Near pink reef shelf", new Vector3(-6.2f, -3.4f, 7f), Quaternion.Euler(0f, 12f, -2f), 11f, null, new Color(1.06f, 0.88f, 0.91f));
         SpawnResourceModel("Models/ReefShelf", "Mid channel reef shelf", new Vector3(-9.8f, -3.7f, 59f), Quaternion.Euler(0f, 58f, -2f), 7.5f, null, new Color(0.98f, 1.02f, 1.00f));
         SpawnResourceModel("Models/ReefShelf", "Far channel reef shelf", new Vector3(10.2f, -4f, 72f), Quaternion.Euler(0f, 226f, 1f), 7.2f, null, new Color(1.03f, 0.97f, 0.92f));
@@ -1123,6 +1175,8 @@ public sealed class UnderwaterWorld : MonoBehaviour
             return instance;
         }
 
+        if (clearWaterLook && (resourcePath.Contains("Reef") || resourcePath.Contains("Coral")))
+            tint = (tint ?? Color.white) * new Color(1.04f, 0.99f, 0.91f);
         if (tint.HasValue)
         {
             TintModelMaterials(renderers, tint.Value, emission ?? Color.black);
@@ -1564,11 +1618,11 @@ public sealed class UnderwaterWorld : MonoBehaviour
         if (normalMap != null) material.SetTexture("_NormalMap", normalMap);
         if (roughnessMap != null) material.SetTexture("_RoughnessMap", roughnessMap);
         if (aoMap != null) material.SetTexture("_AOMap", aoMap);
-        material.SetColor("_BaseColor", new Color(0.82f, 0.70f, 0.56f));
-        material.SetColor("_CausticColor", new Color(0.36f, 0.66f, 0.72f));
+        material.SetColor("_BaseColor", clearWaterLook ? new Color(0.94f, 0.87f, 0.73f) : new Color(0.82f, 0.70f, 0.56f));
+        material.SetColor("_CausticColor", clearWaterLook ? new Color(0.68f, 0.83f, 0.80f) : new Color(0.36f, 0.66f, 0.72f));
         material.SetFloat("_CausticStrength", causticStrength);
         material.SetFloat("_CausticScale", 1.55f);
-        material.SetFloat("_CausticSpeed", 0.22f);
+        material.SetFloat("_CausticSpeed", clearWaterLook ? 0.16f : 0.22f);
         material.SetFloat("_NormalStrength", 0.72f);
         runtimeMaterials.Add(material);
         return material;
@@ -1950,6 +2004,7 @@ public sealed class CinematicDive : MonoBehaviour
     private MarineEncounter guidedEncounter;
     private float lastClickTime = -10f;
     private bool guidingAnimal;
+    private bool guidanceStarted;
     private Vector3 freePosition;
     private Vector3 swimVelocity;
     private Vector3 hudMove;
@@ -2166,6 +2221,9 @@ public sealed class CinematicDive : MonoBehaviour
         Keyboard keyboard = Keyboard.current;
         if (keyboard != null && keyboard.rKey.wasPressedThisFrame)
         {
+            guidingAnimal = false;
+            guidanceStarted = false;
+            dragging = false;
             if (guidedEncounter != null)
             {
                 guidedEncounter.SetGuided(false, diveCamera);
@@ -2225,6 +2283,7 @@ public sealed class CinematicDive : MonoBehaviour
         guidedEncounter?.SetGuided(false, diveCamera);
         guidedEncounter = null;
         guidingAnimal = false;
+        guidanceStarted = false;
         dragging = false;
         lastClickedEncounter = null;
         lastClickTime = -10f;
@@ -2386,29 +2445,39 @@ public sealed class CinematicDive : MonoBehaviour
             if (guidingAnimal)
             {
                 guidingAnimal = false;
-                guidedEncounter?.EndGuidance();
+                if (guidanceStarted)
+                {
+                    guidedEncounter?.SetGuided(false, diveCamera);
+                    guidedEncounter = null;
+                }
+                guidanceStarted = false;
             }
             return;
         }
         UpdateHover(pointerPosition);
         if (WasPointerPressed(pointer))
         {
-            guidingAnimal = guidedEncounter != null;
+            guidingAnimal = guidedEncounter != null && PointerHitsEncounter(pointerPosition, guidedEncounter);
+            guidanceStarted = false;
             dragging = !guidingAnimal;
             pressPointer = pointerPosition;
             previousPointer = pointerPosition;
             pointerTravel = 0f;
-            if (guidingAnimal)
-            {
-                guidedEncounter.BeginGuidance(diveCamera);
-            }
         }
-        if (guidingAnimal && IsPointerPressed(pointer))
+        if (guidingAnimal && guidedEncounter != null && IsPointerPressed(pointer))
         {
             Vector2 delta = pointerPosition - previousPointer;
             previousPointer = pointerPosition;
             pointerTravel += delta.magnitude;
-            guidedEncounter.GuideTowardsPointer(pointerPosition, delta);
+            if (pointerTravel >= 4f)
+            {
+                if (!guidanceStarted)
+                {
+                    guidedEncounter.BeginGuidance(diveCamera);
+                    guidanceStarted = true;
+                }
+                guidedEncounter.GuideTowardsPointer(pointerPosition, delta);
+            }
         }
         else if (dragging)
         {
@@ -2432,7 +2501,8 @@ public sealed class CinematicDive : MonoBehaviour
             if (guidingAnimal)
             {
                 guidingAnimal = false;
-                guidedEncounter?.EndGuidance();
+                if (!guidanceStarted) return;
+                guidanceStarted = false;
                 if (guidedEncounter != null)
                 {
                     guidedEncounter.SetGuided(false, diveCamera);
@@ -2497,6 +2567,22 @@ public sealed class CinematicDive : MonoBehaviour
         return pointer is Pen pen && pen.tip.isPressed;
     }
 
+    private bool PointerHitsEncounter(Vector2 pointerPosition, MarineEncounter target)
+    {
+        if (diveCamera == null) return false;
+        RaycastHit[] hits = Physics.RaycastAll(diveCamera.ScreenPointToRay(pointerPosition), 180f);
+        System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
+        int visibleCount = VisibleHitCount(hits);
+        for (int i = 0; i < visibleCount; i++)
+            if (hits[i].collider.GetComponentInParent<MissionInteractable>() != null) return false;
+        for (int i = 0; i < visibleCount; i++)
+        {
+            MarineEncounter encounter = hits[i].collider.GetComponentInParent<MarineEncounter>();
+            if (encounter != null) return encounter == target;
+        }
+        return false;
+    }
+
     private void TryDiscover(Vector2 pointerPosition)
     {
         if (diveCamera == null)
@@ -2529,7 +2615,8 @@ public sealed class CinematicDive : MonoBehaviour
 
             encounter.Discover();
             float now = Time.unscaledTime;
-            if (encounter == lastClickedEncounter && now - lastClickTime < 0.42f)
+            if ((OceanMissionDirector.Instance?.IsRescueGuidanceTarget(encounter) ?? false)
+                || (encounter == lastClickedEncounter && now - lastClickTime < 0.42f))
             {
                 guidedEncounter?.SetGuided(false, diveCamera);
                 guidedEncounter = encounter;
@@ -2997,6 +3084,7 @@ public sealed class OceanCreatureDrift : MonoBehaviour
     private float travel;
     private TurtleStrokeAnimator turtleStroke;
     private bool entangled;
+    private bool awaitingGuidance;
     private Vector3 entangledOrigin;
     private float struggleClock;
 
@@ -3009,7 +3097,7 @@ public sealed class OceanCreatureDrift : MonoBehaviour
 
     private void Update()
     {
-        if (entangled)
+        if (entangled || awaitingGuidance)
         {
             UpdateEntangled(Time.deltaTime);
             return;
@@ -3044,6 +3132,7 @@ public sealed class OceanCreatureDrift : MonoBehaviour
 
     public void SetEntangled(bool value)
     {
+        awaitingGuidance = false;
         if (entangled == value) return;
         entangled = value;
         if (value)
@@ -3058,6 +3147,15 @@ public sealed class OceanCreatureDrift : MonoBehaviour
             motionVelocity = Vector3.zero;
             if (continuingFromGuidance) ResumeFromGuidance(releaseVelocity);
         }
+    }
+
+    public void WaitForGuidance()
+    {
+        // Keep paddling and floating nearby while the child reads the next step.
+        awaitingGuidance = true;
+        entangledOrigin = transform.position;
+        struggleClock = 0f;
+        enabled = true;
     }
 
     private void UpdateEntangled(float deltaTime)
@@ -3106,6 +3204,7 @@ public sealed class OceanCreatureDrift : MonoBehaviour
     public void ResumeFromGuidance(Vector3 velocity)
     {
         Vector3 fallback = useMantaAxes ? transform.up : transform.forward;
+        awaitingGuidance = false;
         // The animal leaves a drag in its last visible heading; the final
         // pointer correction can otherwise send it sharply head-down.
         releaseVelocity = ClampSwimDirection(fallback) * Mathf.Clamp(velocity.magnitude, 2.6f, 6f);
