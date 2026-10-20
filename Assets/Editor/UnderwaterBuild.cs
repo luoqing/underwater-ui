@@ -10,7 +10,7 @@ using UnityEngine.SceneManagement;
 public static class UnderwaterBuild
 {
     private const string ScenePath = "Assets/Scenes/UnderwaterJourney.unity";
-    private const string BuildPath = "Build/WebGLPerformance";
+    private const string BuildPath = "Build/WebGL";
 
     [MenuItem("Underwater/Create Benchmark Scene")]
     public static void CreateScene()
@@ -39,6 +39,7 @@ public static class UnderwaterBuild
         EnsureMaterial($"{materialDirectory}/UnderwaterSurface.mat", "Underwater/Surface");
         EnsureMaterial($"{materialDirectory}/VolumetricBeam.mat", "Underwater/VolumetricBeam");
         EnsureMaterial($"{materialDirectory}/CausticSeafloor.mat", "Underwater/CausticSeafloor");
+        EnsureMaterial($"{materialDirectory}/LayeredWaterBackdrop.mat", "Underwater/LayeredWaterBackdrop");
         EnsureMaterial($"{materialDirectory}/UnderwaterLit.mat", "Universal Render Pipeline/Lit");
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
@@ -96,17 +97,16 @@ public static class UnderwaterBuild
         PlayerSettings.SetScriptingBackend(NamedBuildTarget.WebGL, ScriptingImplementation.IL2CPP);
         PlayerSettings.SetGraphicsAPIs(BuildTarget.WebGL, new[] { GraphicsDeviceType.OpenGLES3 });
         PlayerSettings.WebGL.compressionFormat = WebGLCompressionFormat.Gzip;
-        PlayerSettings.WebGL.decompressionFallback = false;
-        PlayerSettings.WebGL.nameFilesAsHashes = true;
+        PlayerSettings.WebGL.decompressionFallback = true;
         PlayerSettings.WebGL.dataCaching = true;
-        PlayerSettings.WebGL.exceptionSupport = WebGLExceptionSupport.FullWithStacktrace;
+        PlayerSettings.WebGL.exceptionSupport = WebGLExceptionSupport.None;
 
         BuildPlayerOptions options = new()
         {
             scenes = new[] { ScenePath },
             locationPathName = BuildPath,
             target = BuildTarget.WebGL,
-            options = BuildOptions.Development
+            options = BuildOptions.None
         };
         BuildReport report = BuildPipeline.BuildPlayer(options);
         if (report.summary.result != BuildResult.Succeeded)
@@ -136,3 +136,4 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #062f3d; }
 ");
     }
 }
+

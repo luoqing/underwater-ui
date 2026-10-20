@@ -107,9 +107,16 @@ Shader "Underwater/CausticSeafloor"
 
                 float2 p = input.positionWS.xz * _CausticScale;
                 float time = _Time.y * _CausticSpeed;
-                float a = abs(sin(p.x * 1.17 + time * 1.13) + sin(p.y * 1.31 - time * 0.87)) * 0.5;
-                float b = abs(sin((p.x + p.y) * 0.73 - time * 1.42) + sin((p.x - p.y) * 1.07 + time * 0.68)) * 0.5;
-                float caustic = pow(saturate(1.0 - min(a, b)), 12.0) * _CausticStrength;
+                float2 warp = float2(
+                    sin(p.y * 0.43 - time * 0.37) + sin((p.x + p.y) * 0.19 + time * 0.23),
+                    sin(p.x * 0.37 + time * 0.31) + sin((p.x - p.y) * 0.21 - time * 0.19)
+                ) * 0.28;
+                float2 q = p + warp;
+                float a = abs(sin(q.x * 1.13 + q.y * 0.41 + time * 0.83) + sin(q.y * 1.47 - q.x * 0.29 - time * 0.61)) * 0.5;
+                float b = abs(sin((q.x + q.y) * 0.79 - time * 0.91) + sin((q.x - q.y) * 1.21 + time * 0.53)) * 0.5;
+                float fineLines = pow(saturate(1.0 - min(a, b)), 30.0);
+                float shimmer = 0.72 + 0.28 * sin(q.x * 0.31 + q.y * 0.27 + time * 0.46);
+                float caustic = fineLines * shimmer * _CausticStrength;
                 float4 shadowCoord = TransformWorldToShadowCoord(input.positionWS);
                 Light mainLight = GetMainLight(shadowCoord);
                 float diffuse = saturate(dot(normalWS, normalize(mainLight.direction)));
@@ -121,7 +128,7 @@ Shader "Underwater/CausticSeafloor"
                 half specular = pow(saturate(dot(normalWS, halfDir)), lerp(7.0h, 64.0h, smoothness)) * smoothness * 0.18h;
                 float depthFade = saturate(1.0 - max(0.0, -input.positionWS.y) * 0.045);
                 half3 color = ambient + direct + mainLight.color * specular * mainLight.shadowAttenuation;
-                color += _CausticColor.rgb * caustic * depthFade * (0.45h + diffuse * 0.55h);
+                color += _CausticColor.rgb * caustic * depthFade * (0.22h + diffuse * 0.34h);
                 color = MixFog(color, input.fogFactor);
                 return half4(color, 1.0);
             }

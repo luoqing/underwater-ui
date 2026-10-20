@@ -10,6 +10,32 @@ import sys
 import bpy
 
 
+def smoothstep(value):
+    value = max(0.0, min(1.0, value))
+    return value * value * (3.0 - 2.0 * value)
+
+
+def sample_curve(value, points):
+    if value <= points[0][0]:
+        return points[0][1]
+    if value >= points[-1][0]:
+        return points[-1][1]
+    for (start_x, start_y), (end_x, end_y) in zip(points, points[1:]):
+        if start_x <= value <= end_x:
+            blend = smoothstep((value - start_x) / (end_x - start_x))
+            return start_y + (end_y - start_y) * blend
+    return 0.0
+
+
+def unbend_point(longitudinal, height, source_points, target_points):
+    # Keep the mesh topology continuous while moving the baked centre line to
+    # a calmer pose.  A longitudinal-only offset avoids tearing triangles on
+    # the steep tail bend; the runtime bones add the visible propulsion.
+    source_height = sample_curve(longitudinal, source_points)
+    target_height = sample_curve(longitudinal, target_points)
+    return longitudinal, height + target_height - source_height
+
+
 def arguments():
     if "--" not in sys.argv:
         raise SystemExit("Expected: -- input.glb output.glb")
@@ -30,6 +56,41 @@ if len(mesh_objects) != 1:
 mesh_object = mesh_objects[0]
 min_y = min(vertex.co.y for vertex in mesh_object.data.vertices)
 max_y = max(vertex.co.y for vertex in mesh_object.data.vertices)
+
+# The generated source whale is frozen in a steep diving pose.  Remove that
+# baked centre-line curve before rigging so the animation starts from a calm,
+# nearly level swim rather than preserving a permanent U shape.
+source_centreline = [
+    (-0.50, -0.01),
+    (-0.40, -0.035),
+    (-0.30, -0.075),
+    (-0.20, -0.10),
+    (-0.10, -0.13),
+    (0.00, -0.17),
+    (0.10, -0.18),
+    (0.16, -0.15),
+    (0.22, -0.04),
+    (0.28, 0.01),
+    (0.34, 0.12),
+    (0.40, 0.23),
+    (0.47, 0.31),
+    (0.50, 0.33),
+]
+target_centreline = [
+    (-0.50, 0.00),
+    (-0.10, -0.015),
+    (0.15, 0.00),
+    (0.35, 0.025),
+    (0.50, 0.04),
+]
+for vertex in mesh_object.data.vertices:
+    vertex.co.y, vertex.co.z = unbend_point(
+        vertex.co.y,
+        vertex.co.z,
+        source_centreline,
+        target_centreline,
+    )
+mesh_object.data.update()
 
 armature_data = bpy.data.armatures.new("WhaleSwimRig")
 armature_object = bpy.data.objects.new("WhaleSwimRig", armature_data)

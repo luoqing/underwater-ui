@@ -14,16 +14,157 @@ public sealed class UnderwaterWorld : MonoBehaviour
     private Mesh schoolingFishTailMesh;
     private Mesh schoolingFishFinMesh;
     private Mesh schoolingFishEyeMesh;
-    private float baseFogDensity = 0.0135f;
-
-    private static readonly Color ShallowWater = new(0.025f, 0.34f, 0.48f);
-    private static readonly Color MidWater = new(0.012f, 0.18f, 0.30f);
-    private static readonly Color DeepWater = new(0.008f, 0.075f, 0.15f);
+    private Color shallowWater = new(0.025f, 0.34f, 0.48f);
+    private Color midWater = new(0.012f, 0.18f, 0.30f);
+    private Color deepWater = new(0.008f, 0.075f, 0.15f);
+    private Color shallowSky = new(0.30f, 0.58f, 0.62f);
+    private Color midSky = new(0.08f, 0.24f, 0.34f);
+    private Color shallowEquator = new(0.11f, 0.31f, 0.34f);
+    private Color deepEquator = new(0.025f, 0.11f, 0.18f);
+    private Color backgroundDeep = new(0.035f, 0.14f, 0.20f);
+    private Color shallowSun = new(0.78f, 0.95f, 1f);
+    private Color midSun = new(0.48f, 0.78f, 0.90f);
+    private Color deepSun = new(0.25f, 0.48f, 0.72f);
+    private float shallowFogDensity = 0.0105f;
+    private float midFogDensity = 0.0175f;
+    private float deepFogDensity = 0.027f;
+    private float shallowSunIntensity = 2.35f;
+    private float midSunIntensity = 1.35f;
+    private float deepSunIntensity = 0.58f;
+    private float postExposure = 0.78f;
+    private float postSaturation = 18f;
+    private float beamAlpha = 0.030f;
+    private float beamIntensity = 0.94f;
+    private float causticStrength = 0.15f;
+    private Color surfaceShallow = new(0.10f, 0.56f, 0.68f, 0.12f);
+    private Color surfaceDeep = new(0.018f, 0.13f, 0.23f, 0.20f);
+    private bool useLayeredFog;
+    private float shallowFogStart = 10f;
+    private float midFogStart = 7f;
+    private float deepFogStart = 3f;
+    private float shallowFogEnd = 125f;
+    private float midFogEnd = 88f;
+    private float deepFogEnd = 54f;
+    private Color layeredTop = new(0.10f, 0.52f, 0.63f);
+    private Color layeredHorizon = new(0.025f, 0.30f, 0.45f);
+    private Color layeredBottom = new(0.006f, 0.07f, 0.14f);
 
     private void Awake()
     {
         Random.InitState(73021);
+        ConfigureWaterLook();
         BuildWorld();
+    }
+
+    private void ConfigureWaterLook()
+    {
+        string url = Application.absoluteURL;
+        if (url.Contains("water=layered"))
+        {
+            useLayeredFog = true;
+            shallowWater = new Color(0.040f, 0.42f, 0.56f);
+            midWater = new Color(0.014f, 0.205f, 0.34f);
+            deepWater = new Color(0.006f, 0.07f, 0.15f);
+            shallowSky = new Color(0.36f, 0.67f, 0.69f);
+            midSky = new Color(0.085f, 0.25f, 0.36f);
+            shallowEquator = new Color(0.13f, 0.36f, 0.39f);
+            deepEquator = new Color(0.025f, 0.105f, 0.19f);
+            backgroundDeep = new Color(0.018f, 0.095f, 0.17f);
+            shallowSun = new Color(0.84f, 0.98f, 1f);
+            midSun = new Color(0.50f, 0.80f, 0.92f);
+            deepSun = new Color(0.24f, 0.47f, 0.72f);
+            shallowSunIntensity = 2.58f;
+            midSunIntensity = 1.40f;
+            deepSunIntensity = 0.58f;
+            postExposure = 0.86f;
+            postSaturation = 12f;
+            beamAlpha = 0.036f;
+            beamIntensity = 1.02f;
+            causticStrength = 0.16f;
+            surfaceShallow = new Color(0.12f, 0.63f, 0.73f, 0.12f);
+            surfaceDeep = new Color(0.018f, 0.13f, 0.24f, 0.20f);
+        }
+        else if (url.Contains("water=bright"))
+        {
+            shallowWater = new Color(0.09f, 0.58f, 0.70f);
+            midWater = new Color(0.04f, 0.35f, 0.46f);
+            deepWater = new Color(0.016f, 0.15f, 0.25f);
+            shallowSky = new Color(0.44f, 0.76f, 0.76f);
+            midSky = new Color(0.15f, 0.38f, 0.47f);
+            shallowEquator = new Color(0.18f, 0.46f, 0.46f);
+            deepEquator = new Color(0.05f, 0.18f, 0.27f);
+            backgroundDeep = new Color(0.06f, 0.23f, 0.29f);
+            shallowSun = new Color(0.86f, 0.98f, 1f);
+            midSun = new Color(0.58f, 0.86f, 0.94f);
+            deepSun = new Color(0.32f, 0.57f, 0.78f);
+            shallowFogDensity = 0.0075f;
+            midFogDensity = 0.0125f;
+            deepFogDensity = 0.020f;
+            shallowSunIntensity = 2.85f;
+            midSunIntensity = 1.68f;
+            deepSunIntensity = 0.78f;
+            postExposure = 1.08f;
+            postSaturation = 6f;
+            beamAlpha = 0.034f;
+            beamIntensity = 1.00f;
+            causticStrength = 0.18f;
+            surfaceShallow = new Color(0.16f, 0.72f, 0.80f, 0.12f);
+            surfaceDeep = new Color(0.03f, 0.21f, 0.32f, 0.20f);
+        }
+        else if (url.Contains("water=balanced"))
+        {
+            shallowWater = new Color(0.045f, 0.44f, 0.58f);
+            midWater = new Color(0.020f, 0.26f, 0.38f);
+            deepWater = new Color(0.010f, 0.105f, 0.19f);
+            shallowSky = new Color(0.36f, 0.66f, 0.68f);
+            midSky = new Color(0.11f, 0.30f, 0.40f);
+            shallowEquator = new Color(0.14f, 0.37f, 0.39f);
+            deepEquator = new Color(0.032f, 0.13f, 0.21f);
+            backgroundDeep = new Color(0.04f, 0.165f, 0.23f);
+            shallowSun = new Color(0.82f, 0.97f, 1f);
+            midSun = new Color(0.53f, 0.82f, 0.92f);
+            deepSun = new Color(0.28f, 0.52f, 0.75f);
+            shallowFogDensity = 0.0096f;
+            midFogDensity = 0.0158f;
+            deepFogDensity = 0.024f;
+            shallowSunIntensity = 2.52f;
+            midSunIntensity = 1.48f;
+            deepSunIntensity = 0.65f;
+            postExposure = 0.88f;
+            postSaturation = 14f;
+            beamAlpha = 0.033f;
+            beamIntensity = 0.98f;
+            causticStrength = 0.16f;
+            surfaceShallow = new Color(0.11f, 0.60f, 0.70f, 0.12f);
+            surfaceDeep = new Color(0.022f, 0.15f, 0.25f, 0.20f);
+        }
+        else if (url.Contains("water=cinematic"))
+        {
+            shallowWater = new Color(0.018f, 0.27f, 0.42f);
+            midWater = new Color(0.009f, 0.14f, 0.25f);
+            deepWater = new Color(0.005f, 0.05f, 0.11f);
+            shallowSky = new Color(0.24f, 0.49f, 0.56f);
+            midSky = new Color(0.055f, 0.18f, 0.29f);
+            shallowEquator = new Color(0.075f, 0.25f, 0.30f);
+            deepEquator = new Color(0.018f, 0.075f, 0.14f);
+            backgroundDeep = new Color(0.02f, 0.10f, 0.17f);
+            shallowSun = new Color(0.70f, 0.91f, 1f);
+            midSun = new Color(0.40f, 0.69f, 0.86f);
+            deepSun = new Color(0.19f, 0.38f, 0.65f);
+            shallowFogDensity = 0.012f;
+            midFogDensity = 0.020f;
+            deepFogDensity = 0.032f;
+            shallowSunIntensity = 2.08f;
+            midSunIntensity = 1.12f;
+            deepSunIntensity = 0.48f;
+            postExposure = 0.55f;
+            postSaturation = 20f;
+            beamAlpha = 0.040f;
+            beamIntensity = 1.04f;
+            causticStrength = 0.12f;
+            surfaceShallow = new Color(0.075f, 0.47f, 0.61f, 0.12f);
+            surfaceDeep = new Color(0.012f, 0.095f, 0.19f, 0.20f);
+        }
     }
 
     private void Update()
@@ -38,16 +179,24 @@ public sealed class UnderwaterWorld : MonoBehaviour
         float routeDeep = Mathf.InverseLerp(132f, 204f, journeyCamera.transform.position.z);
         float midBlend = Mathf.Clamp01(Mathf.Max(verticalDepth * 0.72f, routeMid));
         float deepBlend = Mathf.Clamp01(Mathf.Max(Mathf.InverseLerp(0.58f, 1f, verticalDepth), routeDeep));
-        Color atmosphere = Color.Lerp(Color.Lerp(ShallowWater, MidWater, midBlend), DeepWater, deepBlend);
+        Color atmosphere = Color.Lerp(Color.Lerp(shallowWater, midWater, midBlend), deepWater, deepBlend);
         RenderSettings.fogColor = atmosphere;
-        RenderSettings.fogDensity = Mathf.Lerp(Mathf.Lerp(0.0105f, 0.0175f, midBlend), 0.027f, deepBlend);
-        RenderSettings.ambientSkyColor = Color.Lerp(new Color(0.30f, 0.58f, 0.62f), new Color(0.08f, 0.24f, 0.34f), midBlend);
-        RenderSettings.ambientEquatorColor = Color.Lerp(new Color(0.11f, 0.31f, 0.34f), new Color(0.025f, 0.11f, 0.18f), deepBlend);
-        journeyCamera.backgroundColor = Color.Lerp(atmosphere, new Color(0.035f, 0.14f, 0.20f), 0.12f + deepBlend * 0.18f);
+        if (useLayeredFog)
+        {
+            RenderSettings.fogStartDistance = Mathf.Lerp(Mathf.Lerp(shallowFogStart, midFogStart, midBlend), deepFogStart, deepBlend);
+            RenderSettings.fogEndDistance = Mathf.Lerp(Mathf.Lerp(shallowFogEnd, midFogEnd, midBlend), deepFogEnd, deepBlend);
+        }
+        else
+        {
+            RenderSettings.fogDensity = Mathf.Lerp(Mathf.Lerp(shallowFogDensity, midFogDensity, midBlend), deepFogDensity, deepBlend);
+        }
+        RenderSettings.ambientSkyColor = Color.Lerp(shallowSky, midSky, midBlend);
+        RenderSettings.ambientEquatorColor = Color.Lerp(shallowEquator, deepEquator, deepBlend);
+        journeyCamera.backgroundColor = Color.Lerp(atmosphere, backgroundDeep, 0.12f + deepBlend * 0.18f);
         if (sunlight != null)
         {
-            sunlight.intensity = Mathf.Lerp(Mathf.Lerp(2.35f, 1.35f, midBlend), 0.58f, deepBlend);
-            sunlight.color = Color.Lerp(Color.Lerp(new Color(0.78f, 0.95f, 1f), new Color(0.48f, 0.78f, 0.90f), midBlend), new Color(0.25f, 0.48f, 0.72f), deepBlend);
+            sunlight.intensity = Mathf.Lerp(Mathf.Lerp(shallowSunIntensity, midSunIntensity, midBlend), deepSunIntensity, deepBlend);
+            sunlight.color = Color.Lerp(Color.Lerp(shallowSun, midSun, midBlend), deepSun, deepBlend);
         }
     }
 
@@ -65,17 +214,20 @@ public sealed class UnderwaterWorld : MonoBehaviour
     private void BuildWorld()
     {
         RenderSettings.ambientMode = AmbientMode.Trilight;
-        RenderSettings.ambientSkyColor = new Color(0.30f, 0.58f, 0.62f);
-        RenderSettings.ambientEquatorColor = new Color(0.11f, 0.31f, 0.34f);
+        RenderSettings.ambientSkyColor = shallowSky;
+        RenderSettings.ambientEquatorColor = shallowEquator;
         RenderSettings.ambientGroundColor = new Color(0.055f, 0.17f, 0.17f);
         RenderSettings.reflectionIntensity = 0.72f;
         RenderSettings.fog = true;
-        RenderSettings.fogMode = FogMode.ExponentialSquared;
-        RenderSettings.fogColor = ShallowWater;
-        RenderSettings.fogDensity = baseFogDensity;
+        RenderSettings.fogMode = useLayeredFog ? FogMode.Linear : FogMode.ExponentialSquared;
+        RenderSettings.fogColor = shallowWater;
+        RenderSettings.fogDensity = shallowFogDensity;
+        RenderSettings.fogStartDistance = shallowFogStart;
+        RenderSettings.fogEndDistance = shallowFogEnd;
 
         CreateLighting();
         CreateCamera();
+        if (useLayeredFog) CreateLayeredBackdrop();
         CreatePostProcessing();
         CreateWaterSurface();
         CreateSeafloor();
@@ -99,8 +251,8 @@ public sealed class UnderwaterWorld : MonoBehaviour
         sun.transform.rotation = Quaternion.Euler(48f, -32f, 0f);
         sunlight = sun.AddComponent<Light>();
         sunlight.type = LightType.Directional;
-        sunlight.color = new Color(0.78f, 0.95f, 1f);
-        sunlight.intensity = 2.35f;
+        sunlight.color = shallowSun;
+        sunlight.intensity = shallowSunIntensity;
         sunlight.shadows = LightShadows.Soft;
         sunlight.shadowStrength = 0.64f;
         sunlight.shadowBias = 0.04f;
@@ -152,7 +304,7 @@ public sealed class UnderwaterWorld : MonoBehaviour
         journeyCamera.nearClipPlane = 0.08f;
         journeyCamera.farClipPlane = 260f;
         journeyCamera.clearFlags = CameraClearFlags.SolidColor;
-        journeyCamera.backgroundColor = ShallowWater;
+        journeyCamera.backgroundColor = shallowWater;
         journeyCamera.allowHDR = true;
         journeyCamera.allowMSAA = true;
         cameraObject.AddComponent<AudioListener>();
@@ -166,16 +318,16 @@ public sealed class UnderwaterWorld : MonoBehaviour
         dive.duration = 68f;
         dive.path = new[]
         {
-            new Vector3(0f, 1.8f, -12f),
-            new Vector3(-1.4f, 1.25f, 1f),
-            new Vector3(2.2f, 0.45f, 16f),
-            new Vector3(-2.4f, 0.15f, 32f),
-            new Vector3(1.6f, 0.25f, 49f),
-            new Vector3(4f, 0.55f, 70f),
-            new Vector3(1f, -2.8f, 117f),
-            new Vector3(-4f, -6.2f, 139f),
-            new Vector3(3f, -5.2f, 164f),
-            new Vector3(0f, -2f, 190f),
+            new Vector3(0f, 4.6f, -12f),
+            new Vector3(-1.4f, 4.2f, 1f),
+            new Vector3(2.2f, 4f, 16f),
+            new Vector3(-2.4f, 3.8f, 32f),
+            new Vector3(1.6f, 4.1f, 49f),
+            new Vector3(4f, 4.4f, 70f),
+            new Vector3(1f, -1f, 117f),
+            new Vector3(-4f, -4f, 139f),
+            new Vector3(3f, -3.6f, 164f),
+            new Vector3(0f, 0.5f, 190f),
             new Vector3(-2f, 7.2f, 215f)
         };
     }
@@ -196,9 +348,9 @@ public sealed class UnderwaterWorld : MonoBehaviour
         bloom.scatter.Override(0.62f);
 
         ColorAdjustments color = profile.Add<ColorAdjustments>(true);
-        color.postExposure.Override(0.78f);
+        color.postExposure.Override(postExposure);
         color.contrast.Override(6f);
-        color.saturation.Override(18f);
+        color.saturation.Override(postSaturation);
         color.colorFilter.Override(new Color(0.96f, 1f, 1f));
 
         Vignette vignette = profile.Add<Vignette>(true);
@@ -229,16 +381,36 @@ public sealed class UnderwaterWorld : MonoBehaviour
         depthOfField.highQualitySampling.Override(false);
     }
 
+    private void CreateLayeredBackdrop()
+    {
+        Material template = Resources.Load<Material>("Materials/LayeredWaterBackdrop");
+        Shader shader = template != null ? template.shader : Shader.Find("Underwater/LayeredWaterBackdrop");
+        if (shader == null)
+        {
+            return;
+        }
+
+        Material material = template != null ? new Material(template) : new Material(shader);
+        material.name = "Layered water backdrop";
+        material.SetColor("_TopColor", layeredTop);
+        material.SetColor("_HorizonColor", layeredHorizon);
+        material.SetColor("_BottomColor", layeredBottom);
+        RenderSettings.skybox = material;
+        journeyCamera.clearFlags = CameraClearFlags.Skybox;
+        runtimeMaterials.Add(material);
+    }
+
     private void CreateWaterSurface()
     {
         Material surface = MakeWaterSurfaceMaterial();
         GameObject plane = new("Moving Water Surface");
         plane.name = "Moving Water Surface";
         plane.transform.SetParent(transform);
-        plane.transform.position = new Vector3(0f, 48f, 100f);
-        plane.AddComponent<MeshFilter>().sharedMesh = CreateSurfaceMesh(360f, 520f, 40, 104);
+        plane.transform.position = new Vector3(0f, 48f, 0f);
+        plane.AddComponent<MeshFilter>().sharedMesh = CreateSurfaceMesh(720f, 1200f, 48, 120);
         plane.AddComponent<MeshRenderer>().sharedMaterial = surface;
         plane.AddComponent<SurfaceDrift>();
+        plane.AddComponent<FollowCameraXZ>().Initialize(journeyCamera.transform, 48f);
     }
 
     private static Mesh CreateSurfaceMesh(float width, float length, int xSegments, int zSegments)
@@ -283,76 +455,41 @@ public sealed class UnderwaterWorld : MonoBehaviour
 
     private void CreateSeafloor()
     {
-        const int xSegments = 64;
-        const int zSegments = 220;
-        const float width = 90f;
-        const float length = 260f;
-        Vector3[] vertices = new Vector3[(xSegments + 1) * (zSegments + 1)];
-        Vector2[] uvs = new Vector2[vertices.Length];
-        int[] triangles = new int[xSegments * zSegments * 6];
-
-        for (int z = 0; z <= zSegments; z++)
-        {
-            float z01 = z / (float)zSegments;
-            float worldZ = z01 * length - 28f;
-            float routeDepth = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(75f, 150f, worldZ));
-            for (int x = 0; x <= xSegments; x++)
-            {
-                float x01 = x / (float)xSegments;
-                float worldX = (x01 - 0.5f) * width;
-                float channelCenter = Mathf.Sin(worldZ * 0.034f) * 2.2f + Mathf.Sin(worldZ * 0.012f + 1.7f) * 1.3f;
-                float lateral = worldX - channelCenter;
-                float channelWidth = 8.2f + Mathf.Sin(worldZ * 0.045f + 0.8f) * 1.6f;
-                float corridorBlend = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(4.5f, 16f, Mathf.Abs(lateral)));
-                float broad = (Mathf.PerlinNoise(worldX * 0.028f + 4.2f, worldZ * 0.025f + 9.1f) - 0.5f) * 5.2f
-                    * Mathf.Lerp(0.32f, 1f, corridorBlend);
-                float detail = (Mathf.PerlinNoise(worldX * 0.13f + 17f, worldZ * 0.12f + 2f) - 0.5f) * 1.2f
-                    * Mathf.Lerp(0.25f, 1f, corridorBlend);
-                float banks = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(channelWidth, 34f, Mathf.Abs(lateral))) * 9.8f;
-                float rockyRidges = Mathf.Pow(Mathf.PerlinNoise(worldX * 0.074f + 21f, worldZ * 0.066f + 31f), 3f)
-                    * Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(5f, 24f, Mathf.Abs(lateral))) * 3.2f;
-                float sandRipples = Mathf.Sin(worldZ * 1.45f + Mathf.Sin(worldX * 0.43f) * 1.3f) * 0.14f;
-                float outcrops = EllipticalMound(worldX, worldZ, -12f, 58f, 5f, 10f, 2.2f)
-                    + EllipticalMound(worldX, worldZ, 12f, 71f, 4.8f, 9f, 2f)
-                    + EllipticalMound(worldX, worldZ, -12.5f, 86f, 5.5f, 11f, 1.8f);
-                float trench = -routeDepth * 9f;
-                float height = broad + detail + banks + rockyRidges + sandRipples + outcrops - 3.3f + trench;
-                vertices[z * (xSegments + 1) + x] = new Vector3(worldX, height, worldZ);
-                uvs[z * (xSegments + 1) + x] = new Vector2(x01 * 16f, z01 * 46f);
-            }
-        }
-
-        int index = 0;
-        for (int z = 0; z < zSegments; z++)
-        {
-            for (int x = 0; x < xSegments; x++)
-            {
-                int a = z * (xSegments + 1) + x;
-                int b = a + 1;
-                int c = a + xSegments + 1;
-                int d = c + 1;
-                triangles[index++] = a;
-                triangles[index++] = c;
-                triangles[index++] = b;
-                triangles[index++] = b;
-                triangles[index++] = c;
-                triangles[index++] = d;
-            }
-        }
-
-        Mesh mesh = new() { name = "Sculpted Seafloor" };
-        mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
-        mesh.vertices = vertices;
-        mesh.uv = uvs;
-        mesh.triangles = triangles;
-        mesh.RecalculateNormals();
-        mesh.RecalculateTangents();
-        mesh.RecalculateBounds();
-
-        GameObject floor = new("Sculpted Seafloor");
+        GameObject floor = new("Infinite Sculpted Seafloor");
         floor.transform.SetParent(transform);
-        floor.AddComponent<MeshFilter>().sharedMesh = mesh;
-        floor.AddComponent<MeshRenderer>().sharedMaterial = MakeCausticMaterial();
+        floor.AddComponent<InfiniteSeafloorGrid>().Initialize(journeyCamera.transform, MakeCausticMaterial());
+    }
+
+    public static float SampleSeafloorHeight(float worldX, float worldZ)
+    {
+        float routeDepth = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(75f, 150f, worldZ));
+        float channelCenter = Mathf.Sin(worldZ * 0.034f) * 2.2f + Mathf.Sin(worldZ * 0.012f + 1.7f) * 1.3f;
+        float lateral = worldX - channelCenter;
+        float channelWidth = 8.2f + Mathf.Sin(worldZ * 0.045f + 0.8f) * 1.6f;
+        float corridorBlend = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(4.5f, 16f, Mathf.Abs(lateral)));
+        float broad = (Mathf.PerlinNoise(worldX * 0.028f + 4.2f, worldZ * 0.025f + 9.1f) - 0.5f) * 5.2f
+            * Mathf.Lerp(0.32f, 1f, corridorBlend);
+        float detail = (Mathf.PerlinNoise(worldX * 0.13f + 17f, worldZ * 0.12f + 2f) - 0.5f) * 1.2f
+            * Mathf.Lerp(0.25f, 1f, corridorBlend);
+        float banks = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(channelWidth, 34f, Mathf.Abs(lateral))) * 9.8f;
+        float rockyRidges = Mathf.Pow(Mathf.PerlinNoise(worldX * 0.074f + 21f, worldZ * 0.066f + 31f), 3f)
+            * Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(5f, 24f, Mathf.Abs(lateral))) * 3.2f;
+        float sandRipples = Mathf.Sin(worldZ * 1.45f + Mathf.Sin(worldX * 0.43f) * 1.3f) * 0.14f;
+        float outcrops = EllipticalMound(worldX, worldZ, -12f, 58f, 5f, 10f, 2.2f)
+            + EllipticalMound(worldX, worldZ, 12f, 71f, 4.8f, 9f, 2f)
+            + EllipticalMound(worldX, worldZ, -12.5f, 86f, 5.5f, 11f, 1.8f);
+        float trench = -routeDepth * 9f;
+        return broad + detail + banks + rockyRidges + sandRipples + outcrops - 3.3f + trench;
+    }
+
+    public static Vector3 SampleSeafloorNormal(float worldX, float worldZ)
+    {
+        const float step = 0.35f;
+        float left = SampleSeafloorHeight(worldX - step, worldZ);
+        float right = SampleSeafloorHeight(worldX + step, worldZ);
+        float back = SampleSeafloorHeight(worldX, worldZ - step);
+        float forward = SampleSeafloorHeight(worldX, worldZ + step);
+        return new Vector3(left - right, step * 2f, back - forward).normalized;
     }
 
     private static float EllipticalMound(float x, float z, float centerX, float centerZ, float radiusX, float radiusZ, float height)
@@ -368,15 +505,20 @@ public sealed class UnderwaterWorld : MonoBehaviour
     {
         Material shaftMaterial = MakeBeamMaterial();
         Mesh beamMesh = CreateCrossBeamMesh();
-        for (int i = 0; i < 8; i++)
+        Vector3[] shaftPositions =
+        {
+            new(-22f, 12f, -6f), new(-11f, 13f, 3f), new(2f, 12f, 12f), new(17f, 14f, 22f),
+            new(-17f, 13f, 36f), new(-3f, 12f, 49f), new(13f, 13f, 61f), new(24f, 14f, 76f),
+            new(-12f, 12f, 90f), new(8f, 13f, 106f)
+        };
+        for (int i = 0; i < shaftPositions.Length; i++)
         {
             GameObject shaft = new("Volumetric Sun Ray");
             shaft.name = "Volumetric Sun Ray";
             shaft.transform.SetParent(transform);
-            float routeT = i / 7f;
-            shaft.transform.position = new Vector3(Random.Range(-16f, 16f), 12f, Mathf.Lerp(-6f, 92f, routeT) + Random.Range(-5f, 5f));
-            shaft.transform.rotation = Quaternion.Euler(Random.Range(-1.2f, 1.2f), -32f + Random.Range(-6f, 6f), Random.Range(6f, 10f));
-            shaft.transform.localScale = new Vector3(Random.Range(10f, 17f), Random.Range(70f, 92f), Random.Range(10f, 17f));
+            shaft.transform.position = shaftPositions[i];
+            shaft.transform.rotation = Quaternion.Euler(Random.Range(-1.0f, 1.0f), -28f + Random.Range(-8f, 8f), Random.Range(5f, 11f));
+            shaft.transform.localScale = new Vector3(Random.Range(8f, 14f), Random.Range(72f, 98f), Random.Range(8f, 14f));
             shaft.AddComponent<MeshFilter>().sharedMesh = beamMesh;
             shaft.AddComponent<MeshRenderer>().sharedMaterial = shaftMaterial;
             shaft.AddComponent<SoftPulse>().speed = Random.Range(0.15f, 0.35f);
@@ -442,12 +584,12 @@ public sealed class UnderwaterWorld : MonoBehaviour
     {
         Color[] fishColors =
         {
-            new Color(0.56f, 0.74f, 0.78f),
-            new Color(0.12f, 0.40f, 0.82f),
-            new Color(0.95f, 0.68f, 0.15f),
-            new Color(0.96f, 0.30f, 0.10f),
-            new Color(0.20f, 0.68f, 0.62f),
-            new Color(0.18f, 0.24f, 0.32f)
+            new Color(0.46f, 0.64f, 0.68f),
+            new Color(0.09f, 0.31f, 0.62f),
+            new Color(0.78f, 0.55f, 0.12f),
+            new Color(0.82f, 0.27f, 0.13f),
+            new Color(0.12f, 0.52f, 0.48f),
+            new Color(0.14f, 0.20f, 0.26f)
         };
 
         Material[] bodyMaterials = new Material[fishColors.Length];
@@ -458,9 +600,18 @@ public sealed class UnderwaterWorld : MonoBehaviour
         {
             Color bodyColor = fishColors[i];
             Color finColor = Color.Lerp(bodyColor, new Color(0.035f, 0.08f, 0.12f), 0.34f);
-            bodyMaterials[i] = MakeLit($"School fish body {i}", bodyColor, 0.03f, 0.68f);
+            Color dorsalColor = Color.Lerp(bodyColor, new Color(0.018f, 0.075f, 0.12f), 0.58f);
+            Color bellyColor = Color.Lerp(bodyColor, new Color(0.78f, 0.90f, 0.88f), 0.66f);
+            Color headColor = Color.Lerp(bodyColor, new Color(0.66f, 0.86f, 0.88f), 0.38f);
+            bodyMaterials[i] = MakeSchoolFishGradient($"School fish body {i}", dorsalColor, bodyColor, bellyColor, headColor, 0.62f);
             finMaterials[i] = MakeLit($"School fish fins {i}", finColor, 0.01f, 0.48f);
-            deepBodyMaterials[i] = MakeLit($"Deep school fish body {i}", bodyColor * 0.48f, 0.02f, 0.62f, bodyColor * 0.34f);
+            deepBodyMaterials[i] = MakeSchoolFishGradient(
+                $"Deep school fish body {i}",
+                dorsalColor * 0.46f,
+                bodyColor * 0.54f,
+                bellyColor * 0.58f,
+                headColor * 0.60f,
+                0.56f);
             deepFinMaterials[i] = MakeLit($"Deep school fish fins {i}", finColor * 0.45f, 0f, 0.46f, bodyColor * 0.18f);
             bodyMaterials[i].enableInstancing = true;
             finMaterials[i].enableInstancing = true;
@@ -471,27 +622,28 @@ public sealed class UnderwaterWorld : MonoBehaviour
         Material eyeMaterial = MakeLit("School fish eyes", new Color(0.008f, 0.012f, 0.015f), 0f, 0.86f);
         eyeMaterial.enableInstancing = true;
 
-        CreateFishSchool(new Vector3(-1f, 1.4f, 23f), 32, 6f, bodyMaterials, finMaterials, eyeMaterial, 0.20f);
-        CreateFishSchool(new Vector3(-3f, 1f, 39f), 46, 9f, bodyMaterials, finMaterials, eyeMaterial, 0.17f);
-        CreateFishSchool(new Vector3(4f, 0f, 67f), 44, 12f, bodyMaterials, finMaterials, eyeMaterial, 0.19f);
-        CreateFishSchool(new Vector3(-3f, -6f, 126f), 34, 8f, deepBodyMaterials, deepFinMaterials, eyeMaterial, 0.14f);
+        CreateFishSchool(new Vector3(-1f, 1.4f, 23f), 44, 6f, bodyMaterials, finMaterials, eyeMaterial, 0.20f);
+        CreateFishSchool(new Vector3(-3f, 1f, 39f), 54, 9f, bodyMaterials, finMaterials, eyeMaterial, 0.17f);
+        CreateFishSchool(new Vector3(4f, 0f, 67f), 52, 12f, bodyMaterials, finMaterials, eyeMaterial, 0.19f);
+        CreateFishSchool(new Vector3(-3f, -6f, 126f), 38, 8f, deepBodyMaterials, deepFinMaterials, eyeMaterial, 0.14f);
     }
 
     private void CreateFishSchool(Vector3 center, int count, float radius, Material[] bodyMaterials, Material[] finMaterials, Material eyeMaterial, float scale)
     {
         for (int i = 0; i < count; i++)
         {
-            Vector3 offset = new(Random.Range(-radius, radius), Random.Range(-radius * 0.34f, radius * 0.34f), Random.Range(-radius, radius));
+            Vector3 offset = new(Random.Range(-radius, radius), Random.Range(-radius * 0.30f, radius * 0.30f), Random.Range(-radius, radius));
             int palette = i % bodyMaterials.Length;
             GameObject fish = CreateFish(
                 center + offset,
-                scale * Random.Range(0.72f, 1.28f),
+                scale * Random.Range(0.82f, 1.18f),
                 bodyMaterials[palette],
                 finMaterials[palette],
                 eyeMaterial,
                 i % 3);
             FishSwimmer swimmer = fish.AddComponent<FishSwimmer>();
             swimmer.schoolCenter = center;
+            swimmer.formationOffset = offset;
             swimmer.radius = radius;
             swimmer.speed = Random.Range(1.1f, 2.5f);
             swimmer.phase = Random.value * 6.28f;
@@ -718,8 +870,8 @@ public sealed class UnderwaterWorld : MonoBehaviour
 
     private void CreateOpenOcean()
     {
-        SpawnReefFish("Models/BlueTang", "Hero Blue Tang", new Vector3(6.2f, 1.0f, 10.5f), Quaternion.Euler(-2f, 0f, 0f), 3.9f, 0.2f, 1f);
-        SpawnReefFish("Models/BlueTang", "Blue Tang companion 1", new Vector3(-4.2f, 1.8f, 14.5f), Quaternion.Euler(-4f, 178f, 0f), 2.1f, 1.7f, 0.72f);
+        SpawnReefFish("Models/BlueTang", "Hero Blue Tang", new Vector3(6.2f, 4.2f, 10.5f), Quaternion.Euler(-2f, 0f, 0f), 3.1f, 0.2f, 0.88f);
+        SpawnReefFish("Models/BlueTang", "Blue Tang companion 1", new Vector3(-4.2f, 3.4f, 14.5f), Quaternion.Euler(-4f, 178f, 0f), 2.1f, 1.7f, 0.72f);
         SpawnReefFish("Models/BlueTang", "Blue Tang companion 2", new Vector3(4.4f, 2.4f, 24f), Quaternion.Euler(2f, 8f, 0f), 1.7f, 3.1f, 0.58f);
         SpawnReefFish("Models/BlueTang", "Blue Tang companion 3", new Vector3(-3.6f, 0.8f, 31f), Quaternion.Euler(-3f, 184f, 0f), 1.45f, 4.8f, 0.48f);
         GameObject clownfish = SpawnReefFish("Models/Clownfish", "Clownfish close pass", new Vector3(-3.4f, 0.6f, 8.5f), Quaternion.Euler(0f, 12f, -2f), 2.35f, 2.4f, 0.68f);
@@ -731,12 +883,13 @@ public sealed class UnderwaterWorld : MonoBehaviour
         GameObject mantaCompanion = SpawnResourceModel("Models/Manta", "Oceanic Manta Ray Companion", new Vector3(9f, 5.8f, 76f), Quaternion.Euler(0f, 238f, 0f), 6.5f, null);
         SpawnReefFish("Models/BlueTang", "Blue Tang companion 4", new Vector3(6.8f, 1.4f, 46f), Quaternion.Euler(1f, 22f, 0f), 1.35f, 6.2f, 0.44f);
         SpawnReefFish("Models/Clownfish", "Clownfish garden 3", new Vector3(-5.6f, 0.6f, 55f), Quaternion.Euler(-1f, 170f, 2f), 1.15f, 7.1f, 0.38f);
-        AddEncounter(clownfish, "clownfish", "CLOWNFISH", "A reef specialist that shelters among anemone tentacles.");
-        AddEncounter(turtle, "turtle", "GREEN SEA TURTLE", "A calm ocean traveller that can cross entire seas.");
-        AddEncounter(manta, "manta", "OCEANIC MANTA RAY", "A gentle filter-feeder gliding on wings up to seven metres wide.");
-        AddEncounter(turtleCompanion, "turtle", "GREEN SEA TURTLE", "A calm ocean traveller that can cross entire seas.");
-        AddEncounter(mantaCompanion, "manta", "OCEANIC MANTA RAY", "A gentle filter-feeder gliding on wings up to seven metres wide.");
-        SpawnResourceModel("Models/WhaleRigged", "Tripo Humpback Whale", new Vector3(20f, 5.5f, 100f), Quaternion.identity, 14f, CreateFallbackWhale);
+        AddEncounter(clownfish, "clownfish", "小丑鱼", "喜欢躲在海葵触手之间的珊瑚礁居民。");
+        AddEncounter(turtle, "turtle", "绿海龟", "性情温和的远洋旅行者，能够穿越整片海域。");
+        AddEncounter(manta, "manta", "远洋魔鬼鱼", "展开宽大的胸鳍，借着水流平稳滑翔。");
+        AddEncounter(turtleCompanion, "turtle", "绿海龟", "性情温和的远洋旅行者，能够穿越整片海域。");
+        AddEncounter(mantaCompanion, "manta", "远洋魔鬼鱼", "展开宽大的胸鳍，借着水流平稳滑翔。");
+        GameObject whale = SpawnResourceModel("Models/WhaleRigged", "Tripo Humpback Whale", new Vector3(20f, 5.5f, 100f), Quaternion.identity, 14f, CreateFallbackWhale);
+        AddEncounter(whale, "whale", "座头鲸", "用尾鳍上下摆动推进的远洋巨兽。");
     }
 
     private static void AddEncounter(GameObject target, string id, string displayName, string description)
@@ -764,6 +917,7 @@ public sealed class UnderwaterWorld : MonoBehaviour
         float worldRadius = Mathf.Max(bounds.extents.x, bounds.extents.y, bounds.extents.z) * 0.76f;
         float largestScale = Mathf.Max(Mathf.Abs(scale.x), Mathf.Abs(scale.y), Mathf.Abs(scale.z));
         collider.radius = worldRadius / Mathf.Max(largestScale, 0.0001f);
+        collider.isTrigger = true;
 
         MarineEncounter encounter = target.AddComponent<MarineEncounter>();
         encounter.id = id;
@@ -781,6 +935,15 @@ public sealed class UnderwaterWorld : MonoBehaviour
             {
                 drift.phase = phase;
                 drift.swimScale = swimScale;
+                drift.isBlueTang = resourcePath.EndsWith("BlueTang");
+                drift.collisionRadius = Mathf.Clamp(targetSize * 0.23f, 0.22f, 0.78f);
+                drift.floorClearance = Mathf.Clamp(targetSize * 0.22f, 0.34f, 0.82f);
+                drift.noseDistance = Mathf.Clamp(targetSize * 0.42f, 0.48f, 1.65f);
+            }
+            if (resourcePath.EndsWith("BlueTang"))
+            {
+                BlueTangSwimAnimator animator = fish.AddComponent<BlueTangSwimAnimator>();
+                animator.phase = phase;
             }
         }
         return fish;
@@ -952,7 +1115,33 @@ public sealed class UnderwaterWorld : MonoBehaviour
             {
                 bounds.Encapsulate(renderers[i].bounds);
             }
-            instance.transform.position += position - bounds.center;
+            if (ShouldPlaceOnSeafloor(resourcePath))
+            {
+                float groundHeight = SamplePlacementHeight(position.x, position.z, bounds.extents.x, bounds.extents.z);
+                float shallowEmbed = resourcePath.EndsWith("KelpCluster") ? 0.08f : resourcePath.Contains("Coral") ? 0.12f : 0.22f;
+                instance.transform.position += new Vector3(
+                    position.x - bounds.center.x,
+                    groundHeight - shallowEmbed - bounds.min.y,
+                    position.z - bounds.center.z);
+            }
+            else
+            {
+                instance.transform.position += position - bounds.center;
+            }
+
+            bounds = renderers[0].bounds;
+            for (int i = 1; i < renderers.Length; i++)
+            {
+                bounds.Encapsulate(renderers[i].bounds);
+            }
+            if (ShouldBlockLargeSwimmers(resourcePath))
+            {
+                CreateMeshObstacleColliders(instance);
+            }
+            else if (ShouldBlockCreatureBody(resourcePath))
+            {
+                CreateCreatureObstacleCollider(instance, resourcePath, CalculateLocalBounds(instance, renderers));
+            }
         }
 
         if (resourcePath.Contains("Whale"))
@@ -975,6 +1164,11 @@ public sealed class UnderwaterWorld : MonoBehaviour
                 TurtleStrokeAnimator stroke = instance.AddComponent<TurtleStrokeAnimator>();
                 stroke.phase = 0.18f;
             }
+            else
+            {
+                MantaWingAnimator wings = instance.AddComponent<MantaWingAnimator>();
+                wings.phase = drift.phase;
+            }
         }
         else if (resourcePath.EndsWith("BlueTang") || resourcePath.EndsWith("Clownfish"))
         {
@@ -982,6 +1176,128 @@ public sealed class UnderwaterWorld : MonoBehaviour
             drift.basePosition = instance.transform.position;
         }
         return instance;
+    }
+
+    private static bool ShouldPlaceOnSeafloor(string resourcePath)
+    {
+        return resourcePath.Contains("Reef") || resourcePath.Contains("Coral") || resourcePath.EndsWith("KelpCluster");
+    }
+
+    private static bool ShouldBlockLargeSwimmers(string resourcePath)
+    {
+        return resourcePath.Contains("Reef") || resourcePath.Contains("Coral");
+    }
+
+    private static bool ShouldBlockCreatureBody(string resourcePath)
+    {
+        return resourcePath.Contains("Whale") || resourcePath.EndsWith("Manta") || resourcePath.EndsWith("Turtle");
+    }
+
+    private static Bounds CalculateLocalBounds(GameObject root, Renderer[] renderers)
+    {
+        bool initialized = false;
+        Bounds localBounds = default;
+        foreach (Renderer renderer in renderers)
+        {
+            Bounds rendererBounds = renderer.localBounds;
+            Vector3 center = rendererBounds.center;
+            Vector3 extents = rendererBounds.extents;
+            for (int x = -1; x <= 1; x += 2)
+            {
+                for (int y = -1; y <= 1; y += 2)
+                {
+                    for (int z = -1; z <= 1; z += 2)
+                    {
+                        Vector3 rendererCorner = center + Vector3.Scale(extents, new Vector3(x, y, z));
+                        Vector3 localCorner = root.transform.InverseTransformPoint(renderer.transform.TransformPoint(rendererCorner));
+                        if (!initialized)
+                        {
+                            localBounds = new Bounds(localCorner, Vector3.zero);
+                            initialized = true;
+                        }
+                        else
+                        {
+                            localBounds.Encapsulate(localCorner);
+                        }
+                    }
+                }
+            }
+        }
+        return localBounds;
+    }
+
+    private static void CreateCreatureObstacleCollider(GameObject instance, string resourcePath, Bounds localBounds)
+    {
+        GameObject collisionVolume = new("Creature body collision");
+        collisionVolume.transform.SetParent(instance.transform, false);
+        collisionVolume.transform.localPosition = localBounds.center;
+        collisionVolume.AddComponent<UnderwaterObstacle>();
+
+        Vector3 size = localBounds.size;
+        if (resourcePath.Contains("Whale"))
+        {
+            BoxCollider whaleBody = collisionVolume.AddComponent<BoxCollider>();
+            whaleBody.size = ScaleBySortedAxes(size, 0.90f, 0.76f, 0.66f);
+            return;
+        }
+
+        BoxCollider box = collisionVolume.AddComponent<BoxCollider>();
+        if (resourcePath.EndsWith("Manta"))
+        {
+            box.size = ScaleBySortedAxes(size, 0.80f, 0.72f, 0.46f);
+        }
+        else
+        {
+            box.size = ScaleBySortedAxes(size, 0.78f, 0.70f, 0.62f);
+        }
+    }
+
+    private static Vector3 ScaleBySortedAxes(Vector3 size, float largestScale, float middleScale, float smallestScale)
+    {
+        float largest = Mathf.Max(size.x, Mathf.Max(size.y, size.z));
+        float smallest = Mathf.Min(size.x, Mathf.Min(size.y, size.z));
+        Vector3 scaled = size;
+        for (int axis = 0; axis < 3; axis++)
+        {
+            float value = size[axis];
+            float scale = Mathf.Approximately(value, largest) ? largestScale : Mathf.Approximately(value, smallest) ? smallestScale : middleScale;
+            scaled[axis] = value * scale;
+        }
+        return scaled;
+    }
+
+    private static float SamplePlacementHeight(float centerX, float centerZ, float extentX, float extentZ)
+    {
+        float sampleX = Mathf.Min(extentX * 0.32f, 3.2f);
+        float sampleZ = Mathf.Min(extentZ * 0.32f, 3.2f);
+        float center = SampleSeafloorHeight(centerX, centerZ);
+        float diagonalA = SampleSeafloorHeight(centerX - sampleX, centerZ - sampleZ);
+        float diagonalB = SampleSeafloorHeight(centerX + sampleX, centerZ + sampleZ);
+        float diagonalC = SampleSeafloorHeight(centerX - sampleX, centerZ + sampleZ);
+        float diagonalD = SampleSeafloorHeight(centerX + sampleX, centerZ - sampleZ);
+        return Mathf.Max(center, Mathf.Min(Mathf.Max(diagonalA, diagonalB), Mathf.Max(diagonalC, diagonalD)));
+    }
+
+    private static void CreateMeshObstacleColliders(GameObject instance)
+    {
+        foreach (MeshFilter filter in instance.GetComponentsInChildren<MeshFilter>())
+        {
+            if (filter.sharedMesh == null)
+            {
+                continue;
+            }
+            MeshCollider collider = filter.gameObject.GetComponent<MeshCollider>();
+            if (collider == null)
+            {
+                collider = filter.gameObject.AddComponent<MeshCollider>();
+            }
+            collider.sharedMesh = filter.sharedMesh;
+            collider.convex = false;
+            if (filter.gameObject.GetComponent<UnderwaterObstacle>() == null)
+            {
+                filter.gameObject.AddComponent<UnderwaterObstacle>();
+            }
+        }
     }
 
     private void TintModelMaterials(Renderer[] renderers, Color tint, Color emission)
@@ -1146,6 +1462,22 @@ public sealed class UnderwaterWorld : MonoBehaviour
         return material;
     }
 
+    private Material MakeSchoolFishGradient(string name, Color dorsal, Color mid, Color belly, Color head, float smoothness)
+    {
+        Material template = Resources.Load<Material>("Materials/SchoolFishGradient");
+        Shader shader = template != null ? template.shader : Shader.Find("Underwater/SchoolFishGradient");
+        Material material = template != null ? new Material(template) : new Material(shader);
+        material.name = name;
+        material.SetColor("_DorsalColor", dorsal);
+        material.SetColor("_MidColor", mid);
+        material.SetColor("_BellyColor", belly);
+        material.SetColor("_HeadColor", head);
+        material.SetFloat("_Smoothness", smoothness);
+        material.enableInstancing = true;
+        runtimeMaterials.Add(material);
+        return material;
+    }
+
     private Material MakeGlow(string name, Color color, float emission, float scale, float speed)
     {
         Material template = Resources.Load<Material>("Materials/TransparentGlow");
@@ -1166,14 +1498,14 @@ public sealed class UnderwaterWorld : MonoBehaviour
         Shader shader = template != null ? template.shader : Shader.Find("Underwater/Surface");
         Material material = template != null ? new Material(template) : new Material(shader);
         material.name = "Refractive Underwater Surface";
-        material.SetColor("_ShallowColor", new Color(0.10f, 0.56f, 0.68f, 0.12f));
-        material.SetColor("_DeepColor", new Color(0.018f, 0.13f, 0.23f, 0.20f));
+        material.SetColor("_ShallowColor", surfaceShallow);
+        material.SetColor("_DeepColor", surfaceDeep);
         material.SetColor("_SunColor", new Color(0.88f, 0.96f, 1f, 1f));
         material.SetFloat("_SunIntensity", 1.15f);
-        material.SetFloat("_Distortion", 0.003f);
-        material.SetFloat("_WaveScale", 0.06f);
-        material.SetFloat("_WaveSpeed", 0.24f);
-        material.SetFloat("_FresnelPower", 4.1f);
+        material.SetFloat("_Distortion", 0.0022f);
+        material.SetFloat("_WaveScale", 0.13f);
+        material.SetFloat("_WaveSpeed", 0.18f);
+        material.SetFloat("_FresnelPower", 4.6f);
         runtimeMaterials.Add(material);
         return material;
     }
@@ -1184,8 +1516,8 @@ public sealed class UnderwaterWorld : MonoBehaviour
         Shader shader = template != null ? template.shader : Shader.Find("Underwater/VolumetricBeam");
         Material material = template != null ? new Material(template) : new Material(shader);
         material.name = "Soft Volumetric Sun Beams";
-        material.SetColor("_BaseColor", new Color(0.68f, 0.91f, 1f, 0.038f));
-        material.SetFloat("_Intensity", 1.02f);
+        material.SetColor("_BaseColor", new Color(0.68f, 0.91f, 1f, beamAlpha));
+        material.SetFloat("_Intensity", beamIntensity);
         material.SetFloat("_Speed", 0.24f);
         runtimeMaterials.Add(material);
         return material;
@@ -1207,12 +1539,334 @@ public sealed class UnderwaterWorld : MonoBehaviour
         if (aoMap != null) material.SetTexture("_AOMap", aoMap);
         material.SetColor("_BaseColor", new Color(0.82f, 0.70f, 0.56f));
         material.SetColor("_CausticColor", new Color(0.36f, 0.66f, 0.72f));
-        material.SetFloat("_CausticStrength", 0.34f);
-        material.SetFloat("_CausticScale", 0.72f);
-        material.SetFloat("_CausticSpeed", 0.32f);
+        material.SetFloat("_CausticStrength", causticStrength);
+        material.SetFloat("_CausticScale", 1.55f);
+        material.SetFloat("_CausticSpeed", 0.22f);
         material.SetFloat("_NormalStrength", 0.72f);
         runtimeMaterials.Add(material);
         return material;
+    }
+}
+
+public sealed class FollowCameraXZ : MonoBehaviour
+{
+    private Transform target;
+    private float fixedHeight;
+
+    public void Initialize(Transform followTarget, float height)
+    {
+        target = followTarget;
+        fixedHeight = height;
+        Follow();
+    }
+
+    private void LateUpdate()
+    {
+        Follow();
+    }
+
+    private void Follow()
+    {
+        if (target == null)
+        {
+            return;
+        }
+
+        Vector3 position = target.position;
+        transform.position = new Vector3(position.x, fixedHeight, position.z);
+    }
+}
+
+public sealed class InfiniteSeafloorGrid : MonoBehaviour
+{
+    private const int GridRadius = 1;
+    private const int Segments = 40;
+    private const float TileSize = 150f;
+    private const float TextureScale = 0.14f;
+
+    private sealed class Tile
+    {
+        public GameObject gameObject;
+        public Mesh mesh;
+        public Vector2Int coordinate = new(int.MinValue, int.MinValue);
+        public bool claimed;
+    }
+
+    private readonly List<Tile> tiles = new();
+    private Transform target;
+    private Material material;
+    private Vector2Int centerCoordinate = new(int.MinValue, int.MinValue);
+    private int[] triangles;
+
+    public void Initialize(Transform followTarget, Material sharedMaterial)
+    {
+        target = followTarget;
+        material = sharedMaterial;
+        triangles = CreateTriangles();
+
+        int tileCount = (GridRadius * 2 + 1) * (GridRadius * 2 + 1);
+        for (int i = 0; i < tileCount; i++)
+        {
+            GameObject tileObject = new($"Seafloor Tile {i + 1}");
+            tileObject.transform.SetParent(transform, false);
+            Mesh mesh = new() { name = $"Streaming Seafloor Tile {i + 1}" };
+            tileObject.AddComponent<MeshFilter>().sharedMesh = mesh;
+            tileObject.AddComponent<MeshRenderer>().sharedMaterial = material;
+            tiles.Add(new Tile { gameObject = tileObject, mesh = mesh });
+        }
+
+        Refresh(true);
+    }
+
+    private void Update()
+    {
+        Refresh(false);
+    }
+
+    private void OnDestroy()
+    {
+        foreach (Tile tile in tiles)
+        {
+            if (tile.mesh != null)
+            {
+                Destroy(tile.mesh);
+            }
+        }
+    }
+
+    private void Refresh(bool force)
+    {
+        if (target == null || material == null)
+        {
+            return;
+        }
+
+        Vector2Int nextCenter = new(
+            Mathf.FloorToInt((target.position.x + TileSize * 0.5f) / TileSize),
+            Mathf.FloorToInt((target.position.z + TileSize * 0.5f) / TileSize));
+        if (!force && nextCenter == centerCoordinate)
+        {
+            return;
+        }
+
+        centerCoordinate = nextCenter;
+        foreach (Tile tile in tiles)
+        {
+            tile.claimed = false;
+        }
+
+        for (int z = -GridRadius; z <= GridRadius; z++)
+        {
+            for (int x = -GridRadius; x <= GridRadius; x++)
+            {
+                Vector2Int wanted = centerCoordinate + new Vector2Int(x, z);
+                Tile tile = FindTile(wanted);
+                if (tile == null)
+                {
+                    tile = FindReusableTile();
+                    tile.coordinate = wanted;
+                    RebuildTile(tile);
+                }
+                tile.claimed = true;
+            }
+        }
+    }
+
+    private Tile FindTile(Vector2Int coordinate)
+    {
+        foreach (Tile tile in tiles)
+        {
+            if (!tile.claimed && tile.coordinate == coordinate)
+            {
+                return tile;
+            }
+        }
+        return null;
+    }
+
+    private Tile FindReusableTile()
+    {
+        foreach (Tile tile in tiles)
+        {
+            if (!tile.claimed && tile.coordinate.x == int.MinValue)
+            {
+                return tile;
+            }
+            if (!tile.claimed && Mathf.Abs(tile.coordinate.x - centerCoordinate.x) > GridRadius)
+            {
+                return tile;
+            }
+            if (!tile.claimed && Mathf.Abs(tile.coordinate.y - centerCoordinate.y) > GridRadius)
+            {
+                return tile;
+            }
+        }
+
+        foreach (Tile tile in tiles)
+        {
+            if (!tile.claimed)
+            {
+                return tile;
+            }
+        }
+        return tiles[0];
+    }
+
+    private void RebuildTile(Tile tile)
+    {
+        float centerX = tile.coordinate.x * TileSize;
+        float centerZ = tile.coordinate.y * TileSize;
+        tile.gameObject.transform.position = new Vector3(centerX, 0f, centerZ);
+
+        Vector3[] vertices = new Vector3[(Segments + 1) * (Segments + 1)];
+        Vector2[] uvs = new Vector2[vertices.Length];
+        for (int z = 0; z <= Segments; z++)
+        {
+            float localZ = (z / (float)Segments - 0.5f) * TileSize;
+            float worldZ = centerZ + localZ;
+            for (int x = 0; x <= Segments; x++)
+            {
+                float localX = (x / (float)Segments - 0.5f) * TileSize;
+                float worldX = centerX + localX;
+                int vertex = z * (Segments + 1) + x;
+                vertices[vertex] = new Vector3(localX, UnderwaterWorld.SampleSeafloorHeight(worldX, worldZ), localZ);
+                uvs[vertex] = new Vector2(worldX * TextureScale, worldZ * TextureScale);
+            }
+        }
+
+        tile.mesh.Clear();
+        tile.mesh.vertices = vertices;
+        tile.mesh.uv = uvs;
+        tile.mesh.triangles = triangles;
+        tile.mesh.RecalculateNormals();
+        tile.mesh.RecalculateTangents();
+        tile.mesh.RecalculateBounds();
+    }
+
+    private static int[] CreateTriangles()
+    {
+        int[] result = new int[Segments * Segments * 6];
+        int index = 0;
+        for (int z = 0; z < Segments; z++)
+        {
+            for (int x = 0; x < Segments; x++)
+            {
+                int a = z * (Segments + 1) + x;
+                int b = a + 1;
+                int c = a + Segments + 1;
+                int d = c + 1;
+                result[index++] = a;
+                result[index++] = c;
+                result[index++] = b;
+                result[index++] = b;
+                result[index++] = c;
+                result[index++] = d;
+            }
+        }
+        return result;
+    }
+}
+
+public sealed class UnderwaterObstacle : MonoBehaviour
+{
+    public bool isSeafloor;
+}
+
+public static class UnderwaterCollision
+{
+    private const float Skin = 0.06f;
+    private static readonly RaycastHit[] Hits = new RaycastHit[24];
+
+    public static Vector3 ResolveMove(Transform mover, Vector3 desiredPosition, float radius, float floorClearance, float noseDistance, out bool adjusted)
+    {
+        Vector3 start = mover.position;
+        adjusted = false;
+        desiredPosition = ConstrainToSeafloor(start, desiredPosition, floorClearance, noseDistance, ref adjusted);
+        Vector3 current = start;
+        Vector3 remaining = desiredPosition - current;
+
+        for (int pass = 0; pass < 2 && remaining.sqrMagnitude > 0.000001f; pass++)
+        {
+            float distance = remaining.magnitude;
+            Vector3 direction = remaining / distance;
+            if (!FindNearestObstacle(mover, current, radius, direction, distance + Skin, out RaycastHit hit))
+            {
+                current += remaining;
+                break;
+            }
+
+            adjusted = true;
+            float travel = Mathf.Max(0f, hit.distance - Skin);
+            current += direction * travel;
+            Vector3 unused = remaining - direction * travel;
+            Vector3 slide = Vector3.ProjectOnPlane(unused, hit.normal);
+            if (slide.sqrMagnitude < 0.0001f)
+            {
+                Vector3 turn = Vector3.Cross(Vector3.up, hit.normal).normalized;
+                if (turn.sqrMagnitude < 0.001f)
+                {
+                    turn = Vector3.Cross(mover.right, hit.normal).normalized;
+                }
+                if (Vector3.Dot(turn, mover.right) < 0f)
+                {
+                    turn = -turn;
+                }
+                slide = turn * unused.magnitude * 0.65f;
+            }
+            remaining = slide;
+        }
+
+        return ConstrainToSeafloor(start, current, floorClearance, noseDistance, ref adjusted);
+    }
+
+    private static Vector3 ConstrainToSeafloor(Vector3 start, Vector3 proposed, float clearance, float noseDistance, ref bool adjusted)
+    {
+        Vector3 requestedMove = proposed - start;
+        Vector3 horizontal = new(proposed.x - start.x, 0f, proposed.z - start.z);
+        Vector3 direction = horizontal.sqrMagnitude > 0.0001f ? horizontal.normalized : Vector3.zero;
+        Vector3 nose = proposed + direction * noseDistance;
+        float floorAtBody = UnderwaterWorld.SampleSeafloorHeight(proposed.x, proposed.z);
+        float floorAtNose = UnderwaterWorld.SampleSeafloorHeight(nose.x, nose.z);
+        float minimumY = Mathf.Max(floorAtBody, floorAtNose) + clearance;
+        if (proposed.y >= minimumY)
+        {
+            return proposed;
+        }
+
+        adjusted = true;
+        Vector3 normal = UnderwaterWorld.SampleSeafloorNormal(nose.x, nose.z);
+        Vector3 slide = Vector3.ProjectOnPlane(proposed - start, normal);
+        proposed = start + slide;
+        nose = proposed + direction * noseDistance;
+        floorAtBody = UnderwaterWorld.SampleSeafloorHeight(proposed.x, proposed.z);
+        floorAtNose = UnderwaterWorld.SampleSeafloorHeight(nose.x, nose.z);
+        minimumY = Mathf.Max(floorAtBody, floorAtNose) + clearance;
+        proposed.y = requestedMove.y < 0f ? minimumY : Mathf.Max(proposed.y, minimumY);
+        return proposed;
+    }
+
+    private static bool FindNearestObstacle(Transform mover, Vector3 origin, float radius, Vector3 direction, float distance, out RaycastHit nearest)
+    {
+        nearest = default;
+        int count = Physics.SphereCastNonAlloc(origin, radius, direction, Hits, distance, Physics.AllLayers, QueryTriggerInteraction.Ignore);
+        float nearestDistance = float.MaxValue;
+        bool found = false;
+        for (int i = 0; i < count; i++)
+        {
+            RaycastHit hit = Hits[i];
+            UnderwaterObstacle obstacle = hit.collider.GetComponent<UnderwaterObstacle>();
+            if (obstacle == null || obstacle.isSeafloor || hit.collider.transform.IsChildOf(mover))
+            {
+                continue;
+            }
+            if (hit.distance < nearestDistance)
+            {
+                nearestDistance = hit.distance;
+                nearest = hit;
+                found = true;
+            }
+        }
+        return found;
     }
 }
 
@@ -1239,23 +1893,76 @@ public sealed class CinematicDive : MonoBehaviour
     private float freeYaw;
     private float freePitch;
     private Transform previewWhale;
+    private OceanCreatureDrift debugReleaseCreature;
+    private float playerRadius = 0.48f;
+    private float playerFloorClearance = 1.2f;
+    private float playerNoseDistance = 0.85f;
+    private float playerSwimSpeed = 7.5f;
+    private float playerBoostSpeed = 13f;
+    private float playerTurnScale = 1f;
+    private Vector3 lastProgressPosition;
+    private float stuckSeconds;
+    private float obstacleAvoidSeconds;
+    private float obstacleAvoidSign = 1f;
 
     public bool IsFreeDive => !autoTour;
-    public float SwimSpeed01 => Mathf.Clamp01(swimVelocity.magnitude / 8.5f);
+    public float SwimSpeed01 => Mathf.Clamp01(swimVelocity.magnitude / Mathf.Max(1f, playerSwimSpeed * 1.15f));
+
+    public void ConfigurePlayerRole(string roleKey)
+    {
+        switch (roleKey)
+        {
+            case "clownfish":
+                playerRadius = 0.16f;
+                playerFloorClearance = 0.38f;
+                playerNoseDistance = 0.32f;
+                playerSwimSpeed = 8.4f;
+                playerBoostSpeed = 13.8f;
+                playerTurnScale = 1.28f;
+                break;
+            case "manta":
+                playerRadius = 0.62f;
+                playerFloorClearance = 1.05f;
+                playerNoseDistance = 1.10f;
+                playerSwimSpeed = 6.8f;
+                playerBoostSpeed = 11.2f;
+                playerTurnScale = 0.74f;
+                break;
+            case "whale":
+                playerRadius = 1.10f;
+                playerFloorClearance = 1.85f;
+                playerNoseDistance = 1.75f;
+                playerSwimSpeed = 7.2f;
+                playerBoostSpeed = 10.4f;
+                playerTurnScale = 0.52f;
+                break;
+            default:
+                playerRadius = 0.38f;
+                playerFloorClearance = 0.95f;
+                playerNoseDistance = 0.72f;
+                playerSwimSpeed = 6.4f;
+                playerBoostSpeed = 11.4f;
+                playerTurnScale = 0.90f;
+                break;
+        }
+    }
 
     private void Start()
     {
         diveCamera = GetComponent<Camera>();
         bool startAtArch = Application.absoluteURL.Contains("start=arch");
         bool startAtWhale = Application.absoluteURL.Contains("start=whale");
+        bool startAtBlueTang = Application.absoluteURL.Contains("start=blue");
         bool startAtFish = Application.absoluteURL.Contains("start=fish");
         bool startAtManta = Application.absoluteURL.Contains("start=manta");
+        bool startAtTurtle = Application.absoluteURL.Contains("start=turtle");
         bool startAtJelly = Application.absoluteURL.Contains("start=jelly");
         clock = startAtArch ? FindNearestPathClock(new Vector3(-2f, -8f, 158f)) : 0f;
         if (path != null && path.Length > 0)
         {
             transform.position = startAtArch ? EvaluatePath(clock / duration) : path[0];
             freePosition = transform.position;
+            lastProgressPosition = transform.position;
         }
 
         if (startAtWhale)
@@ -1271,6 +1978,37 @@ public sealed class CinematicDive : MonoBehaviour
                 transform.rotation = previewRotation;
                 freeYaw = previewRotation.eulerAngles.y;
                 freePitch = NormalizeAngle(previewRotation.eulerAngles.x);
+            }
+        }
+        else if (startAtBlueTang)
+        {
+            ReefFishDrift blueTang = null;
+            float largestScale = 0f;
+            foreach (ReefFishDrift candidate in FindObjectsByType<ReefFishDrift>(FindObjectsSortMode.None))
+            {
+                if (!candidate.isBlueTang)
+                {
+                    continue;
+                }
+
+                float candidateScale = candidate.transform.lossyScale.sqrMagnitude;
+                if (blueTang == null || candidateScale > largestScale)
+                {
+                    blueTang = candidate;
+                    largestScale = candidateScale;
+                }
+            }
+            if (blueTang != null)
+            {
+                previewWhale = blueTang.transform;
+                autoTour = false;
+                freePosition = previewWhale.position + new Vector3(4.8f, 1.2f, -6.2f);
+                transform.position = freePosition;
+                Quaternion previewRotation = Quaternion.LookRotation(previewWhale.position + Vector3.up * 0.35f - transform.position, Vector3.up);
+                transform.rotation = previewRotation;
+                freeYaw = previewRotation.eulerAngles.y;
+                freePitch = NormalizeAngle(previewRotation.eulerAngles.x);
+                diveCamera.fieldOfView = 43f;
             }
         }
         else if (startAtFish)
@@ -1293,48 +2031,71 @@ public sealed class CinematicDive : MonoBehaviour
             }
 
             autoTour = false;
-            freePosition = center + new Vector3(0.8f, 0.15f, -5.4f);
+            freePosition = center + new Vector3(0.8f, 2.8f, -8.2f);
             transform.position = freePosition;
-            Quaternion previewRotation = Quaternion.LookRotation(center - transform.position, Vector3.up);
+            Quaternion previewRotation = Quaternion.LookRotation(center + Vector3.up * 0.9f - transform.position, Vector3.up);
             transform.rotation = previewRotation;
             freeYaw = previewRotation.eulerAngles.y;
             freePitch = NormalizeAngle(previewRotation.eulerAngles.x);
             diveCamera.fieldOfView = 43f;
         }
-        else if (startAtManta)
+        else if (startAtManta || startAtTurtle)
         {
             OceanCreatureDrift[] creatures = FindObjectsByType<OceanCreatureDrift>(FindObjectsSortMode.None);
             foreach (OceanCreatureDrift creature in creatures)
             {
-                if (!creature.useMantaAxes) continue;
+                if (creature.useMantaAxes != startAtManta) continue;
                 previewWhale = creature.transform;
                 autoTour = false;
-                freePosition = previewWhale.position + new Vector3(0f, 8.5f, -13f);
+                freePosition = previewWhale.position + (startAtManta ? new Vector3(0f, 2.8f, -14.5f) : new Vector3(0f, 1.8f, -9.5f));
                 transform.position = freePosition;
-                Quaternion previewRotation = Quaternion.LookRotation(previewWhale.position - transform.position, Vector3.up);
+                Quaternion previewRotation = Quaternion.LookRotation(previewWhale.position + Vector3.up * 0.7f - transform.position, Vector3.up);
                 transform.rotation = previewRotation;
                 freeYaw = previewRotation.eulerAngles.y;
                 freePitch = NormalizeAngle(previewRotation.eulerAngles.x);
                 diveCamera.fieldOfView = 46f;
+                if (startAtTurtle && Application.absoluteURL.Contains("verify=release"))
+                {
+                    debugReleaseCreature = creature;
+                    Invoke(nameof(BeginDebugTurtleRelease), 20f);
+                }
                 break;
             }
         }
         else if (startAtJelly)
         {
-            JellyDrift jelly = FindFirstObjectByType<JellyDrift>();
+            JellyDrift jelly = null;
+            foreach (JellyDrift candidate in FindObjectsByType<JellyDrift>(FindObjectsSortMode.None))
+            {
+                if (jelly == null || candidate.transform.position.z < jelly.transform.position.z)
+                {
+                    jelly = candidate;
+                }
+            }
             if (jelly != null)
             {
                 previewWhale = jelly.transform;
                 autoTour = false;
-                freePosition = previewWhale.position + new Vector3(4.8f, 0.4f, -6.2f);
+                freePosition = previewWhale.position + new Vector3(-5.8f, 2.2f, -9.8f);
                 transform.position = freePosition;
-                Quaternion previewRotation = Quaternion.LookRotation(previewWhale.position - transform.position, Vector3.up);
+                Quaternion previewRotation = Quaternion.LookRotation(previewWhale.position + Vector3.up * 0.8f - transform.position, Vector3.up);
                 transform.rotation = previewRotation;
                 freeYaw = previewRotation.eulerAngles.y;
                 freePitch = NormalizeAngle(previewRotation.eulerAngles.x);
                 diveCamera.fieldOfView = 46f;
             }
         }
+    }
+
+    private void BeginDebugTurtleRelease()
+    {
+        if (debugReleaseCreature == null)
+        {
+            return;
+        }
+
+        previewWhale = null;
+        debugReleaseCreature.ResumeFromGuidance(new Vector3(4.2f, 0.35f, 2.6f));
     }
 
     private void Update()
@@ -1363,7 +2124,7 @@ public sealed class CinematicDive : MonoBehaviour
             }
             transform.position = path[0];
             freePosition = transform.position;
-            UnderwaterHud.Instance?.ShowStatus("RETURNED TO THE REEF");
+            UnderwaterHud.Instance?.ShowStatus("已返回珊瑚礁起点");
         }
 
         if (keyboard != null && keyboard.spaceKey.wasPressedThisFrame)
@@ -1442,7 +2203,7 @@ public sealed class CinematicDive : MonoBehaviour
         freePitch = NormalizeAngle(angles.x);
         yawOffset = 0f;
         pitchOffset = 0f;
-        UnderwaterHud.Instance?.ShowStatus("FREE DIVE · WASD MOVE · Q/E DEPTH");
+        UnderwaterHud.Instance?.ShowStatus("自由漫游：W/S 前后，A/D 左右，Q/E 升降");
     }
 
     private void ReturnToAutoTour()
@@ -1452,7 +2213,7 @@ public sealed class CinematicDive : MonoBehaviour
         clock = FindNearestPathClock(transform.position);
         yawOffset = 0f;
         pitchOffset = 0f;
-        UnderwaterHud.Instance?.ShowStatus("AUTO TOUR RESUMED");
+        UnderwaterHud.Instance?.ShowStatus("已恢复自动巡游");
     }
 
     private void UpdateAutoTour()
@@ -1460,7 +2221,7 @@ public sealed class CinematicDive : MonoBehaviour
         clock = Mathf.Repeat(clock + Time.deltaTime, duration);
         float t = clock / duration;
         Vector3 position = EvaluatePath(t);
-        Vector3 lookPoint = EvaluatePath(Mathf.Repeat(t + 0.012f, 1f)) + Vector3.up * 0.65f;
+        Vector3 lookPoint = EvaluatePath(Mathf.Repeat(t + 0.012f, 1f)) + Vector3.up * 1.65f;
         Vector3 forward = (lookPoint - position).normalized;
         Vector3 right = Vector3.Cross(Vector3.up, forward).normalized;
         float buoyancy = Mathf.Sin(Time.time * 0.62f) * 0.10f + Mathf.Sin(Time.time * 0.21f + 1.3f) * 0.055f;
@@ -1473,7 +2234,9 @@ public sealed class CinematicDive : MonoBehaviour
             Mathf.Sin(Time.time * 0.19f + 0.6f) * 0.55f,
             Mathf.Sin(Time.time * 0.24f + 1.4f) * 0.65f);
         Quaternion userRotation = Quaternion.Euler(pitchOffset, yawOffset, 0f);
-        transform.position = Vector3.Lerp(transform.position, position, 1f - Mathf.Exp(-Time.deltaTime * 1.75f));
+        Vector3 smoothedPosition = Vector3.Lerp(transform.position, position, 1f - Mathf.Exp(-Time.deltaTime * 1.75f));
+        smoothedPosition = UnderwaterCollision.ResolveMove(transform, smoothedPosition, playerRadius, playerFloorClearance, playerNoseDistance, out _);
+        transform.position = smoothedPosition;
         transform.rotation = Quaternion.Slerp(transform.rotation, pathRotation * waterDrift * userRotation, 1f - Mathf.Exp(-Time.deltaTime * 1.9f));
     }
 
@@ -1494,17 +2257,38 @@ public sealed class CinematicDive : MonoBehaviour
         }
 
         previewWhale = null;
+        if (obstacleAvoidSeconds > 0f && moveInput.sqrMagnitude > 0.08f)
+        {
+            obstacleAvoidSeconds = Mathf.Max(0f, obstacleAvoidSeconds - Time.deltaTime);
+            freeYaw += obstacleAvoidSign * 24f * Time.deltaTime;
+        }
         Vector3 desiredDirection = transform.right * moveInput.x + Vector3.up * moveInput.y + transform.forward * moveInput.z;
         desiredDirection = Vector3.ClampMagnitude(desiredDirection, 1f);
-        float topSpeed = boost ? 13f : 7.5f;
+        float topSpeed = boost ? playerBoostSpeed : playerSwimSpeed;
         Vector3 desiredVelocity = desiredDirection * topSpeed;
         float response = desiredDirection.sqrMagnitude > 0.001f ? 7.2f : 2.1f;
         swimVelocity = Vector3.MoveTowards(swimVelocity, desiredVelocity, response * Time.deltaTime);
         freePosition += swimVelocity * Time.deltaTime;
-        freePosition = new Vector3(
-            Mathf.Clamp(freePosition.x, -42f, 42f),
-            Mathf.Clamp(freePosition.y, -17f, 7.5f),
-            Mathf.Clamp(freePosition.z, -4f, 205f));
+        freePosition.y = Mathf.Clamp(freePosition.y, -17f, 7.5f);
+        freePosition = UnderwaterCollision.ResolveMove(transform, freePosition, playerRadius, playerFloorClearance, playerNoseDistance, out bool avoidedObstacle);
+        if (avoidedObstacle)
+        {
+            Vector3 resolvedVelocity = (freePosition - transform.position) / Mathf.Max(Time.deltaTime, 0.0001f);
+            swimVelocity = Vector3.Lerp(swimVelocity, resolvedVelocity, 0.72f);
+            if (moveInput.sqrMagnitude > 0.08f)
+            {
+                if (obstacleAvoidSeconds <= 0.08f)
+                {
+                    obstacleAvoidSign = Mathf.Abs(moveInput.x) > 0.1f
+                        ? Mathf.Sign(moveInput.x)
+                        : Mathf.Sin(transform.position.x * 0.71f + transform.position.z * 0.37f) >= 0f ? 1f : -1f;
+                    obstacleAvoidSeconds = 1.35f;
+                }
+
+                Vector3 sideStep = transform.right * obstacleAvoidSign * topSpeed * 0.42f * Time.deltaTime;
+                freePosition = UnderwaterCollision.ResolveMove(transform, freePosition + sideStep, playerRadius, playerFloorClearance, playerNoseDistance, out _);
+            }
+        }
 
         float motion = SwimSpeed01;
         float buoyancy = Mathf.Sin(Time.time * 0.58f) * (0.055f + motion * 0.018f);
@@ -1512,6 +2296,27 @@ public sealed class CinematicDive : MonoBehaviour
         Quaternion targetRotation = Quaternion.Euler(freePitch, freeYaw, breathingRoll);
         transform.position = Vector3.Lerp(transform.position, freePosition + Vector3.up * buoyancy, 1f - Mathf.Exp(-Time.deltaTime * 7f));
         transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, 1f - Mathf.Exp(-Time.deltaTime * 7.5f));
+
+        float progress = Vector3.Distance(transform.position, lastProgressPosition);
+        if (moveInput.sqrMagnitude > 0.12f && progress < 0.006f)
+        {
+            stuckSeconds += Time.deltaTime;
+            if (stuckSeconds > 0.85f)
+            {
+                float floor = UnderwaterWorld.SampleSeafloorHeight(transform.position.x, transform.position.z);
+                Vector3 escape = -transform.forward * 1.1f + Vector3.up * 1.4f;
+                freePosition = transform.position + escape;
+                freePosition.y = Mathf.Max(freePosition.y, floor + playerFloorClearance + 0.8f);
+                swimVelocity = Vector3.zero;
+                stuckSeconds = 0f;
+                UnderwaterHud.Instance?.ShowStatus("已离开障碍，可以继续游动");
+            }
+        }
+        else if (progress >= 0.006f || moveInput.sqrMagnitude < 0.01f)
+        {
+            stuckSeconds = 0f;
+        }
+        lastProgressPosition = transform.position;
     }
 
     private float FindNearestPathClock(Vector3 point)
@@ -1580,13 +2385,13 @@ public sealed class CinematicDive : MonoBehaviour
             pointerTravel += delta.magnitude;
             if (autoTour)
             {
-                yawOffset += delta.x * 0.11f;
-                pitchOffset = Mathf.Clamp(pitchOffset - delta.y * 0.09f, -65f, 65f);
+                yawOffset += delta.x * 0.11f * playerTurnScale;
+                pitchOffset = Mathf.Clamp(pitchOffset - delta.y * 0.09f * playerTurnScale, -35f, 25f);
             }
             else
             {
-                freeYaw += delta.x * 0.11f;
-                freePitch = Mathf.Clamp(freePitch - delta.y * 0.09f, -82f, 82f);
+                freeYaw += delta.x * 0.11f * playerTurnScale;
+                freePitch = Mathf.Clamp(freePitch - delta.y * 0.09f * playerTurnScale, -82f, 82f);
             }
         }
         if (WasPointerReleased(pointer))
@@ -1749,43 +2554,90 @@ public sealed class CinematicDive : MonoBehaviour
 public sealed class FishSwimmer : MonoBehaviour
 {
     public Vector3 schoolCenter;
+    public Vector3 formationOffset;
     public float radius = 8f;
     public float speed = 1.5f;
     public float phase;
     private Vector3 baseScale;
     private Vector3 velocity;
+    private Vector3 steeringVelocity;
     private Transform tail;
+    private Transform fins;
+    private float routeRadius;
+    private float routeSpeed;
+    private float schoolPhase;
+    private Vector3 localFormationOffset;
 
     private void Start()
     {
         baseScale = transform.localScale;
         velocity = transform.right * speed;
         tail = transform.Find("Tail");
+        fins = transform.Find("Dorsal and pectoral fins");
+        routeRadius = radius * 0.27f;
+        routeSpeed = 1f;
+        schoolPhase = schoolCenter.x * 0.173f + schoolCenter.z * 0.071f;
+        float initialClock = Time.time * 0.11f + schoolPhase;
+        Vector3 initialCourse = SchoolCourse(initialClock);
+        Quaternion initialFormationRotation = Quaternion.LookRotation(initialCourse, Vector3.up);
+        Vector3 initialOffset = formationOffset.sqrMagnitude > 0.001f ? formationOffset : transform.position - schoolCenter;
+        localFormationOffset = Quaternion.Inverse(initialFormationRotation) * initialOffset;
     }
 
     private void Update()
     {
-        float t = Time.time * speed * 0.15f + phase;
-        Vector3 target = schoolCenter + new Vector3(
-            Mathf.Cos(t) * radius,
-            Mathf.Sin(t * 1.7f + phase) * radius * 0.20f,
-            Mathf.Sin(t) * radius);
+        float groupClock = Time.time * 0.11f * routeSpeed + schoolPhase;
+        Vector3 course = SchoolCourse(groupClock);
+        Quaternion formationRotation = Quaternion.LookRotation(course, Vector3.up);
+        Vector3 movingCenter = schoolCenter + new Vector3(
+            Mathf.Sin(groupClock) * routeRadius,
+            Mathf.Sin(groupClock * 0.63f + schoolPhase) * radius * 0.08f,
+            Mathf.Cos(groupClock * 0.82f) * routeRadius * 0.82f);
+        Vector3 personalCurrent = new(
+            Mathf.Sin(Time.time * 0.42f + phase) * radius * 0.035f,
+            Mathf.Sin(Time.time * 0.31f + phase * 1.7f) * radius * 0.025f,
+            Mathf.Cos(Time.time * 0.37f + phase * 0.8f) * radius * 0.035f);
+        Vector3 target = movingCenter + formationRotation * localFormationOffset * 0.72f + personalCurrent;
         Vector3 toTarget = target - transform.position;
-        float burst = 0.82f + Mathf.SmoothStep(0f, 0.38f, Mathf.Max(0f, Mathf.Sin(Time.time * 1.6f + phase)));
-        Vector3 desiredVelocity = toTarget.sqrMagnitude > 0.001f ? toTarget.normalized * speed * burst : velocity;
-        velocity = Vector3.MoveTowards(velocity, desiredVelocity, speed * 1.45f * Time.deltaTime);
-        transform.position += velocity * Time.deltaTime;
+        float currentNoise = Mathf.PerlinNoise(phase * 0.21f + 7.3f, Time.time * 0.075f);
+        float burst = Mathf.Lerp(0.82f, 1.16f, currentNoise);
+        Vector3 courseVelocity = course * speed * burst;
+        Vector3 formationCorrection = Vector3.ClampMagnitude(toTarget * 0.72f, speed * 0.82f);
+        Vector3 desiredVelocity = courseVelocity + formationCorrection;
+        velocity = Vector3.SmoothDamp(velocity, desiredVelocity, ref steeringVelocity, 0.42f, speed * 1.85f, Time.deltaTime);
+        Vector3 beforeMove = transform.position;
+        Vector3 desiredPosition = beforeMove + velocity * Time.deltaTime;
+        transform.position = UnderwaterCollision.ResolveMove(transform, desiredPosition, 0.055f, 0.13f, 0.11f, out bool avoidedObstacle);
+        if (avoidedObstacle)
+        {
+            velocity = (transform.position - beforeMove) / Mathf.Max(Time.deltaTime, 0.0001f);
+            velocity += (Vector3.up * 0.34f + transform.right * Mathf.Sign(Mathf.Sin(phase)) * 0.42f) * speed;
+        }
         if (velocity.sqrMagnitude > 0.01f)
         {
             float bank = Mathf.Clamp(Vector3.SignedAngle(transform.right, velocity.normalized, Vector3.up) * -0.42f, -18f, 18f);
             Quaternion targetRotation = Quaternion.LookRotation(velocity.normalized, Vector3.up) * Quaternion.Euler(0f, -90f, bank);
-            transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, 1f - Mathf.Exp(-Time.deltaTime * 3.2f));
+            transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, 1f - Mathf.Exp(-Time.deltaTime * 2.75f));
         }
         transform.localScale = baseScale;
+        float beat = Time.time * (7.2f + speed * 1.35f) + phase;
         if (tail != null)
         {
-            tail.localRotation = Quaternion.Euler(0f, Mathf.Sin(Time.time * (7.5f + speed) + phase) * 27f, 0f);
+            tail.localRotation = Quaternion.Euler(0f, Mathf.Sin(beat) * 25f + Mathf.Sin(beat * 2f) * 3.5f, 0f);
         }
+        if (fins != null)
+        {
+            fins.localRotation = Quaternion.Euler(Mathf.Sin(beat - 0.8f) * 5.5f, 0f, Mathf.Sin(beat * 0.5f + phase) * 2.2f);
+        }
+    }
+
+    private static Vector3 SchoolCourse(float clock)
+    {
+        Vector3 tangent = new(
+            Mathf.Cos(clock),
+            Mathf.Cos(clock * 0.63f) * 0.10f,
+            -Mathf.Sin(clock * 0.82f) * 0.82f);
+        return tangent.normalized;
     }
 }
 
@@ -1794,6 +2646,10 @@ public sealed class ReefFishDrift : MonoBehaviour
     public Vector3 basePosition;
     public float phase;
     public float swimScale = 1f;
+    public bool isBlueTang;
+    public float collisionRadius = 0.24f;
+    public float floorClearance = 0.38f;
+    public float noseDistance = 0.48f;
     private Vector3 baseScale;
     private Vector3 motionVelocity;
     private Vector3 releaseVelocity;
@@ -1802,9 +2658,10 @@ public sealed class ReefFishDrift : MonoBehaviour
 
     private void Start()
     {
-        basePosition = transform.position;
         baseScale = transform.localScale;
         travel = phase;
+        basePosition = transform.position - OrbitOffset();
+        motionVelocity = -transform.forward * Mathf.Lerp(1.8f, 3.2f, swimScale);
     }
 
     private void Update()
@@ -1815,7 +2672,13 @@ public sealed class ReefFishDrift : MonoBehaviour
             float naturalSpeed = Mathf.Lerp(1.6f, 3.8f, swimScale);
             Vector3 glideDirection = releaseVelocity.sqrMagnitude > 0.001f ? releaseVelocity.normalized : -transform.forward;
             releaseVelocity = Vector3.MoveTowards(releaseVelocity, glideDirection * naturalSpeed, 1.8f * Time.deltaTime);
-            transform.position += releaseVelocity * Time.deltaTime;
+            Vector3 beforeMove = transform.position;
+            Vector3 desiredPosition = beforeMove + releaseVelocity * Time.deltaTime;
+            transform.position = UnderwaterCollision.ResolveMove(transform, desiredPosition, collisionRadius, floorClearance, noseDistance, out bool avoidedObstacle);
+            if (avoidedObstacle)
+            {
+                releaseVelocity = (transform.position - beforeMove) / Mathf.Max(Time.deltaTime, 0.0001f);
+            }
             basePosition = transform.position - OrbitOffset();
             motionVelocity = releaseVelocity;
             ApplySwimRotation(releaseVelocity, 0f, 5.5f);
@@ -1823,20 +2686,40 @@ public sealed class ReefFishDrift : MonoBehaviour
             return;
         }
 
-        float burst = 0.76f + Mathf.Max(0f, Mathf.Sin(Time.time * 1.18f + phase * 1.7f)) * 0.34f;
-        travel += Time.deltaTime * 0.58f * burst;
+        float burst = isBlueTang
+            ? 0.88f + Mathf.Sin(Time.time * 0.74f + phase * 1.7f) * 0.13f
+            : 0.76f + Mathf.Max(0f, Mathf.Sin(Time.time * 1.18f + phase * 1.7f)) * 0.34f;
+        travel += Time.deltaTime * (isBlueTang ? 0.43f : 0.58f) * burst;
         Vector3 target = basePosition + OrbitOffset();
-        transform.position = Vector3.SmoothDamp(transform.position, target, ref motionVelocity, 0.24f, 5.8f * swimScale, Time.deltaTime);
+        Vector3 beforeDrift = transform.position;
+        float smoothTime = isBlueTang ? 0.32f : 0.24f;
+        float maxSpeed = isBlueTang ? Mathf.Lerp(2.5f, 4.8f, swimScale) : 5.8f * swimScale;
+        Vector3 desiredDrift = Vector3.SmoothDamp(beforeDrift, target, ref motionVelocity, smoothTime, maxSpeed, Time.deltaTime);
+        transform.position = UnderwaterCollision.ResolveMove(transform, desiredDrift, collisionRadius, floorClearance, noseDistance, out bool driftAvoided);
+        if (driftAvoided)
+        {
+            motionVelocity = (transform.position - beforeDrift) / Mathf.Max(Time.deltaTime, 0.0001f);
+        }
 
-        float bodyWave = Mathf.Sin(Time.time * 7.2f + phase) * 2.2f;
-        float turn = Mathf.Cos(travel) * 9f;
-        float bank = Mathf.Clamp(-turn * 0.32f + bodyWave, -7f, 7f);
-        ApplySwimRotation(motionVelocity, bank, 4f);
+        Vector3 currentHeading = -transform.forward;
+        float turnAngle = motionVelocity.sqrMagnitude > 0.01f
+            ? Vector3.SignedAngle(currentHeading, motionVelocity.normalized, Vector3.up)
+            : 0f;
+        float finRhythm = Mathf.Sin(Time.time * (isBlueTang ? 5.8f : 7.2f) + phase) * (isBlueTang ? 0.28f : 1.1f);
+        float bank = Mathf.Clamp(-turnAngle * (isBlueTang ? 0.20f : 0.28f) + finRhythm, isBlueTang ? -5.5f : -7f, isBlueTang ? 5.5f : 7f);
+        ApplySwimRotation(motionVelocity, bank, isBlueTang ? 3.45f : 4f);
         transform.localScale = baseScale;
     }
 
     private Vector3 OrbitOffset()
     {
+        if (isBlueTang)
+        {
+            return new Vector3(
+                Mathf.Sin(travel) * 3.4f * swimScale,
+                Mathf.Sin(travel * 0.54f + phase) * 0.31f * swimScale,
+                Mathf.Cos(travel) * 2.25f * swimScale);
+        }
         return new Vector3(
             Mathf.Sin(travel) * 2.8f * swimScale,
             Mathf.Sin(travel * 1.52f + 0.8f) * 0.46f * swimScale,
@@ -1869,6 +2752,82 @@ public sealed class ReefFishDrift : MonoBehaviour
     }
 }
 
+public sealed class BlueTangSwimAnimator : MonoBehaviour
+{
+    public float phase;
+    private Mesh animatedMesh;
+    private Vector3[] restVertices;
+    private Vector3[] deformedVertices;
+    private float minimumZ;
+    private float length;
+
+    private void Start()
+    {
+        MeshFilter filter = GetComponentInChildren<MeshFilter>();
+        if (filter == null || filter.sharedMesh == null)
+        {
+            enabled = false;
+            return;
+        }
+
+        try
+        {
+            animatedMesh = Instantiate(filter.sharedMesh);
+            animatedMesh.name = $"{filter.sharedMesh.name} swimming";
+            animatedMesh.MarkDynamic();
+            restVertices = animatedMesh.vertices;
+            deformedVertices = new Vector3[restVertices.Length];
+            filter.sharedMesh = animatedMesh;
+        }
+        catch (UnityException)
+        {
+            enabled = false;
+            return;
+        }
+
+        Bounds bounds = animatedMesh.bounds;
+        minimumZ = bounds.min.z;
+        length = Mathf.Max(0.001f, bounds.size.z);
+        bounds.Expand(new Vector3(bounds.size.x * 0.20f, bounds.size.y * 0.12f, 0f));
+        animatedMesh.bounds = bounds;
+    }
+
+    private void LateUpdate()
+    {
+        if (animatedMesh == null || restVertices == null)
+        {
+            return;
+        }
+
+        if ((Time.frameCount & 1) != 0)
+        {
+            return;
+        }
+
+        float cycle = Time.time * 6.1f + phase;
+        for (int i = 0; i < restVertices.Length; i++)
+        {
+            Vector3 rest = restVertices[i];
+            float alongBody = Mathf.Clamp01((rest.z - minimumZ) / length);
+            float tailMask = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.52f, 1f, alongBody));
+            float wave = Mathf.Sin(cycle - tailMask * 1.48f) + Mathf.Sin(cycle * 2f - tailMask * 0.72f) * 0.10f;
+            rest.x += wave * tailMask * tailMask * length * 0.062f;
+            rest.y += Mathf.Sin(cycle - 1.15f - tailMask) * tailMask * tailMask * length * 0.006f;
+            deformedVertices[i] = rest;
+        }
+
+        animatedMesh.vertices = deformedVertices;
+    }
+
+    private void OnDestroy()
+    {
+        if (animatedMesh != null)
+        {
+            Destroy(animatedMesh);
+        }
+    }
+}
+
 public sealed class HeroWhaleDrift : MonoBehaviour
 {
     public Vector3 basePosition;
@@ -1887,9 +2846,15 @@ public sealed class HeroWhaleDrift : MonoBehaviour
     {
         float tailBeat = Mathf.Sin(Time.time * 1.82f);
         float propulsion = 0.92f + Mathf.Max(0f, tailBeat) * 0.12f;
-        travel += Time.deltaTime * 0.115f * propulsion;
+        travel += Time.deltaTime * 0.19f * propulsion;
         Vector3 target = routeCenter + RouteOffset(travel);
-        transform.position = Vector3.SmoothDamp(transform.position, target, ref motionVelocity, 0.72f, 6.2f, Time.deltaTime);
+        Vector3 beforeMove = transform.position;
+        Vector3 desiredPosition = Vector3.SmoothDamp(beforeMove, target, ref motionVelocity, 0.58f, 8.4f, Time.deltaTime);
+        transform.position = UnderwaterCollision.ResolveMove(transform, desiredPosition, 1.45f, 2.1f, 4f, out bool avoidedObstacle);
+        if (avoidedObstacle)
+        {
+            motionVelocity = (transform.position - beforeMove) / Mathf.Max(Time.deltaTime, 0.0001f);
+        }
 
         if (motionVelocity.sqrMagnitude > 0.01f)
         {
@@ -1942,16 +2907,16 @@ public sealed class WhaleBodyAnimator : MonoBehaviour
 
     private void LateUpdate()
     {
-        float cycle = Time.time * 1.82f;
+        float cycle = Time.time * 2.18f;
         float secondHarmonic = Mathf.Sin(cycle * 2f - 0.35f);
-        float bodyWave = Mathf.Sin(cycle) * 3.6f + secondHarmonic * 0.55f;
-        float tailWave = Mathf.Sin(cycle - 0.72f) * 11.5f + secondHarmonic * 1.4f;
-        float tipWave = Mathf.Sin(cycle - 1.38f) * 23f + secondHarmonic * 2.4f;
+        float bodyWave = Mathf.Sin(cycle) * 1.8f + secondHarmonic * 0.28f;
+        float tailWave = Mathf.Sin(cycle - 0.72f) * 6.8f + secondHarmonic * 0.75f;
+        float tipWave = Mathf.Sin(cycle - 1.38f) * 14f + secondHarmonic * 1.35f;
         float bodyRoll = Mathf.Sin(cycle * 0.5f + 0.7f) * 0.55f;
 
-        body.localRotation = bodyRest * Quaternion.Euler(bodyWave - 1.5f, 0f, bodyRoll);
-        tailBase.localRotation = tailBaseRest * Quaternion.Euler(tailWave - 8.5f, 0f, -bodyWave * 0.12f);
-        tailTip.localRotation = tailTipRest * Quaternion.Euler(tipWave - 18f, 0f, -tailWave * 0.08f);
+        body.localRotation = bodyRest * Quaternion.Euler(bodyWave, 0f, bodyRoll);
+        tailBase.localRotation = tailBaseRest * Quaternion.Euler(tailWave, 0f, -bodyWave * 0.12f);
+        tailTip.localRotation = tailTipRest * Quaternion.Euler(tipWave, 0f, -tailWave * 0.08f);
     }
 }
 
@@ -1979,22 +2944,46 @@ public sealed class OceanCreatureDrift : MonoBehaviour
         {
             releaseGlide = Mathf.Max(0f, releaseGlide - Time.deltaTime);
             float naturalSpeed = turtleStroke == null ? 2.8f : 2.4f;
-            Vector3 glideDirection = releaseVelocity.sqrMagnitude > 0.001f ? releaseVelocity.normalized : -transform.forward;
+            Vector3 glideDirection = releaseVelocity.sqrMagnitude > 0.001f
+                ? releaseVelocity.normalized
+                : useMantaAxes ? transform.up : transform.forward;
             releaseVelocity = Vector3.MoveTowards(releaseVelocity, glideDirection * naturalSpeed, 1.35f * Time.deltaTime);
-            transform.position += releaseVelocity * Time.deltaTime;
+            Vector3 beforeMove = transform.position;
+            Vector3 desiredPosition = beforeMove + releaseVelocity * Time.deltaTime;
+            float radius = useMantaAxes ? 0.92f : 0.62f;
+            float clearance = useMantaAxes ? 1.15f : 0.78f;
+            float noseDistance = useMantaAxes ? 2.1f : 1.55f;
+            transform.position = UnderwaterCollision.ResolveMove(transform, desiredPosition, radius, clearance, noseDistance, out bool avoidedObstacle);
+            if (avoidedObstacle)
+            {
+                releaseVelocity = (transform.position - beforeMove) / Mathf.Max(Time.deltaTime, 0.0001f);
+            }
             basePosition = transform.position - OrbitOffset();
             motionVelocity = releaseVelocity;
             ApplySwimRotation(releaseVelocity, 0f, 4.8f);
+            if (releaseGlide <= 0f)
+            {
+                AlignPatrolToVelocity(releaseVelocity);
+            }
             return;
         }
 
         float strokeBoost = turtleStroke == null
-            ? 0.12f + Mathf.Sin(Time.time * 0.55f + phase) * 0.035f
-            : 0.095f + turtleStroke.Propulsion * 0.16f;
+            ? 0.20f + Mathf.Sin(Time.time * 0.72f + phase) * 0.045f
+            : 0.135f + turtleStroke.Propulsion * 0.21f;
         travel += Time.deltaTime * strokeBoost;
         Vector3 target = basePosition + OrbitOffset();
-        float maxSpeed = turtleStroke == null ? 3.8f : Mathf.Lerp(2.1f, 5.4f, turtleStroke.Propulsion);
-        transform.position = Vector3.SmoothDamp(transform.position, target, ref motionVelocity, 0.46f, maxSpeed, Time.deltaTime);
+        float maxSpeed = turtleStroke == null ? 5.6f : Mathf.Lerp(2.8f, 6.2f, turtleStroke.Propulsion);
+        Vector3 beforeDrift = transform.position;
+        Vector3 desiredDrift = Vector3.SmoothDamp(beforeDrift, target, ref motionVelocity, 0.46f, maxSpeed, Time.deltaTime);
+        float driftRadius = useMantaAxes ? 0.92f : 0.62f;
+        float driftClearance = useMantaAxes ? 1.15f : 0.78f;
+        float driftNoseDistance = useMantaAxes ? 2.1f : 1.55f;
+        transform.position = UnderwaterCollision.ResolveMove(transform, desiredDrift, driftRadius, driftClearance, driftNoseDistance, out bool driftAvoided);
+        if (driftAvoided)
+        {
+            motionVelocity = (transform.position - beforeDrift) / Mathf.Max(Time.deltaTime, 0.0001f);
+        }
 
         float turn = Mathf.Cos(travel) * (turtleStroke == null ? 13f : 9f);
         float bank = Mathf.Clamp(-turn * (turtleStroke == null ? 0.28f : 0.18f), -6f, 6f);
@@ -2003,16 +2992,12 @@ public sealed class OceanCreatureDrift : MonoBehaviour
 
     private Vector3 OrbitOffset()
     {
-        float radius = turtleStroke == null ? 6.4f : 4.8f;
-        return new Vector3(
-            Mathf.Sin(travel) * radius,
-            Mathf.Sin(travel * 1.22f + 0.6f) * (turtleStroke == null ? 1.2f : 0.82f),
-            Mathf.Cos(travel * 0.74f) * radius * 0.68f);
+        return OrbitOffsetAt(travel);
     }
 
     public Quaternion RotationForVelocity(Vector3 velocity, float bank)
     {
-        Vector3 fallback = useMantaAxes ? transform.up : -transform.forward;
+        Vector3 fallback = useMantaAxes ? transform.up : transform.forward;
         Vector3 direction = velocity.sqrMagnitude > 0.001f ? velocity.normalized : fallback;
         if (useMantaAxes)
         {
@@ -2021,16 +3006,58 @@ public sealed class OceanCreatureDrift : MonoBehaviour
                 * Quaternion.LookRotation(direction, Vector3.up)
                 * alignForwardAndDorsal;
         }
-        return Quaternion.AngleAxis(bank, direction) * Quaternion.LookRotation(-direction, Vector3.up);
+        return Quaternion.AngleAxis(bank, direction) * Quaternion.LookRotation(direction, Vector3.up);
     }
 
     public void ResumeFromGuidance(Vector3 velocity)
     {
-        Vector3 fallback = useMantaAxes ? transform.up : -transform.forward;
+        Vector3 fallback = useMantaAxes ? transform.up : transform.forward;
         releaseVelocity = velocity.sqrMagnitude > 0.01f ? Vector3.ClampMagnitude(velocity, 8.5f) : fallback * 2.6f;
-        releaseGlide = 2.8f;
+        AlignPatrolToVelocity(releaseVelocity);
+        releaseGlide = 6f;
         basePosition = transform.position - OrbitOffset();
         motionVelocity = releaseVelocity;
+    }
+
+    private void AlignPatrolToVelocity(Vector3 velocity)
+    {
+        if (velocity.sqrMagnitude < 0.001f)
+        {
+            return;
+        }
+
+        Vector3 desiredDirection = velocity.normalized;
+        float bestTravel = travel;
+        float bestAlignment = float.NegativeInfinity;
+        const int Samples = 48;
+        const float Step = 0.035f;
+        for (int i = 0; i < Samples; i++)
+        {
+            float candidate = i / (float)Samples * Mathf.PI * 2f;
+            Vector3 tangent = OrbitOffsetAt(candidate + Step) - OrbitOffsetAt(candidate - Step);
+            if (tangent.sqrMagnitude < 0.0001f)
+            {
+                continue;
+            }
+
+            float alignment = Vector3.Dot(tangent.normalized, desiredDirection);
+            if (alignment > bestAlignment)
+            {
+                bestAlignment = alignment;
+                bestTravel = candidate;
+            }
+        }
+        travel = bestTravel;
+        basePosition = transform.position - OrbitOffset();
+    }
+
+    private Vector3 OrbitOffsetAt(float t)
+    {
+        float radius = turtleStroke == null ? 6.4f : 4.8f;
+        return new Vector3(
+            Mathf.Sin(t) * radius,
+            Mathf.Sin(t * 1.22f + 0.6f) * (turtleStroke == null ? 1.2f : 0.82f),
+            Mathf.Cos(t * 0.74f) * radius * 0.68f);
     }
 
     private void ApplySwimRotation(Vector3 velocity, float bank, float sharpness)
@@ -2075,7 +3102,7 @@ public sealed class TurtleStrokeAnimator : MonoBehaviour
 
     private void Update()
     {
-        float cycle = Mathf.Repeat(Time.time * 0.56f + phase, 1f);
+        float cycle = Mathf.Repeat(Time.time * 0.78f + phase, 1f);
         float stroke;
         if (cycle < 0.36f)
         {
@@ -2091,6 +3118,78 @@ public sealed class TurtleStrokeAnimator : MonoBehaviour
         float feather = Mathf.Sin((cycle + 0.12f) * Mathf.PI * 2f) * 9f;
         leftFlipper.localRotation = leftRest * Quaternion.Euler(0f, stroke, feather);
         rightFlipper.localRotation = rightRest * Quaternion.Euler(0f, -stroke * 0.94f, -feather * 0.92f);
+    }
+}
+
+public sealed class MantaWingAnimator : MonoBehaviour
+{
+    public float phase;
+    private Mesh animatedMesh;
+    private Vector3[] restVertices;
+    private Vector3[] deformedVertices;
+    private Bounds expandedBounds;
+    private float halfSpan;
+
+    private void Start()
+    {
+        MeshFilter filter = GetComponentInChildren<MeshFilter>();
+        if (filter == null || filter.sharedMesh == null)
+        {
+            enabled = false;
+            return;
+        }
+
+        try
+        {
+            animatedMesh = Instantiate(filter.sharedMesh);
+            animatedMesh.name = $"{filter.sharedMesh.name} wing stroke";
+            animatedMesh.MarkDynamic();
+            restVertices = animatedMesh.vertices;
+            deformedVertices = new Vector3[restVertices.Length];
+            filter.sharedMesh = animatedMesh;
+        }
+        catch (UnityException)
+        {
+            enabled = false;
+            return;
+        }
+
+        expandedBounds = animatedMesh.bounds;
+        halfSpan = Mathf.Max(Mathf.Abs(expandedBounds.min.z), Mathf.Abs(expandedBounds.max.z));
+        expandedBounds.Expand(new Vector3(expandedBounds.size.x * 0.32f, 0f, 0f));
+        animatedMesh.bounds = expandedBounds;
+    }
+
+    private void LateUpdate()
+    {
+        if (animatedMesh == null || restVertices == null || ((Time.frameCount + Mathf.RoundToInt(phase * 10f)) & 1) != 0)
+        {
+            return;
+        }
+
+        float cycle = Time.time * 1.72f + phase;
+        for (int i = 0; i < restVertices.Length; i++)
+        {
+            Vector3 rest = restVertices[i];
+            float wingDistance = Mathf.Clamp01(Mathf.Abs(rest.z) / Mathf.Max(0.001f, halfSpan));
+            float wingMask = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.22f, 1f, wingDistance));
+            float sidePhase = Mathf.Sign(rest.z) * 0.08f;
+            float broadStroke = Mathf.Sin(cycle - wingDistance * 0.82f + sidePhase);
+            float recovery = Mathf.Sin(cycle * 2f - wingDistance * 0.35f) * 0.12f;
+            rest.x += (broadStroke + recovery) * Mathf.Pow(wingMask, 1.25f) * halfSpan * 0.115f;
+            deformedVertices[i] = rest;
+        }
+
+        animatedMesh.vertices = deformedVertices;
+        animatedMesh.bounds = expandedBounds;
+    }
+
+    private void OnDestroy()
+    {
+        if (animatedMesh != null)
+        {
+            Destroy(animatedMesh);
+        }
     }
 }
 
@@ -2196,7 +3295,13 @@ public sealed class JellyDrift : MonoBehaviour
         float pulseThrust = pulseAnimator == null ? Mathf.Max(0f, Mathf.Sin(t * 2.4f)) * 0.16f : pulseAnimator.PropulsionPulse * 0.035f;
         velocity += (current + restoring + Vector3.up * pulseThrust) * Time.deltaTime;
         velocity *= Mathf.Exp(-Time.deltaTime * 0.82f);
-        transform.position += velocity * Time.deltaTime;
+        Vector3 beforeMove = transform.position;
+        Vector3 desiredPosition = beforeMove + velocity * Time.deltaTime;
+        transform.position = UnderwaterCollision.ResolveMove(transform, desiredPosition, 0.18f, 0.38f, 0.22f, out bool avoidedObstacle);
+        if (avoidedObstacle)
+        {
+            velocity = (transform.position - beforeMove) / Mathf.Max(Time.deltaTime, 0.0001f);
+        }
 
         Vector3 sideways = new(velocity.x, 0f, velocity.z);
         float tiltStrength = Mathf.Lerp(1.65f, 0.38f, uprightBias);
@@ -2262,6 +3367,7 @@ public sealed class SurfaceDrift : MonoBehaviour
 public sealed class UnderwaterAudio : MonoBehaviour
 {
     private const int SampleRate = 22050;
+    public static bool GlobalMuted { get; private set; }
     private AudioSource ambienceSource;
     private AudioSource movementSource;
     private AudioSource whaleSource;
@@ -2306,8 +3412,9 @@ public sealed class UnderwaterAudio : MonoBehaviour
         if (keyboard != null && keyboard.mKey.wasPressedThisFrame)
         {
             muted = !muted;
+            GlobalMuted = muted;
             ApplyMute();
-            UnderwaterHud.Instance?.ShowStatus(muted ? "OCEAN AUDIO MUTED" : "OCEAN AUDIO ON");
+            UnderwaterHud.Instance?.ShowStatus(muted ? "海洋声音已关闭" : "海洋声音已开启");
         }
 
         if (!started && HasUserGesture())
@@ -2337,6 +3444,7 @@ public sealed class UnderwaterAudio : MonoBehaviour
 
     private void OnDestroy()
     {
+        GlobalMuted = false;
         if (ambienceClip != null) Destroy(ambienceClip);
         if (movementClip != null) Destroy(movementClip);
         if (whaleClip != null) Destroy(whaleClip);
@@ -2362,7 +3470,7 @@ public sealed class UnderwaterAudio : MonoBehaviour
         if (whaleSource != null) whaleSource.mute = muted;
     }
 
-    private static bool HasUserGesture()
+    public static bool HasUserGesture()
     {
         Keyboard keyboard = Keyboard.current;
         if (keyboard != null && keyboard.anyKey.wasPressedThisFrame)
@@ -2461,6 +3569,7 @@ public sealed class UnderwaterHud : MonoBehaviour
     private Texture2D panelTexture;
     private Texture2D softPanelTexture;
     private Texture2D progressTexture;
+    private Font chineseFont;
     private float alpha = 1f;
     private float toastUntil;
     private string toastTitle;
@@ -2472,6 +3581,7 @@ public sealed class UnderwaterHud : MonoBehaviour
     private void Awake()
     {
         Instance = this;
+        chineseFont = Resources.Load<Font>("Fonts/DroidSansFallbackFull");
         panelTexture = MakeTexture(new Color(0.012f, 0.075f, 0.11f, 0.82f));
         softPanelTexture = MakeTexture(new Color(0.01f, 0.06f, 0.09f, 0.62f));
         progressTexture = MakeTexture(new Color(0.24f, 0.82f, 0.82f, 0.92f));
@@ -2491,8 +3601,8 @@ public sealed class UnderwaterHud : MonoBehaviour
     public void Discover(string id, string displayName, string description)
     {
         bool isNew = discoveries.Add(id);
-        toastTitle = isNew ? $"NEW ENCOUNTER · {displayName}" : $"FIELD LOG · {displayName}";
-        toastMessage = isNew ? description : "This species is already in your field log.";
+        toastTitle = isNew ? $"新发现 · {displayName}" : $"海洋图鉴 · {displayName}";
+        toastMessage = isNew ? description : "这个伙伴已经收录在海洋图鉴里。";
         toastUntil = Time.unscaledTime + 5f;
     }
 
@@ -2537,6 +3647,7 @@ public sealed class UnderwaterHud : MonoBehaviour
         float uiScale = Mathf.Clamp(Screen.width / 1440f, 0.72f, 1.08f);
         titleStyle ??= new GUIStyle(GUI.skin.label)
         {
+            font = chineseFont,
             alignment = TextAnchor.MiddleCenter,
             fontSize = Mathf.Clamp(Screen.width / 42, 18, 36),
             fontStyle = FontStyle.Normal
@@ -2545,6 +3656,7 @@ public sealed class UnderwaterHud : MonoBehaviour
 
         hintStyle ??= new GUIStyle(GUI.skin.label)
         {
+            font = chineseFont,
             alignment = TextAnchor.MiddleCenter,
             fontSize = Mathf.Clamp(Screen.width / 95, 11, 17)
         };
@@ -2552,6 +3664,7 @@ public sealed class UnderwaterHud : MonoBehaviour
 
         panelTitleStyle ??= new GUIStyle(GUI.skin.label)
         {
+            font = chineseFont,
             alignment = TextAnchor.UpperLeft,
             fontSize = Mathf.RoundToInt(14f * uiScale),
             fontStyle = FontStyle.Bold
@@ -2560,6 +3673,7 @@ public sealed class UnderwaterHud : MonoBehaviour
 
         panelTextStyle ??= new GUIStyle(GUI.skin.label)
         {
+            font = chineseFont,
             alignment = TextAnchor.UpperLeft,
             fontSize = Mathf.RoundToInt(12f * uiScale),
             richText = true,
@@ -2579,16 +3693,17 @@ public sealed class UnderwaterHud : MonoBehaviour
         };
         touchButtonStyle ??= new GUIStyle(GUI.skin.button)
         {
+            font = chineseFont,
             alignment = TextAnchor.MiddleCenter,
             fontSize = Mathf.RoundToInt(11f * uiScale),
             fontStyle = FontStyle.Bold
         };
 
-        GUI.Label(new Rect(0f, Screen.height * 0.07f, Screen.width, 48f), "THE BLUE BETWEEN WORLDS", titleStyle);
+        GUI.Label(new Rect(0f, Screen.height * 0.07f, Screen.width, 48f), "深海漫游", titleStyle);
 
         Rect logPanel = new Rect(24f * uiScale, 22f * uiScale, 286f * uiScale, 110f * uiScale);
         GUI.DrawTexture(logPanel, panelTexture, ScaleMode.StretchToFill);
-        GUI.Label(new Rect(logPanel.x + 16f * uiScale, logPanel.y + 12f * uiScale, logPanel.width - 32f * uiScale, 24f * uiScale), $"OCEAN FIELD LOG   {discoveries.Count} / 3", panelTitleStyle);
+        GUI.Label(new Rect(logPanel.x + 16f * uiScale, logPanel.y + 12f * uiScale, logPanel.width - 32f * uiScale, 24f * uiScale), $"海洋图鉴   {discoveries.Count} / 3", panelTitleStyle);
         GUI.Label(new Rect(logPanel.x + 16f * uiScale, logPanel.y + 40f * uiScale, logPanel.width - 32f * uiScale, 40f * uiScale), BuildDiscoveryLine(), panelTextStyle);
         Rect progressBack = new Rect(logPanel.x + 16f * uiScale, logPanel.yMax - 19f * uiScale, logPanel.width - 32f * uiScale, 3f * uiScale);
         GUI.DrawTexture(progressBack, softPanelTexture, ScaleMode.StretchToFill);
@@ -2602,12 +3717,12 @@ public sealed class UnderwaterHud : MonoBehaviour
         {
             Rect pauseBadge = new Rect(Screen.width - 150f * uiScale, 22f * uiScale, 126f * uiScale, 34f * uiScale);
             GUI.DrawTexture(pauseBadge, panelTexture, ScaleMode.StretchToFill);
-            GUI.Label(pauseBadge, "FREE DIVE", toastTextStyle);
+            GUI.Label(pauseBadge, "自由漫游", toastTextStyle);
         }
 
         string controls = string.IsNullOrEmpty(hoverName)
-            ? "WASD SWIM  ·  Q/E DEPTH  ·  DRAG LOOK  ·  SPACE AUTO/FREE  ·  M AUDIO"
-            : hoverDiscovered ? $"DOUBLE-CLICK TO SELECT · HOLD AND DRAG TO GUIDE · RELEASE TO LET GO · {hoverName}" : $"CLICK TO LOG · DOUBLE-CLICK TO SELECT · {hoverName}";
+            ? "W/S 前后 · A/D 左右 · Q/E 升降 · 拖动视角 · 空格切换巡游 · M 声音"
+            : hoverDiscovered ? $"双击选中 · 按住并拖动引导 · 松开结束 · {hoverName}" : $"单击收录图鉴 · 双击选中 · {hoverName}";
         Rect controlsPanel = new Rect(Screen.width * 0.5f - 370f * uiScale, Screen.height - 52f * uiScale, 740f * uiScale, 30f * uiScale);
         GUI.DrawTexture(controlsPanel, softPanelTexture, ScaleMode.StretchToFill);
         GUI.Label(controlsPanel, controls, toastTextStyle);
@@ -2666,12 +3781,12 @@ public sealed class UnderwaterHud : MonoBehaviour
     private void DrawTravelControls(CinematicDive dive)
     {
         Rect[] rects = GetTravelControlRects();
-        bool forward = GUI.RepeatButton(rects[0], "FWD", touchButtonStyle);
-        bool backward = GUI.RepeatButton(rects[1], "BACK", touchButtonStyle);
-        bool left = GUI.RepeatButton(rects[2], "LEFT", touchButtonStyle);
-        bool right = GUI.RepeatButton(rects[3], "RIGHT", touchButtonStyle);
-        bool ascend = GUI.RepeatButton(rects[4], "UP", touchButtonStyle);
-        bool descend = GUI.RepeatButton(rects[5], "DOWN", touchButtonStyle);
+        bool forward = GUI.RepeatButton(rects[0], "前进", touchButtonStyle);
+        bool backward = GUI.RepeatButton(rects[1], "后退", touchButtonStyle);
+        bool left = GUI.RepeatButton(rects[2], "左", touchButtonStyle);
+        bool right = GUI.RepeatButton(rects[3], "右", touchButtonStyle);
+        bool ascend = GUI.RepeatButton(rects[4], "上浮", touchButtonStyle);
+        bool descend = GUI.RepeatButton(rects[5], "下潜", touchButtonStyle);
         dive.SetHudMove(new Vector3(
             (right ? 1f : 0f) - (left ? 1f : 0f),
             (ascend ? 1f : 0f) - (descend ? 1f : 0f),
@@ -2680,9 +3795,9 @@ public sealed class UnderwaterHud : MonoBehaviour
 
     private string BuildDiscoveryLine()
     {
-        string clownfish = discoveries.Contains("clownfish") ? "<color=#7FE0D9>●</color> CLOWNFISH" : "○ CLOWNFISH";
-        string turtle = discoveries.Contains("turtle") ? "<color=#7FE0D9>●</color> TURTLE" : "○ TURTLE";
-        string manta = discoveries.Contains("manta") ? "<color=#7FE0D9>●</color> MANTA RAY" : "○ MANTA RAY";
+        string clownfish = discoveries.Contains("clownfish") ? "<color=#7FE0D9>●</color> 小丑鱼" : "○ 小丑鱼";
+        string turtle = discoveries.Contains("turtle") ? "<color=#7FE0D9>●</color> 绿海龟" : "○ 绿海龟";
+        string manta = discoveries.Contains("manta") ? "<color=#7FE0D9>●</color> 魔鬼鱼" : "○ 魔鬼鱼";
         return $"{clownfish}   {turtle}\n{manta}";
     }
 
@@ -2750,7 +3865,7 @@ public sealed class MarineEncounter : MonoBehaviour
         if (guided)
         {
             followDistance = Mathf.Clamp(Vector3.Distance(transform.position, followCamera.transform.position), 6f, 13f);
-            UnderwaterHud.Instance?.ShowStatus($"{displayName} SELECTED · HOLD AND DRAG TO GUIDE");
+            UnderwaterHud.Instance?.ShowStatus($"已选中 {displayName} · 按住并拖动引导它游动");
         }
         else
         {
@@ -2758,7 +3873,7 @@ public sealed class MarineEncounter : MonoBehaviour
             guiding = false;
             SetDriftEnabled(true, releaseVelocity);
             followVelocity = Vector3.zero;
-            UnderwaterHud.Instance?.ShowStatus($"{displayName} RETURNED TO THE REEF");
+            UnderwaterHud.Instance?.ShowStatus($"{displayName} 已恢复自由巡游");
         }
     }
 
@@ -2792,7 +3907,25 @@ public sealed class MarineEncounter : MonoBehaviour
             float targetSpeed = Mathf.Clamp(distance * 1.45f, 1.2f, 9.5f);
             Vector3 desiredVelocity = direction / distance * targetSpeed;
             followVelocity = Vector3.MoveTowards(followVelocity, desiredVelocity, 12f * Time.deltaTime);
-            transform.position += followVelocity * Time.deltaTime;
+            Vector3 beforeMove = transform.position;
+            Vector3 desiredPosition = beforeMove + followVelocity * Time.deltaTime;
+            OceanCreatureDrift creatureDrift = GetComponent<OceanCreatureDrift>();
+            bool isManta = creatureDrift != null && creatureDrift.useMantaAxes;
+            bool isLargeCreature = creatureDrift != null;
+            float collisionRadius = isManta ? 0.92f : isLargeCreature ? 0.62f : 0.24f;
+            float floorClearance = isManta ? 1.15f : isLargeCreature ? 0.78f : 0.38f;
+            float noseDistance = isManta ? 2.1f : isLargeCreature ? 1.55f : 0.48f;
+            transform.position = UnderwaterCollision.ResolveMove(
+                transform,
+                desiredPosition,
+                collisionRadius,
+                floorClearance,
+                noseDistance,
+                out bool avoidedObstacle);
+            if (avoidedObstacle)
+            {
+                followVelocity = (transform.position - beforeMove) / Mathf.Max(Time.deltaTime, 0.0001f);
+            }
 
             float bank = Mathf.Clamp(-pointerDelta.x * 0.16f, -12f, 12f);
             Quaternion swimRotation = RotationForVelocity(followVelocity, bank);

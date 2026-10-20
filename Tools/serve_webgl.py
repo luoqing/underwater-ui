@@ -2,45 +2,22 @@
 
 import argparse
 import functools
-import posixpath
-import re
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import unquote, urlsplit
-
-
-HASHED_BUILD_ASSET = re.compile(
-    r"[0-9a-fA-F]{32}\.(?:(?:data|wasm|framework\.js)(?:\.gz|\.unityweb)?|loader\.js)"
-)
 
 
 class UnityWebGLHandler(SimpleHTTPRequestHandler):
-    def send_response(self, code, message=None):
-        self.response_status = code
-        super().send_response(code, message)
-
     def end_headers(self):
-        path = unquote(urlsplit(self.path).path)
-        if self.response_status == 200 and path.endswith((".unityweb", ".gz")):
+        if self.path.split("?", 1)[0].endswith(".unityweb"):
             self.send_header("Content-Encoding", "gzip")
-        immutable = self.response_status in (200, 304) and HASHED_BUILD_ASSET.fullmatch(
-            posixpath.basename(path)
-        )
-        self.send_header(
-            "Cache-Control",
-            "public, max-age=31536000, immutable" if immutable else "no-cache",
-        )
+        self.send_header("Cache-Control", "no-cache")
         super().end_headers()
 
     def guess_type(self, path):
-        for suffix in (".unityweb", ".gz"):
-            if path.endswith(suffix):
-                path = path[:-len(suffix)]
-                break
-        if path.endswith(".wasm"):
+        if path.endswith(".wasm.unityweb"):
             return "application/wasm"
-        if path.endswith(".js"):
+        if path.endswith(".framework.js.unityweb"):
             return "application/javascript"
-        if path.endswith(".data"):
+        if path.endswith(".data.unityweb"):
             return "application/octet-stream"
         return super().guess_type(path)
 
