@@ -10,7 +10,7 @@ using UnityEngine.SceneManagement;
 public static class UnderwaterBuild
 {
     private const string ScenePath = "Assets/Scenes/UnderwaterJourney.unity";
-    private const string BuildPath = "Build/WebGL";
+    private const string BuildPath = "Build/WebGLBugfix";
 
     [MenuItem("Underwater/Create Benchmark Scene")]
     public static void CreateScene()
@@ -136,4 +136,3 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #062f3d; }
 ");
     }
 }
-

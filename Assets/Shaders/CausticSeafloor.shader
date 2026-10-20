@@ -128,7 +128,7 @@ Shader "Underwater/CausticSeafloor"
                 half specular = pow(saturate(dot(normalWS, halfDir)), lerp(7.0h, 64.0h, smoothness)) * smoothness * 0.18h;
                 float depthFade = saturate(1.0 - max(0.0, -input.positionWS.y) * 0.045);
                 half3 color = ambient + direct + mainLight.color * specular * mainLight.shadowAttenuation;
-                color += _CausticColor.rgb * caustic * depthFade * (0.22h + diffuse * 0.34h);
+                color += _CausticColor.rgb * caustic * depthFade * (0.22h + diffuse * 0.34h) * mainLight.shadowAttenuation;
                 color = MixFog(color, input.fogFactor);
                 return half4(color, 1.0);
             }
@@ -139,4 +139,3 @@ Shader "Underwater/CausticSeafloor"
         UsePass "Universal Render Pipeline/Lit/DepthOnly"
     }
 }
-

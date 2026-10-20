@@ -1,13 +1,17 @@
-# Isolated loading-performance work
+# Isolated underwater gameplay and visual bug fixes
 
 This is a separate local Git repository, copied from the current developer project.
 Do not edit, switch, overwrite or deploy the original project at
 `/data00/home/luoqing.tsing/Projects/underwater-journey`.
 
-- Baseline: `baseline/quality-20261019`, commit `60c1811`.
-- Work branch: `perf/loading-20261019`.
-- Preserve models, texture bytes/import settings, animation, shaders, lighting,
-  post-processing, resolution and story behavior when optimizing loading.
+- Current source baseline: `baseline/layered-water-20261020`, commit `26ee34c`.
+- Work branch: `fix/ui-missions-20261020`.
+- The user explicitly authorized gameplay, UI/font, mission, animal motion and
+  damaged-model fixes on 2026-10-20. This supersedes the earlier loading-only
+  scope. Preserve the accepted layered-water colors, existing texture bytes,
+  post-processing and resolution while fixing demonstrated defects.
+- BlueTang/ReefFishDrift/FishSwimmer are owned by the original developer bot;
+  read its logs for context but do not overwrite its project or send messages.
 - The previous texture-compression candidate at
   `/data00/home/luoqing.tsing/Projects/underwater-perf-A128g8` is a separate,
   visually unapproved experiment. Do not import it wholesale or treat its
@@ -19,6 +23,6 @@ Do not edit, switch, overwrite or deploy the original project at
 - The original project is still evolving. This is a verified source snapshot,
   not a claim that future developer changes are synchronized automatically.
 
-Before committing, check that only intended loading/build/serving files differ
-from the baseline. In particular, runtime Assets and ProjectSettings must remain
-unchanged unless the user explicitly approves a broader scope.
+Before committing, compare with the current source baseline. Record real Unity
+and browser validation separately from numerical geometry checks. Do not call a
+visual or playable requirement complete solely because a build or HTTP check passed.

@@ -6,6 +6,7 @@ using UnityEngine.Rendering.Universal;
 
 public sealed class UnderwaterWorld : MonoBehaviour
 {
+    public const float WaterSurfaceHeight = 48f;
     private readonly List<Material> runtimeMaterials = new();
     private Camera journeyCamera;
     private Light sunlight;
@@ -256,6 +257,8 @@ public sealed class UnderwaterWorld : MonoBehaviour
         sunlight.shadows = LightShadows.Soft;
         sunlight.shadowStrength = 0.64f;
         sunlight.shadowBias = 0.04f;
+        sunlight.shadowNormalBias = 0.4f;
+        sunlight.GetUniversalAdditionalLightData().usePipelineSettings = false;
 
         CreatePointLight("Shallow water bounce", new Vector3(-4f, 5f, 18f), new Color(0.70f, 0.90f, 0.90f), 1.35f, 34f);
         CreatePointLight("Warm reef bounce", new Vector3(6f, 2f, 29f), new Color(0.92f, 0.76f, 0.58f), 0.82f, 24f);
@@ -310,6 +313,7 @@ public sealed class UnderwaterWorld : MonoBehaviour
         cameraObject.AddComponent<AudioListener>();
 
         UniversalAdditionalCameraData cameraData = cameraObject.AddComponent<UniversalAdditionalCameraData>();
+        cameraData.requiresColorTexture = true;
         cameraData.renderPostProcessing = true;
         cameraData.antialiasing = AntialiasingMode.SubpixelMorphologicalAntiAliasing;
         cameraData.antialiasingQuality = AntialiasingQuality.High;
@@ -406,11 +410,11 @@ public sealed class UnderwaterWorld : MonoBehaviour
         GameObject plane = new("Moving Water Surface");
         plane.name = "Moving Water Surface";
         plane.transform.SetParent(transform);
-        plane.transform.position = new Vector3(0f, 48f, 0f);
+        plane.transform.position = new Vector3(0f, WaterSurfaceHeight, 0f);
         plane.AddComponent<MeshFilter>().sharedMesh = CreateSurfaceMesh(720f, 1200f, 48, 120);
         plane.AddComponent<MeshRenderer>().sharedMaterial = surface;
         plane.AddComponent<SurfaceDrift>();
-        plane.AddComponent<FollowCameraXZ>().Initialize(journeyCamera.transform, 48f);
+        plane.AddComponent<FollowCameraXZ>().Initialize(journeyCamera.transform, WaterSurfaceHeight);
     }
 
     private static Mesh CreateSurfaceMesh(float width, float length, int xSegments, int zSegments)
@@ -455,12 +459,35 @@ public sealed class UnderwaterWorld : MonoBehaviour
 
     private void CreateSeafloor()
     {
-        GameObject floor = new("Infinite Sculpted Seafloor");
+        GameObject floor = new("Stable Sculpted Seafloor");
         floor.transform.SetParent(transform);
         floor.AddComponent<InfiniteSeafloorGrid>().Initialize(journeyCamera.transform, MakeCausticMaterial());
     }
 
     public static float SampleSeafloorHeight(float worldX, float worldZ)
+    {
+        // Use the same two triangles as the fixed 2 metre seafloor mesh.
+        const float spacing = InfiniteSeafloorGrid.VertexSpacing;
+        float x = Mathf.Floor(worldX / spacing) * spacing;
+        float z = Mathf.Floor(worldZ / spacing) * spacing;
+        float u = (worldX - x) / spacing;
+        float v = (worldZ - z) / spacing;
+        if (u == 0f && v == 0f)
+        {
+            return SampleTerrainHeight(x, z);
+        }
+        float b = SampleTerrainHeight(x + spacing, z);
+        float c = SampleTerrainHeight(x, z + spacing);
+        if (u + v <= 1f)
+        {
+            float a = SampleTerrainHeight(x, z);
+            return a + (b - a) * u + (c - a) * v;
+        }
+        float d = SampleTerrainHeight(x + spacing, z + spacing);
+        return d + (c - d) * (1f - u) + (b - d) * (1f - v);
+    }
+
+    private static float SampleTerrainHeight(float worldX, float worldZ)
     {
         float routeDepth = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(75f, 150f, worldZ));
         float channelCenter = Mathf.Sin(worldZ * 0.034f) * 2.2f + Mathf.Sin(worldZ * 0.012f + 1.7f) * 1.3f;
@@ -485,10 +512,10 @@ public sealed class UnderwaterWorld : MonoBehaviour
     public static Vector3 SampleSeafloorNormal(float worldX, float worldZ)
     {
         const float step = 0.35f;
-        float left = SampleSeafloorHeight(worldX - step, worldZ);
-        float right = SampleSeafloorHeight(worldX + step, worldZ);
-        float back = SampleSeafloorHeight(worldX, worldZ - step);
-        float forward = SampleSeafloorHeight(worldX, worldZ + step);
+        float left = SampleTerrainHeight(worldX - step, worldZ);
+        float right = SampleTerrainHeight(worldX + step, worldZ);
+        float back = SampleTerrainHeight(worldX, worldZ - step);
+        float forward = SampleTerrainHeight(worldX, worldZ + step);
         return new Vector3(left - right, step * 2f, back - forward).normalized;
     }
 
@@ -1579,48 +1606,45 @@ public sealed class FollowCameraXZ : MonoBehaviour
 
 public sealed class InfiniteSeafloorGrid : MonoBehaviour
 {
-    private const int GridRadius = 1;
-    private const int Segments = 40;
-    private const float TileSize = 150f;
+    private const int GridRadius = 4;
+    private const int Segments = 64;
+    private const float TileSize = 128f;
     private const float TextureScale = 0.14f;
+    public const float VertexSpacing = TileSize / Segments;
+    public const float ExplorationRadius = 400f;
+    public static readonly Vector3 ExplorationCenter = new(0f, 0f, 64f);
 
     private sealed class Tile
     {
         public GameObject gameObject;
         public Mesh mesh;
         public Vector2Int coordinate = new(int.MinValue, int.MinValue);
-        public bool claimed;
     }
 
     private readonly List<Tile> tiles = new();
-    private Transform target;
     private Material material;
-    private Vector2Int centerCoordinate = new(int.MinValue, int.MinValue);
     private int[] triangles;
 
     public void Initialize(Transform followTarget, Material sharedMaterial)
     {
-        target = followTarget;
         material = sharedMaterial;
         triangles = CreateTriangles();
 
-        int tileCount = (GridRadius * 2 + 1) * (GridRadius * 2 + 1);
-        for (int i = 0; i < tileCount; i++)
+        for (int z = -GridRadius; z <= GridRadius; z++)
         {
-            GameObject tileObject = new($"Seafloor Tile {i + 1}");
-            tileObject.transform.SetParent(transform, false);
-            Mesh mesh = new() { name = $"Streaming Seafloor Tile {i + 1}" };
-            tileObject.AddComponent<MeshFilter>().sharedMesh = mesh;
-            tileObject.AddComponent<MeshRenderer>().sharedMaterial = material;
-            tiles.Add(new Tile { gameObject = tileObject, mesh = mesh });
+            for (int x = -GridRadius; x <= GridRadius; x++)
+            {
+                GameObject tileObject = new($"Fixed Seafloor {x}, {z}");
+                tileObject.transform.SetParent(transform, false);
+                Mesh mesh = new() { name = $"Fixed Seafloor {x}, {z}" };
+                tileObject.AddComponent<MeshFilter>().sharedMesh = mesh;
+                tileObject.AddComponent<MeshRenderer>().sharedMaterial = material;
+                Tile tile = new() { gameObject = tileObject, mesh = mesh, coordinate = new Vector2Int(x, z) };
+                tiles.Add(tile);
+                RebuildTile(tile);
+            }
         }
-
-        Refresh(true);
-    }
-
-    private void Update()
-    {
-        Refresh(false);
+        CreateDistantSeafloor();
     }
 
     private void OnDestroy()
@@ -1634,92 +1658,69 @@ public sealed class InfiniteSeafloorGrid : MonoBehaviour
         }
     }
 
-    private void Refresh(bool force)
+    private void CreateDistantSeafloor()
     {
-        if (target == null || material == null)
+        // A fixed horizon apron shares every boundary vertex with the detailed floor.
+        // Its outer edge is kilometres beyond both the camera and the exploration area.
+        float extent = (GridRadius + 0.5f) * TileSize;
+        int edgeSegments = (GridRadius * 2 + 1) * Segments;
+        for (int side = 0; side < 4; side++)
         {
-            return;
-        }
-
-        Vector2Int nextCenter = new(
-            Mathf.FloorToInt((target.position.x + TileSize * 0.5f) / TileSize),
-            Mathf.FloorToInt((target.position.z + TileSize * 0.5f) / TileSize));
-        if (!force && nextCenter == centerCoordinate)
-        {
-            return;
-        }
-
-        centerCoordinate = nextCenter;
-        foreach (Tile tile in tiles)
-        {
-            tile.claimed = false;
-        }
-
-        for (int z = -GridRadius; z <= GridRadius; z++)
-        {
-            for (int x = -GridRadius; x <= GridRadius; x++)
+            Vector3[] vertices = new Vector3[(edgeSegments + 1) * 2];
+            Vector3[] normals = new Vector3[vertices.Length];
+            Vector2[] uvs = new Vector2[vertices.Length];
+            int[] indices = new int[edgeSegments * 6];
+            for (int i = 0; i <= edgeSegments; i++)
             {
-                Vector2Int wanted = centerCoordinate + new Vector2Int(x, z);
-                Tile tile = FindTile(wanted);
-                if (tile == null)
+                float edge = -extent + i * VertexSpacing;
+                Vector3 inner = side == 0 ? new Vector3(edge, 0f, -extent)
+                    : side == 1 ? new Vector3(extent, 0f, edge)
+                    : side == 2 ? new Vector3(-edge, 0f, extent)
+                    : new Vector3(-extent, 0f, -edge);
+                Vector3 outer = inner * 8f;
+                inner += ExplorationCenter;
+                outer += ExplorationCenter;
+                for (int row = 0; row < 2; row++)
                 {
-                    tile = FindReusableTile();
-                    tile.coordinate = wanted;
-                    RebuildTile(tile);
+                    int index = i * 2 + row;
+                    Vector3 point = row == 0 ? inner : outer;
+                    point.y = UnderwaterWorld.SampleSeafloorHeight(point.x, point.z);
+                    vertices[index] = point;
+                    normals[index] = UnderwaterWorld.SampleSeafloorNormal(point.x, point.z);
+                    uvs[index] = new Vector2(point.x * TextureScale, point.z * TextureScale);
                 }
-                tile.claimed = true;
+                if (i < edgeSegments)
+                {
+                    int index = i * 6;
+                    int a = i * 2;
+                    indices[index] = a;
+                    indices[index + 1] = a + 2;
+                    indices[index + 2] = a + 1;
+                    indices[index + 3] = a + 2;
+                    indices[index + 4] = a + 3;
+                    indices[index + 5] = a + 1;
+                }
             }
+            GameObject horizon = new($"Distant Seafloor {side}");
+            horizon.transform.SetParent(transform, false);
+            Mesh mesh = new() { name = horizon.name, vertices = vertices, normals = normals, uv = uvs, triangles = indices };
+            mesh.RecalculateTangents();
+            mesh.RecalculateBounds();
+            horizon.AddComponent<MeshFilter>().sharedMesh = mesh;
+            horizon.AddComponent<MeshRenderer>().sharedMaterial = material;
+            tiles.Add(new Tile { gameObject = horizon, mesh = mesh });
         }
-    }
-
-    private Tile FindTile(Vector2Int coordinate)
-    {
-        foreach (Tile tile in tiles)
-        {
-            if (!tile.claimed && tile.coordinate == coordinate)
-            {
-                return tile;
-            }
-        }
-        return null;
-    }
-
-    private Tile FindReusableTile()
-    {
-        foreach (Tile tile in tiles)
-        {
-            if (!tile.claimed && tile.coordinate.x == int.MinValue)
-            {
-                return tile;
-            }
-            if (!tile.claimed && Mathf.Abs(tile.coordinate.x - centerCoordinate.x) > GridRadius)
-            {
-                return tile;
-            }
-            if (!tile.claimed && Mathf.Abs(tile.coordinate.y - centerCoordinate.y) > GridRadius)
-            {
-                return tile;
-            }
-        }
-
-        foreach (Tile tile in tiles)
-        {
-            if (!tile.claimed)
-            {
-                return tile;
-            }
-        }
-        return tiles[0];
     }
 
     private void RebuildTile(Tile tile)
     {
         float centerX = tile.coordinate.x * TileSize;
-        float centerZ = tile.coordinate.y * TileSize;
+        float centerZ = tile.coordinate.y * TileSize + ExplorationCenter.z;
         tile.gameObject.transform.position = new Vector3(centerX, 0f, centerZ);
 
         Vector3[] vertices = new Vector3[(Segments + 1) * (Segments + 1)];
         Vector2[] uvs = new Vector2[vertices.Length];
+        Vector3[] normals = new Vector3[vertices.Length];
         for (int z = 0; z <= Segments; z++)
         {
             float localZ = (z / (float)Segments - 0.5f) * TileSize;
@@ -1730,15 +1731,16 @@ public sealed class InfiniteSeafloorGrid : MonoBehaviour
                 float worldX = centerX + localX;
                 int vertex = z * (Segments + 1) + x;
                 vertices[vertex] = new Vector3(localX, UnderwaterWorld.SampleSeafloorHeight(worldX, worldZ), localZ);
+                normals[vertex] = UnderwaterWorld.SampleSeafloorNormal(worldX, worldZ);
                 uvs[vertex] = new Vector2(worldX * TextureScale, worldZ * TextureScale);
             }
         }
 
         tile.mesh.Clear();
         tile.mesh.vertices = vertices;
+        tile.mesh.normals = normals;
         tile.mesh.uv = uvs;
         tile.mesh.triangles = triangles;
-        tile.mesh.RecalculateNormals();
         tile.mesh.RecalculateTangents();
         tile.mesh.RecalculateBounds();
     }
@@ -1775,17 +1777,31 @@ public sealed class UnderwaterObstacle : MonoBehaviour
 public static class UnderwaterCollision
 {
     private const float Skin = 0.06f;
-    private static readonly RaycastHit[] Hits = new RaycastHit[24];
+    private static readonly RaycastHit[] Hits = new RaycastHit[64];
+    private static readonly Collider[] Overlaps = new Collider[64];
+    private static SphereCollider probe;
 
     public static Vector3 ResolveMove(Transform mover, Vector3 desiredPosition, float radius, float floorClearance, float noseDistance, out bool adjusted)
     {
         Vector3 start = mover.position;
         adjusted = false;
+        float ceiling = UnderwaterWorld.WaterSurfaceHeight - 0.1f;
+        if (desiredPosition.y > ceiling)
+        {
+            desiredPosition.y = ceiling;
+            adjusted = true;
+        }
+        Vector3 requested = desiredPosition - start;
+        if (!SeparateFromObstacles(mover, ref start, radius, ref adjusted))
+        {
+            return mover.position;
+        }
+        desiredPosition = start + requested;
         desiredPosition = ConstrainToSeafloor(start, desiredPosition, floorClearance, noseDistance, ref adjusted);
         Vector3 current = start;
         Vector3 remaining = desiredPosition - current;
 
-        for (int pass = 0; pass < 2 && remaining.sqrMagnitude > 0.000001f; pass++)
+        for (int pass = 0; pass < 3 && remaining.sqrMagnitude > 0.000001f; pass++)
         {
             float distance = remaining.magnitude;
             Vector3 direction = remaining / distance;
@@ -1800,27 +1816,68 @@ public static class UnderwaterCollision
             current += direction * travel;
             Vector3 unused = remaining - direction * travel;
             Vector3 slide = Vector3.ProjectOnPlane(unused, hit.normal);
-            if (slide.sqrMagnitude < 0.0001f)
-            {
-                Vector3 turn = Vector3.Cross(Vector3.up, hit.normal).normalized;
-                if (turn.sqrMagnitude < 0.001f)
-                {
-                    turn = Vector3.Cross(mover.right, hit.normal).normalized;
-                }
-                if (Vector3.Dot(turn, mover.right) < 0f)
-                {
-                    turn = -turn;
-                }
-                slide = turn * unused.magnitude * 0.65f;
-            }
             remaining = slide;
         }
 
-        return ConstrainToSeafloor(start, current, floorClearance, noseDistance, ref adjusted);
+        current = ConstrainToSeafloor(start, current, floorClearance, noseDistance, ref adjusted);
+        return SeparateFromObstacles(mover, ref current, radius, ref adjusted) ? current : start;
+    }
+
+    private static bool SeparateFromObstacles(Transform mover, ref Vector3 position, float radius, ref bool adjusted)
+    {
+        if (probe == null)
+        {
+            GameObject helper = new("Swimmer collision probe") { hideFlags = HideFlags.HideAndDontSave };
+            probe = helper.AddComponent<SphereCollider>();
+            probe.isTrigger = true;
+        }
+        probe.radius = radius;
+        for (int pass = 0; pass < 6; pass++)
+        {
+            int count = Physics.OverlapSphereNonAlloc(position, radius, Overlaps, Physics.AllLayers, QueryTriggerInteraction.Ignore);
+            bool overlapping = false;
+            for (int i = 0; i < count; i++)
+            {
+                Collider obstacle = Overlaps[i];
+                if (!IsObstacle(mover, obstacle)) continue;
+                if (Physics.ComputePenetration(probe, position, Quaternion.identity,
+                    obstacle, obstacle.transform.position, obstacle.transform.rotation, out Vector3 direction, out float distance))
+                {
+                    position += direction * (distance + Skin);
+                    adjusted = true;
+                    overlapping = true;
+                }
+            }
+            if (!overlapping) return true;
+        }
+        return false;
+    }
+
+    private static bool IsObstacle(Transform mover, Collider collider)
+    {
+        UnderwaterObstacle obstacle = collider.GetComponentInParent<UnderwaterObstacle>();
+        return obstacle != null && !obstacle.isSeafloor && !collider.transform.IsChildOf(mover);
     }
 
     private static Vector3 ConstrainToSeafloor(Vector3 start, Vector3 proposed, float clearance, float noseDistance, ref bool adjusted)
     {
+        Vector3 center = InfiniteSeafloorGrid.ExplorationCenter;
+        float limit = InfiniteSeafloorGrid.ExplorationRadius;
+        for (int axis = 0; axis <= 2; axis += 2)
+        {
+            float offset = start[axis] - center[axis];
+            float move = proposed[axis] - start[axis];
+            if (offset * move > 0f && Mathf.Abs(offset) > limit - 40f)
+            {
+                float flow = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((limit - Mathf.Abs(offset)) / 40f));
+                proposed[axis] = start[axis] + move * flow;
+                adjusted = true;
+            }
+        }
+        Vector3 bounded = new(Mathf.Clamp(proposed.x, center.x - limit, center.x + limit), proposed.y,
+            Mathf.Clamp(proposed.z, center.z - limit, center.z + limit));
+        adjusted |= bounded != proposed;
+        proposed = bounded;
         Vector3 requestedMove = proposed - start;
         Vector3 horizontal = new(proposed.x - start.x, 0f, proposed.z - start.z);
         Vector3 direction = horizontal.sqrMagnitude > 0.0001f ? horizontal.normalized : Vector3.zero;
@@ -1834,9 +1891,16 @@ public static class UnderwaterCollision
         }
 
         adjusted = true;
+        if (horizontal.sqrMagnitude < 0.0001f)
+        {
+            proposed.y = minimumY;
+            return proposed;
+        }
         Vector3 normal = UnderwaterWorld.SampleSeafloorNormal(nose.x, nose.z);
         Vector3 slide = Vector3.ProjectOnPlane(proposed - start, normal);
         proposed = start + slide;
+        proposed.x = Mathf.Clamp(proposed.x, center.x - limit, center.x + limit);
+        proposed.z = Mathf.Clamp(proposed.z, center.z - limit, center.z + limit);
         nose = proposed + direction * noseDistance;
         floorAtBody = UnderwaterWorld.SampleSeafloorHeight(proposed.x, proposed.z);
         floorAtNose = UnderwaterWorld.SampleSeafloorHeight(nose.x, nose.z);
@@ -1854,8 +1918,7 @@ public static class UnderwaterCollision
         for (int i = 0; i < count; i++)
         {
             RaycastHit hit = Hits[i];
-            UnderwaterObstacle obstacle = hit.collider.GetComponent<UnderwaterObstacle>();
-            if (obstacle == null || obstacle.isSeafloor || hit.collider.transform.IsChildOf(mover))
+            if (!IsObstacle(mover, hit.collider))
             {
                 continue;
             }
@@ -1900,10 +1963,6 @@ public sealed class CinematicDive : MonoBehaviour
     private float playerSwimSpeed = 7.5f;
     private float playerBoostSpeed = 13f;
     private float playerTurnScale = 1f;
-    private Vector3 lastProgressPosition;
-    private float stuckSeconds;
-    private float obstacleAvoidSeconds;
-    private float obstacleAvoidSign = 1f;
 
     public bool IsFreeDive => !autoTour;
     public float SwimSpeed01 => Mathf.Clamp01(swimVelocity.magnitude / Mathf.Max(1f, playerSwimSpeed * 1.15f));
@@ -1962,7 +2021,6 @@ public sealed class CinematicDive : MonoBehaviour
         {
             transform.position = startAtArch ? EvaluatePath(clock / duration) : path[0];
             freePosition = transform.position;
-            lastProgressPosition = transform.position;
         }
 
         if (startAtWhale)
@@ -2162,6 +2220,13 @@ public sealed class CinematicDive : MonoBehaviour
 
     public void StartMissionAt(Vector3 cameraPosition, Vector3 lookTarget)
     {
+        guidedEncounter?.SetGuided(false, diveCamera);
+        guidedEncounter = null;
+        guidingAnimal = false;
+        dragging = false;
+        lastClickedEncounter = null;
+        lastClickTime = -10f;
+        hudMove = Vector3.zero;
         previewWhale = null;
         autoTour = false;
         swimVelocity = Vector3.zero;
@@ -2257,66 +2322,28 @@ public sealed class CinematicDive : MonoBehaviour
         }
 
         previewWhale = null;
-        if (obstacleAvoidSeconds > 0f && moveInput.sqrMagnitude > 0.08f)
-        {
-            obstacleAvoidSeconds = Mathf.Max(0f, obstacleAvoidSeconds - Time.deltaTime);
-            freeYaw += obstacleAvoidSign * 24f * Time.deltaTime;
-        }
         Vector3 desiredDirection = transform.right * moveInput.x + Vector3.up * moveInput.y + transform.forward * moveInput.z;
         desiredDirection = Vector3.ClampMagnitude(desiredDirection, 1f);
         float topSpeed = boost ? playerBoostSpeed : playerSwimSpeed;
         Vector3 desiredVelocity = desiredDirection * topSpeed;
-        float response = desiredDirection.sqrMagnitude > 0.001f ? 7.2f : 2.1f;
+        float response = desiredDirection.sqrMagnitude > 0.001f ? 7.2f : 12f;
         swimVelocity = Vector3.MoveTowards(swimVelocity, desiredVelocity, response * Time.deltaTime);
-        freePosition += swimVelocity * Time.deltaTime;
-        freePosition.y = Mathf.Clamp(freePosition.y, -17f, 7.5f);
+        float motion = SwimSpeed01;
+        float buoyancy = (Mathf.Sin(Time.time * 0.58f) - Mathf.Sin((Time.time - Time.deltaTime) * 0.58f))
+            * (0.055f + motion * 0.018f);
+        freePosition = transform.position + swimVelocity * Time.deltaTime + Vector3.up * buoyancy;
+        freePosition.y = Mathf.Clamp(freePosition.y, -17f, UnderwaterWorld.WaterSurfaceHeight - 0.65f);
         freePosition = UnderwaterCollision.ResolveMove(transform, freePosition, playerRadius, playerFloorClearance, playerNoseDistance, out bool avoidedObstacle);
         if (avoidedObstacle)
         {
             Vector3 resolvedVelocity = (freePosition - transform.position) / Mathf.Max(Time.deltaTime, 0.0001f);
-            swimVelocity = Vector3.Lerp(swimVelocity, resolvedVelocity, 0.72f);
-            if (moveInput.sqrMagnitude > 0.08f)
-            {
-                if (obstacleAvoidSeconds <= 0.08f)
-                {
-                    obstacleAvoidSign = Mathf.Abs(moveInput.x) > 0.1f
-                        ? Mathf.Sign(moveInput.x)
-                        : Mathf.Sin(transform.position.x * 0.71f + transform.position.z * 0.37f) >= 0f ? 1f : -1f;
-                    obstacleAvoidSeconds = 1.35f;
-                }
-
-                Vector3 sideStep = transform.right * obstacleAvoidSign * topSpeed * 0.42f * Time.deltaTime;
-                freePosition = UnderwaterCollision.ResolveMove(transform, freePosition + sideStep, playerRadius, playerFloorClearance, playerNoseDistance, out _);
-            }
+            swimVelocity = resolvedVelocity;
         }
 
-        float motion = SwimSpeed01;
-        float buoyancy = Mathf.Sin(Time.time * 0.58f) * (0.055f + motion * 0.018f);
         float breathingRoll = Mathf.Sin(Time.time * 0.36f + 0.8f) * (0.35f + motion * 0.25f);
         Quaternion targetRotation = Quaternion.Euler(freePitch, freeYaw, breathingRoll);
-        transform.position = Vector3.Lerp(transform.position, freePosition + Vector3.up * buoyancy, 1f - Mathf.Exp(-Time.deltaTime * 7f));
+        transform.position = freePosition;
         transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, 1f - Mathf.Exp(-Time.deltaTime * 7.5f));
-
-        float progress = Vector3.Distance(transform.position, lastProgressPosition);
-        if (moveInput.sqrMagnitude > 0.12f && progress < 0.006f)
-        {
-            stuckSeconds += Time.deltaTime;
-            if (stuckSeconds > 0.85f)
-            {
-                float floor = UnderwaterWorld.SampleSeafloorHeight(transform.position.x, transform.position.z);
-                Vector3 escape = -transform.forward * 1.1f + Vector3.up * 1.4f;
-                freePosition = transform.position + escape;
-                freePosition.y = Mathf.Max(freePosition.y, floor + playerFloorClearance + 0.8f);
-                swimVelocity = Vector3.zero;
-                stuckSeconds = 0f;
-                UnderwaterHud.Instance?.ShowStatus("已离开障碍，可以继续游动");
-            }
-        }
-        else if (progress >= 0.006f || moveInput.sqrMagnitude < 0.01f)
-        {
-            stuckSeconds = 0f;
-        }
-        lastProgressPosition = transform.position;
     }
 
     private float FindNearestPathClock(Vector3 point)
@@ -2474,15 +2501,20 @@ public sealed class CinematicDive : MonoBehaviour
         Ray ray = diveCamera.ScreenPointToRay(pointerPosition);
         RaycastHit[] hits = Physics.RaycastAll(ray, 180f);
         System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
-        foreach (RaycastHit hit in hits)
+        int visibleCount = VisibleHitCount(hits);
+        for (int i = 0; i < visibleCount; i++)
         {
+            RaycastHit hit = hits[i];
             MissionInteractable missionTarget = hit.collider.GetComponentInParent<MissionInteractable>();
             if (missionTarget != null)
             {
                 missionTarget.Activate();
                 return;
             }
-
+        }
+        for (int i = 0; i < visibleCount; i++)
+        {
+            RaycastHit hit = hits[i];
             MarineEncounter encounter = hit.collider.GetComponentInParent<MarineEncounter>();
             if (encounter == null)
             {
@@ -2518,15 +2550,20 @@ public sealed class CinematicDive : MonoBehaviour
         Ray ray = diveCamera.ScreenPointToRay(pointerPosition);
         RaycastHit[] hits = Physics.RaycastAll(ray, 180f);
         System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
-        foreach (RaycastHit hit in hits)
+        int visibleCount = VisibleHitCount(hits);
+        for (int i = 0; i < visibleCount; i++)
         {
+            RaycastHit hit = hits[i];
             MissionInteractable missionTarget = hit.collider.GetComponentInParent<MissionInteractable>();
             if (missionTarget != null)
             {
                 UnderwaterHud.Instance.SetHover(missionTarget.DisplayName, missionTarget.IsComplete, pointerPosition);
                 return;
             }
-
+        }
+        for (int i = 0; i < visibleCount; i++)
+        {
+            RaycastHit hit = hits[i];
             MarineEncounter encounter = hit.collider.GetComponentInParent<MarineEncounter>();
             if (encounter != null)
             {
@@ -2535,6 +2572,22 @@ public sealed class CinematicDive : MonoBehaviour
             }
         }
         UnderwaterHud.Instance.SetHover(null, false, pointerPosition);
+    }
+
+    private static int VisibleHitCount(RaycastHit[] hits)
+    {
+        for (int i = 0; i < hits.Length; i++)
+        {
+            Collider collider = hits[i].collider;
+            // Animal body colliders must not hide a rescue knot on that animal.
+            // Solid scenery, however, ends the selectable part of the ray.
+            if (!collider.isTrigger && collider.GetComponentInParent<UnderwaterObstacle>() != null
+                && collider.GetComponentInParent<MarineEncounter>() == null)
+            {
+                return i;
+            }
+        }
+        return hits.Length;
     }
 
     private Vector3 EvaluatePath(float t)
@@ -2594,15 +2647,15 @@ public sealed class FishSwimmer : MonoBehaviour
             Mathf.Sin(groupClock * 0.63f + schoolPhase) * radius * 0.08f,
             Mathf.Cos(groupClock * 0.82f) * routeRadius * 0.82f);
         Vector3 personalCurrent = new(
-            Mathf.Sin(Time.time * 0.42f + phase) * radius * 0.035f,
-            Mathf.Sin(Time.time * 0.31f + phase * 1.7f) * radius * 0.025f,
-            Mathf.Cos(Time.time * 0.37f + phase * 0.8f) * radius * 0.035f);
-        Vector3 target = movingCenter + formationRotation * localFormationOffset * 0.72f + personalCurrent;
+            Mathf.Sin(Time.time * 0.42f + phase) * radius * 0.022f,
+            Mathf.Sin(Time.time * 0.31f + phase * 1.7f) * radius * 0.018f,
+            Mathf.Cos(Time.time * 0.37f + phase * 0.8f) * radius * 0.022f);
+        Vector3 target = movingCenter + formationRotation * localFormationOffset * 0.56f + personalCurrent;
         Vector3 toTarget = target - transform.position;
         float currentNoise = Mathf.PerlinNoise(phase * 0.21f + 7.3f, Time.time * 0.075f);
         float burst = Mathf.Lerp(0.82f, 1.16f, currentNoise);
         Vector3 courseVelocity = course * speed * burst;
-        Vector3 formationCorrection = Vector3.ClampMagnitude(toTarget * 0.72f, speed * 0.82f);
+        Vector3 formationCorrection = Vector3.ClampMagnitude(toTarget * 0.84f, speed * 0.94f);
         Vector3 desiredVelocity = courseVelocity + formationCorrection;
         velocity = Vector3.SmoothDamp(velocity, desiredVelocity, ref steeringVelocity, 0.42f, speed * 1.85f, Time.deltaTime);
         Vector3 beforeMove = transform.position;
@@ -2831,29 +2884,37 @@ public sealed class BlueTangSwimAnimator : MonoBehaviour
 public sealed class HeroWhaleDrift : MonoBehaviour
 {
     public Vector3 basePosition;
-    private Vector3 routeCenter;
     private Vector3 motionVelocity;
-    private float travel;
+    private Vector3 heading;
+    private float courseClock;
 
     private void Start()
     {
         basePosition = transform.position;
-        travel = 0.45f;
-        routeCenter = basePosition - RouteOffset(travel);
+        heading = transform.forward;
+        courseClock = 0.45f;
+        motionVelocity = heading * 3f;
     }
 
     private void Update()
     {
-        float tailBeat = Mathf.Sin(Time.time * 1.82f);
+        float tailBeat = Mathf.Sin(Time.time * 2.18f - 0.72f);
         float propulsion = 0.92f + Mathf.Max(0f, tailBeat) * 0.12f;
-        travel += Time.deltaTime * 0.19f * propulsion;
-        Vector3 target = routeCenter + RouteOffset(travel);
+        courseClock += Time.deltaTime * 0.065f;
+        // A travelling course, with slow steering rather than a fixed orbit.
+        float turn = Mathf.Sin(courseClock) * 2.4f;
+        heading = Quaternion.AngleAxis(turn * Time.deltaTime, Vector3.up) * heading;
+        float floor = UnderwaterWorld.SampleSeafloorHeight(transform.position.x, transform.position.z) + 5.5f;
+        heading.y = Mathf.Clamp((Mathf.Max(basePosition.y, floor) - transform.position.y) * 0.12f, -0.12f, 0.18f);
+        heading.Normalize();
+        motionVelocity = Vector3.Lerp(motionVelocity, heading * (3f * propulsion), 1f - Mathf.Exp(-Time.deltaTime * 0.85f));
         Vector3 beforeMove = transform.position;
-        Vector3 desiredPosition = Vector3.SmoothDamp(beforeMove, target, ref motionVelocity, 0.58f, 8.4f, Time.deltaTime);
+        Vector3 desiredPosition = beforeMove + motionVelocity * Time.deltaTime;
         transform.position = UnderwaterCollision.ResolveMove(transform, desiredPosition, 1.45f, 2.1f, 4f, out bool avoidedObstacle);
         if (avoidedObstacle)
         {
             motionVelocity = (transform.position - beforeMove) / Mathf.Max(Time.deltaTime, 0.0001f);
+            if (motionVelocity.sqrMagnitude > 0.01f) heading = motionVelocity.normalized;
         }
 
         if (motionVelocity.sqrMagnitude > 0.01f)
@@ -2867,12 +2928,11 @@ public sealed class HeroWhaleDrift : MonoBehaviour
         }
     }
 
-    private static Vector3 RouteOffset(float t)
+    public void ResumeFromGuidance(Vector3 velocity)
     {
-        return new Vector3(
-            Mathf.Sin(t) * 24f,
-            Mathf.Sin(t * 1.55f + 0.35f) * 2.6f,
-            Mathf.Cos(t) * 16f);
+        heading = transform.forward;
+        motionVelocity = heading * Mathf.Clamp(velocity.magnitude, 2.4f, 5f);
+        basePosition = transform.position;
     }
 }
 
@@ -2927,9 +2987,12 @@ public sealed class OceanCreatureDrift : MonoBehaviour
     public bool useMantaAxes;
     private Vector3 motionVelocity;
     private Vector3 releaseVelocity;
-    private float releaseGlide;
+    private bool continuingFromGuidance;
     private float travel;
     private TurtleStrokeAnimator turtleStroke;
+    private bool entangled;
+    private Vector3 entangledOrigin;
+    private float struggleClock;
 
     private void Start()
     {
@@ -2940,31 +3003,14 @@ public sealed class OceanCreatureDrift : MonoBehaviour
 
     private void Update()
     {
-        if (releaseGlide > 0f)
+        if (entangled)
         {
-            releaseGlide = Mathf.Max(0f, releaseGlide - Time.deltaTime);
-            float naturalSpeed = turtleStroke == null ? 2.8f : 2.4f;
-            Vector3 glideDirection = releaseVelocity.sqrMagnitude > 0.001f
-                ? releaseVelocity.normalized
-                : useMantaAxes ? transform.up : transform.forward;
-            releaseVelocity = Vector3.MoveTowards(releaseVelocity, glideDirection * naturalSpeed, 1.35f * Time.deltaTime);
-            Vector3 beforeMove = transform.position;
-            Vector3 desiredPosition = beforeMove + releaseVelocity * Time.deltaTime;
-            float radius = useMantaAxes ? 0.92f : 0.62f;
-            float clearance = useMantaAxes ? 1.15f : 0.78f;
-            float noseDistance = useMantaAxes ? 2.1f : 1.55f;
-            transform.position = UnderwaterCollision.ResolveMove(transform, desiredPosition, radius, clearance, noseDistance, out bool avoidedObstacle);
-            if (avoidedObstacle)
-            {
-                releaseVelocity = (transform.position - beforeMove) / Mathf.Max(Time.deltaTime, 0.0001f);
-            }
-            basePosition = transform.position - OrbitOffset();
-            motionVelocity = releaseVelocity;
-            ApplySwimRotation(releaseVelocity, 0f, 4.8f);
-            if (releaseGlide <= 0f)
-            {
-                AlignPatrolToVelocity(releaseVelocity);
-            }
+            UpdateEntangled(Time.deltaTime);
+            return;
+        }
+        if (continuingFromGuidance)
+        {
+            ContinueFromGuidance(Time.deltaTime);
             return;
         }
 
@@ -2990,6 +3036,35 @@ public sealed class OceanCreatureDrift : MonoBehaviour
         ApplySwimRotation(motionVelocity, bank, 2.7f);
     }
 
+    public void SetEntangled(bool value)
+    {
+        if (entangled == value) return;
+        entangled = value;
+        if (value)
+        {
+            entangledOrigin = transform.position;
+            struggleClock = 0f;
+            enabled = true;
+        }
+        else
+        {
+            basePosition = transform.position - OrbitOffset();
+            motionVelocity = Vector3.zero;
+            if (continuingFromGuidance) ResumeFromGuidance(releaseVelocity);
+        }
+    }
+
+    private void UpdateEntangled(float deltaTime)
+    {
+        struggleClock += deltaTime;
+        Vector3 struggle = new(
+            Mathf.Sin(struggleClock * 1.35f) * 0.08f,
+            Mathf.Sin(struggleClock * 1.85f) * 0.09f,
+            (Mathf.Cos(struggleClock * 0.95f) - 1f) * 0.06f);
+        transform.position = UnderwaterCollision.ResolveMove(transform, entangledOrigin + struggle,
+            useMantaAxes ? 0.92f : 0.62f, useMantaAxes ? 1.15f : 0.78f, useMantaAxes ? 2.1f : 1.55f, out _);
+    }
+
     private Vector3 OrbitOffset()
     {
         return OrbitOffsetAt(travel);
@@ -2998,7 +3073,7 @@ public sealed class OceanCreatureDrift : MonoBehaviour
     public Quaternion RotationForVelocity(Vector3 velocity, float bank)
     {
         Vector3 fallback = useMantaAxes ? transform.up : transform.forward;
-        Vector3 direction = velocity.sqrMagnitude > 0.001f ? velocity.normalized : fallback;
+        Vector3 direction = ClampSwimDirection(velocity.sqrMagnitude > 0.001f ? velocity : fallback);
         if (useMantaAxes)
         {
             Quaternion alignForwardAndDorsal = Quaternion.LookRotation(Vector3.right, Vector3.forward);
@@ -3009,46 +3084,71 @@ public sealed class OceanCreatureDrift : MonoBehaviour
         return Quaternion.AngleAxis(bank, direction) * Quaternion.LookRotation(direction, Vector3.up);
     }
 
+    private Vector3 ClampSwimDirection(Vector3 heading)
+    {
+        Vector3 fallback = useMantaAxes ? transform.up : transform.forward;
+        Vector3 direction = heading.normalized;
+        // Protect the dorsal-up posture when a drag approaches the camera's
+        // vertical axis. A near-vertical LookRotation can suddenly roll over.
+        Vector3 horizontal = Vector3.ProjectOnPlane(direction, Vector3.up);
+        if (horizontal.sqrMagnitude < 0.001f) horizontal = Vector3.ProjectOnPlane(fallback, Vector3.up);
+        if (horizontal.sqrMagnitude < 0.001f) horizontal = Vector3.forward;
+        float pitch = Mathf.Clamp(direction.y, -0.30f, 0.30f);
+        return horizontal.normalized * Mathf.Sqrt(1f - pitch * pitch) + Vector3.up * pitch;
+    }
+
     public void ResumeFromGuidance(Vector3 velocity)
     {
         Vector3 fallback = useMantaAxes ? transform.up : transform.forward;
-        releaseVelocity = velocity.sqrMagnitude > 0.01f ? Vector3.ClampMagnitude(velocity, 8.5f) : fallback * 2.6f;
-        AlignPatrolToVelocity(releaseVelocity);
-        releaseGlide = 6f;
+        // The animal leaves a drag in its last visible heading; the final
+        // pointer correction can otherwise send it sharply head-down.
+        releaseVelocity = ClampSwimDirection(fallback) * Mathf.Clamp(velocity.magnitude, 2.6f, 6f);
+        continuingFromGuidance = true;
         basePosition = transform.position - OrbitOffset();
         motionVelocity = releaseVelocity;
     }
 
-    private void AlignPatrolToVelocity(Vector3 velocity)
+    private void ContinueFromGuidance(float deltaTime)
     {
-        if (velocity.sqrMagnitude < 0.001f)
+        if (deltaTime <= 0f) return;
+        float naturalSpeed = turtleStroke == null ? 2.8f : 2.4f;
+        Vector3 heading = releaseVelocity.sqrMagnitude > 0.001f ? releaseVelocity : useMantaAxes ? transform.up : transform.forward;
+        heading = ClampSwimDirection(heading);
+        releaseVelocity = Vector3.MoveTowards(releaseVelocity, heading * naturalSpeed, 1.35f * deltaTime);
+        Vector3 before = transform.position;
+        Vector3 requested = releaseVelocity * deltaTime;
+        float radius = useMantaAxes ? 0.92f : 0.62f;
+        float clearance = useMantaAxes ? 1.15f : 0.78f;
+        float nose = useMantaAxes ? 2.1f : 1.55f;
+        Vector3 next = UnderwaterCollision.ResolveMove(transform, before + requested, radius, clearance, nose, out bool adjusted);
+        Vector3 displacement = next - before;
+        float horizontalProgress = Vector3.ProjectOnPlane(displacement, Vector3.up).sqrMagnitude;
+        float minimumProgress = Vector3.ProjectOnPlane(requested, Vector3.up).sqrMagnitude * 0.0625f;
+        if (adjusted && horizontalProgress < minimumProgress)
         {
-            return;
-        }
-
-        Vector3 desiredDirection = velocity.normalized;
-        float bestTravel = travel;
-        float bestAlignment = float.NegativeInfinity;
-        const int Samples = 48;
-        const float Step = 0.035f;
-        for (int i = 0; i < Samples; i++)
-        {
-            float candidate = i / (float)Samples * Mathf.PI * 2f;
-            Vector3 tangent = OrbitOffsetAt(candidate + Step) - OrbitOffsetAt(candidate - Step);
-            if (tangent.sqrMagnitude < 0.0001f)
+            // Test the same collision-safe movement on either side. Do not
+            // retain a zero velocity that would repeatedly face into the wall.
+            for (int i = 0; i < 8; i++)
             {
-                continue;
-            }
-
-            float alignment = Vector3.Dot(tangent.normalized, desiredDirection);
-            if (alignment > bestAlignment)
-            {
-                bestAlignment = alignment;
-                bestTravel = candidate;
+                float angle = (i / 2 + 1) * 45f * ((i & 1) == 0 ? 1f : -1f);
+                Vector3 candidateHeading = Quaternion.AngleAxis(angle, Vector3.up) * heading;
+                Vector3 candidate = UnderwaterCollision.ResolveMove(transform,
+                    before + candidateHeading * naturalSpeed * deltaTime, radius, clearance, nose, out _);
+                float progress = Vector3.ProjectOnPlane(candidate - before, Vector3.up).sqrMagnitude;
+                if (progress <= horizontalProgress) continue;
+                next = candidate;
+                displacement = next - before;
+                horizontalProgress = progress;
+                if (progress >= naturalSpeed * naturalSpeed * deltaTime * deltaTime * 0.25f) break;
             }
         }
-        travel = bestTravel;
+        transform.position = next;
+        if (adjusted && displacement.sqrMagnitude > 0.00000001f)
+            releaseVelocity = ClampSwimDirection(displacement) * naturalSpeed;
+        motionVelocity = releaseVelocity;
         basePosition = transform.position - OrbitOffset();
+        Quaternion rotation = RotationForVelocity(releaseVelocity, 0f);
+        transform.rotation = Quaternion.Slerp(transform.rotation, rotation, 1f - Mathf.Exp(-deltaTime * 4.8f));
     }
 
     private Vector3 OrbitOffsetAt(float t)
@@ -3127,6 +3227,10 @@ public sealed class MantaWingAnimator : MonoBehaviour
     private Mesh animatedMesh;
     private Vector3[] restVertices;
     private Vector3[] deformedVertices;
+    private Vector3[] restNormals;
+    private Vector3[] deformedNormals;
+    private Vector4[] restTangents;
+    private Vector4[] deformedTangents;
     private Bounds expandedBounds;
     private float halfSpan;
 
@@ -3146,6 +3250,10 @@ public sealed class MantaWingAnimator : MonoBehaviour
             animatedMesh.MarkDynamic();
             restVertices = animatedMesh.vertices;
             deformedVertices = new Vector3[restVertices.Length];
+            restNormals = animatedMesh.normals;
+            deformedNormals = new Vector3[restNormals.Length];
+            restTangents = animatedMesh.tangents;
+            deformedTangents = new Vector4[restTangents.Length];
             filter.sharedMesh = animatedMesh;
         }
         catch (UnityException)
@@ -3178,9 +3286,30 @@ public sealed class MantaWingAnimator : MonoBehaviour
             float recovery = Mathf.Sin(cycle * 2f - wingDistance * 0.35f) * 0.12f;
             rest.x += (broadStroke + recovery) * Mathf.Pow(wingMask, 1.25f) * halfSpan * 0.115f;
             deformedVertices[i] = rest;
+            float blend = Mathf.InverseLerp(0.22f, 1f, wingDistance);
+            float maskDerivative = 6f * blend * (1f - blend) / 0.78f;
+            float waveDerivative = -0.82f * Mathf.Cos(cycle - wingDistance * 0.82f + sidePhase)
+                - 0.042f * Mathf.Cos(cycle * 2f - wingDistance * 0.35f);
+            float displacementDerivative = Mathf.Sign(rest.z) * 0.115f * (
+                waveDerivative * Mathf.Pow(wingMask, 1.25f)
+                + (broadStroke + recovery) * 1.25f * Mathf.Pow(wingMask, 0.25f) * maskDerivative);
+            if (i < restNormals.Length)
+            {
+                Vector3 normal = restNormals[i];
+                normal.z -= displacementDerivative * normal.x;
+                deformedNormals[i] = normal.normalized;
+            }
+            if (i < restTangents.Length)
+            {
+                Vector4 tangent = restTangents[i];
+                Vector3 direction = new Vector3(tangent.x + displacementDerivative * tangent.z, tangent.y, tangent.z).normalized;
+                deformedTangents[i] = new Vector4(direction.x, direction.y, direction.z, tangent.w);
+            }
         }
 
         animatedMesh.vertices = deformedVertices;
+        if (deformedNormals.Length == deformedVertices.Length) animatedMesh.normals = deformedNormals;
+        if (deformedTangents.Length == deformedVertices.Length) animatedMesh.tangents = deformedTangents;
         animatedMesh.bounds = expandedBounds;
     }
 
@@ -3569,6 +3698,7 @@ public sealed class UnderwaterHud : MonoBehaviour
     private Texture2D panelTexture;
     private Texture2D softPanelTexture;
     private Texture2D progressTexture;
+    private Texture2D travelButtonTexture;
     private Font chineseFont;
     private float alpha = 1f;
     private float toastUntil;
@@ -3581,10 +3711,11 @@ public sealed class UnderwaterHud : MonoBehaviour
     private void Awake()
     {
         Instance = this;
-        chineseFont = Resources.Load<Font>("Fonts/DroidSansFallbackFull");
+        chineseFont = Resources.Load<Font>("Fonts/BlueLanternUI");
         panelTexture = MakeTexture(new Color(0.012f, 0.075f, 0.11f, 0.82f));
         softPanelTexture = MakeTexture(new Color(0.01f, 0.06f, 0.09f, 0.62f));
         progressTexture = MakeTexture(new Color(0.24f, 0.82f, 0.82f, 0.92f));
+        travelButtonTexture = MakeTexture(new Color(0.015f, 0.10f, 0.14f, 0.30f));
     }
 
     private void OnDestroy()
@@ -3596,6 +3727,7 @@ public sealed class UnderwaterHud : MonoBehaviour
         Destroy(panelTexture);
         Destroy(softPanelTexture);
         Destroy(progressTexture);
+        Destroy(travelButtonTexture);
     }
 
     public void Discover(string id, string displayName, string description)
@@ -3626,11 +3758,6 @@ public sealed class UnderwaterHud : MonoBehaviour
         {
             return true;
         }
-        if (Touchscreen.current == null)
-        {
-            return false;
-        }
-
         Vector2 guiPoint = new(screenPointer.x, Screen.height - screenPointer.y);
         foreach (Rect rect in GetTravelControlRects())
         {
@@ -3698,18 +3825,33 @@ public sealed class UnderwaterHud : MonoBehaviour
             fontSize = Mathf.RoundToInt(11f * uiScale),
             fontStyle = FontStyle.Bold
         };
+        touchButtonStyle.normal.background = travelButtonTexture;
+        touchButtonStyle.hover.background = softPanelTexture;
+        touchButtonStyle.active.background = progressTexture;
+        touchButtonStyle.normal.textColor = new Color(0.86f, 0.98f, 1f, 0.90f);
+        touchButtonStyle.hover.textColor = Color.white;
+        touchButtonStyle.active.textColor = Color.white;
 
-        GUI.Label(new Rect(0f, Screen.height * 0.07f, Screen.width, 48f), "深海漫游", titleStyle);
+        titleStyle.fontSize = Mathf.Clamp(Screen.width / 42, 18, 36);
+        hintStyle.fontSize = Mathf.Clamp(Screen.width / 95, 11, 17);
+        panelTitleStyle.fontSize = Mathf.RoundToInt(14f * uiScale);
+        panelTextStyle.fontSize = Mathf.RoundToInt(12f * uiScale);
+        toastTitleStyle.fontSize = Mathf.RoundToInt(17f * uiScale);
+        toastTextStyle.fontSize = Mathf.RoundToInt(13f * uiScale);
+        touchButtonStyle.fontSize = Mathf.RoundToInt(25f * uiScale);
 
-        Rect logPanel = new Rect(24f * uiScale, 22f * uiScale, 286f * uiScale, 110f * uiScale);
+        if (OceanMissionDirector.Instance == null || !OceanMissionDirector.Instance.IsMissionActive)
+            GUI.Label(new Rect(0f, Screen.height * 0.07f, Screen.width, 48f), "深海漫游", titleStyle);
+
+        Rect logPanel = GetDiscoveryRect();
         GUI.DrawTexture(logPanel, panelTexture, ScaleMode.StretchToFill);
-        GUI.Label(new Rect(logPanel.x + 16f * uiScale, logPanel.y + 12f * uiScale, logPanel.width - 32f * uiScale, 24f * uiScale), $"海洋图鉴   {discoveries.Count} / 3", panelTitleStyle);
+        GUI.Label(new Rect(logPanel.x + 16f * uiScale, logPanel.y + 12f * uiScale, logPanel.width - 32f * uiScale, 24f * uiScale), $"海洋图鉴   {discoveries.Count} / 4", panelTitleStyle);
         GUI.Label(new Rect(logPanel.x + 16f * uiScale, logPanel.y + 40f * uiScale, logPanel.width - 32f * uiScale, 40f * uiScale), BuildDiscoveryLine(), panelTextStyle);
         Rect progressBack = new Rect(logPanel.x + 16f * uiScale, logPanel.yMax - 19f * uiScale, logPanel.width - 32f * uiScale, 3f * uiScale);
         GUI.DrawTexture(progressBack, softPanelTexture, ScaleMode.StretchToFill);
         if (discoveries.Count > 0)
         {
-            GUI.DrawTexture(new Rect(progressBack.x, progressBack.y, progressBack.width * discoveries.Count / 3f, progressBack.height), progressTexture, ScaleMode.StretchToFill);
+            GUI.DrawTexture(new Rect(progressBack.x, progressBack.y, progressBack.width * discoveries.Count / 4f, progressBack.height), progressTexture, ScaleMode.StretchToFill);
         }
 
         CinematicDive dive = Camera.main == null ? null : Camera.main.GetComponent<CinematicDive>();
@@ -3721,13 +3863,15 @@ public sealed class UnderwaterHud : MonoBehaviour
         }
 
         string controls = string.IsNullOrEmpty(hoverName)
-            ? "W/S 前后 · A/D 左右 · Q/E 升降 · 拖动视角 · 空格切换巡游 · M 声音"
+            ? "左侧箭头移动 · 右侧箭头升降 · 拖空白处转向"
             : hoverDiscovered ? $"双击选中 · 按住并拖动引导 · 松开结束 · {hoverName}" : $"单击收录图鉴 · 双击选中 · {hoverName}";
-        Rect controlsPanel = new Rect(Screen.width * 0.5f - 370f * uiScale, Screen.height - 52f * uiScale, 740f * uiScale, 30f * uiScale);
+        float controlsWidth = Mathf.Min(740f * uiScale, Screen.width - 24f);
+        float controlsHeight = Mathf.Max(30f * uiScale, toastTextStyle.CalcHeight(new GUIContent(controls), controlsWidth - 12f));
+        Rect controlsPanel = new Rect((Screen.width - controlsWidth) * 0.5f, Screen.height - controlsHeight - 16f, controlsWidth, controlsHeight);
         GUI.DrawTexture(controlsPanel, softPanelTexture, ScaleMode.StretchToFill);
         GUI.Label(controlsPanel, controls, toastTextStyle);
 
-        if (dive != null && Touchscreen.current != null)
+        if (dive != null)
         {
             DrawTravelControls(dive);
         }
@@ -3760,9 +3904,15 @@ public sealed class UnderwaterHud : MonoBehaviour
         alpha = Mathf.MoveTowards(alpha, Time.time < 4f ? 1f : 0f, Time.deltaTime * 0.25f);
     }
 
-    private static Rect[] GetTravelControlRects()
+    public static Rect GetDiscoveryRect()
     {
-        float size = Mathf.Clamp(Screen.width * 0.085f, 48f, 70f);
+        float scale = Mathf.Clamp(Screen.width / 1440f, 0.72f, 1.08f);
+        return new Rect(24f * scale, 22f * scale, 286f * scale, 110f * scale);
+    }
+
+    public static Rect[] GetTravelControlRects()
+    {
+        float size = Mathf.Clamp(Screen.width * 0.045f, 44f, 48f);
         float gap = 7f;
         float x = 22f;
         float y = Screen.height - size * 2f - gap - 72f;
@@ -3781,12 +3931,12 @@ public sealed class UnderwaterHud : MonoBehaviour
     private void DrawTravelControls(CinematicDive dive)
     {
         Rect[] rects = GetTravelControlRects();
-        bool forward = GUI.RepeatButton(rects[0], "前进", touchButtonStyle);
-        bool backward = GUI.RepeatButton(rects[1], "后退", touchButtonStyle);
-        bool left = GUI.RepeatButton(rects[2], "左", touchButtonStyle);
-        bool right = GUI.RepeatButton(rects[3], "右", touchButtonStyle);
-        bool ascend = GUI.RepeatButton(rects[4], "上浮", touchButtonStyle);
-        bool descend = GUI.RepeatButton(rects[5], "下潜", touchButtonStyle);
+        bool forward = GUI.RepeatButton(rects[0], "↑", touchButtonStyle);
+        bool backward = GUI.RepeatButton(rects[1], "↓", touchButtonStyle);
+        bool left = GUI.RepeatButton(rects[2], "←", touchButtonStyle);
+        bool right = GUI.RepeatButton(rects[3], "→", touchButtonStyle);
+        bool ascend = GUI.RepeatButton(rects[4], "↑", touchButtonStyle);
+        bool descend = GUI.RepeatButton(rects[5], "↓", touchButtonStyle);
         dive.SetHudMove(new Vector3(
             (right ? 1f : 0f) - (left ? 1f : 0f),
             (ascend ? 1f : 0f) - (descend ? 1f : 0f),
@@ -3798,7 +3948,8 @@ public sealed class UnderwaterHud : MonoBehaviour
         string clownfish = discoveries.Contains("clownfish") ? "<color=#7FE0D9>●</color> 小丑鱼" : "○ 小丑鱼";
         string turtle = discoveries.Contains("turtle") ? "<color=#7FE0D9>●</color> 绿海龟" : "○ 绿海龟";
         string manta = discoveries.Contains("manta") ? "<color=#7FE0D9>●</color> 魔鬼鱼" : "○ 魔鬼鱼";
-        return $"{clownfish}   {turtle}\n{manta}";
+        string whale = discoveries.Contains("whale") ? "<color=#7FE0D9>●</color> 座头鲸" : "○ 座头鲸";
+        return $"{clownfish}   {turtle}\n{manta}   {whale}";
     }
 
     private static Texture2D MakeTexture(Color color)
@@ -3912,9 +4063,10 @@ public sealed class MarineEncounter : MonoBehaviour
             OceanCreatureDrift creatureDrift = GetComponent<OceanCreatureDrift>();
             bool isManta = creatureDrift != null && creatureDrift.useMantaAxes;
             bool isLargeCreature = creatureDrift != null;
-            float collisionRadius = isManta ? 0.92f : isLargeCreature ? 0.62f : 0.24f;
-            float floorClearance = isManta ? 1.15f : isLargeCreature ? 0.78f : 0.38f;
-            float noseDistance = isManta ? 2.1f : isLargeCreature ? 1.55f : 0.48f;
+            bool isWhale = GetComponent<HeroWhaleDrift>() != null;
+            float collisionRadius = isWhale ? 1.45f : isManta ? 0.92f : isLargeCreature ? 0.62f : 0.24f;
+            float floorClearance = isWhale ? 2.1f : isManta ? 1.15f : isLargeCreature ? 0.78f : 0.38f;
+            float noseDistance = isWhale ? 4f : isManta ? 2.1f : isLargeCreature ? 1.55f : 0.48f;
             transform.position = UnderwaterCollision.ResolveMove(
                 transform,
                 desiredPosition,
@@ -3966,6 +4118,13 @@ public sealed class MarineEncounter : MonoBehaviour
 
     private void SetDriftEnabled(bool enabled, Vector3 releaseVelocity = default)
     {
+        HeroWhaleDrift whaleDrift = GetComponent<HeroWhaleDrift>();
+        if (whaleDrift != null)
+        {
+            if (enabled) whaleDrift.ResumeFromGuidance(releaseVelocity);
+            whaleDrift.enabled = enabled;
+        }
+
         ReefFishDrift fishDrift = GetComponent<ReefFishDrift>();
         if (fishDrift != null)
         {
@@ -3987,4 +4146,3 @@ public sealed class MarineEncounter : MonoBehaviour
         }
     }
 }
-
