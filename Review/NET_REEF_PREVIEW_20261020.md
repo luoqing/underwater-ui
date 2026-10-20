@@ -97,5 +97,47 @@ Original developer project and earlier builds/ports 8896–8898 remain separate.
   up/down/endpoint/release tests at 0.2/0.33 s timesteps. Temporary geometry
   diagnostic logging was removed after the sampler regression passed.
 
-Actual render, build, browser and performance results must be recorded after
-verification. No physical integrated-GPU 1080p/60 fps result is claimed.
+The final build/browser records follow. No physical integrated-GPU 1080p/60 fps
+result is claimed.
+
+## Final R2 delivery
+
+- Source checkpoint: `786deb2` on `feat/net-cut-rescue-20261020`. No merge or
+  push to the original developer project.
+- `build-r2.log`: `UNDERWATER_WEBGL_READY`, 133,492,973 bytes, then
+  `Exiting batchmode successfully now!`.
+- `visual-r2.log` emitted the six-render pass marker. The launcher returned
+  143 after captures; do not describe it as an exit-0 render run. Actual final
+  PNGs were inspected, including fitted net close-up and active release frame.
+  Known editor Search index exception remains separate from browser runtime.
+- R2 real-input rescue via Whale role passed: `browser-r2/05-first-cut.png`,
+  `06-second-cut.png`, `07-net-freed.png`, `08-selected.png`,
+  `09-ascent-outcome.png`. The last image shows the actual rescue-complete
+  objective after the near drag/release that failed in R1. No game-state
+  injection, object teleport or simulation speed changes were used.
+- Raw R2 capture: `browser-r2/rescue-r2-full.mp4`, recording duration 399.413 s,
+  753 actual frames. Steps version: 94.04 s, 6,130,224 bytes, H.264 856×408;
+  source intervals `[0,6], [63,72], [115,130], [175,190], [236,257], [299,327]`.
+  Original frame PTS/durations retained, hard cuts only. Full decode passed.
+- Main preview port 8899 now serves R2. Original R1 Build assets are retained
+  alongside the new manifest for clients that started loading R1 before the
+  switch; the earlier R1 output directory itself is unchanged. Port 8900 also
+  serves this corrected candidate used for its real rescue recording.
+- Final 8899 entry was loaded again at 1920×1080 and reached the live world:
+  `browser-r2/10-final-reef-1080.png`, no JS exception/console.error/network
+  failure in the captured run. The real-input captures also retain Unity log
+  messages that its persistent Cache API is unavailable on this HTTP origin,
+  plus the known insecure-origin webcam warning. Do not call persistent cache
+  functional or claim repeated/first-load performance solved by this change.
+- Original 8896/8897/8898 index hashes remain unchanged:
+  `22b53a36b8b98dad2c6afa36d4803aca496e253a9aa8ccd0a049ec0022226b83`,
+  `46ecb5404cdaf1d4453474ab56e481ef5589f578c6017d0720298a5ad88de901`,
+  `443f329f1d1b2e3df8ee8aa23284f13a1db6dad3182cdf539b1a6d9df108e90c`.
+- Final gallery browser check: both step videos reached readyState 4 with no
+  media error. A real click on the rescue video's native play control advanced
+  playback to 2.96 s. Two canceled media preload requests were recorded as
+  ERR_ABORTED before playback; neither video reported a decoding error.
+
+This is a palette/distribution and rescue-interaction preview, not a declaration
+that photorealism, seafloor repetition, third-lantern visibility, loading speed
+or the physical integrated-GPU 60-fps target has all been completed.
