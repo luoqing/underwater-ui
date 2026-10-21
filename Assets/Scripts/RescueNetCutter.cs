@@ -1,19 +1,22 @@
+using System.Collections.Generic;
 using UnityEngine;
 
-// A guarded net cutter: the recessed blade faces the net, never the turtle.
+// Simple knife silhouette; the side edge meets the net during a cutting stroke.
 public sealed class RescueNetCutter : MonoBehaviour
 {
+    private static readonly Vector3 CuttingContact = new(0.006f, 0.180f, 0f);
     private Camera owner;
     private Material grip;
     private Material metal;
-    private Material guard;
     private Mesh blade;
+    private Mesh handle;
+    private Mesh rivet;
     public bool IsEquipped { get; private set; }
 
     public static RescueNetCutter Create(Camera camera)
     {
         if (camera == null) return null;
-        GameObject tool = new("Rescue guarded net cutter");
+        GameObject tool = new("Rescue net knife");
         tool.transform.SetParent(camera.transform, false);
         RescueNetCutter cutter = tool.AddComponent<RescueNetCutter>();
         cutter.owner = camera;
@@ -24,27 +27,92 @@ public sealed class RescueNetCutter : MonoBehaviour
 
     private void BuildModel()
     {
-        grip = Material("Dark rubber cutter grip", new Color(0.075f, 0.12f, 0.13f), 0f, 0.24f);
-        metal = Material("Brushed steel cutting edge", new Color(0.64f, 0.70f, 0.71f), 0.88f, 0.62f);
-        guard = Material("Muted rescue orange guard", new Color(0.76f, 0.35f, 0.12f), 0.12f, 0.30f);
-        Part("Rubber handle", PrimitiveType.Capsule, new Vector3(0f, -0.045f, 0f), new Vector3(0.055f, 0.085f, 0.04f), grip);
-        for (int i = 0; i < 4; i++)
-            Part("Grip ridge", PrimitiveType.Cube, new Vector3(0f, -0.096f + i * 0.032f, -0.021f), new Vector3(0.059f, 0.007f, 0.007f), grip);
-        Part("Finger stop", PrimitiveType.Cube, new Vector3(0f, 0.04f, 0f), new Vector3(0.11f, 0.022f, 0.052f), guard);
-        Part("Steel spine", PrimitiveType.Cube, new Vector3(-0.038f, 0.108f, 0f), new Vector3(0.02f, 0.13f, 0.025f), metal);
-        Part("Rounded safety hook", PrimitiveType.Capsule, new Vector3(0.004f, 0.173f, 0f), new Vector3(0.029f, 0.056f, 0.032f), guard, Quaternion.Euler(0f, 0f, 90f));
-        Part("Blunt hook tip", PrimitiveType.Capsule, new Vector3(0.045f, 0.152f, 0f), new Vector3(0.024f, 0.028f, 0.028f), guard);
-        blade = new Mesh { name = "Recessed net cutter steel wedge" };
-        blade.vertices = new[] { new Vector3(-0.03f, 0.067f, -0.004f), new Vector3(-0.03f, 0.151f, -0.004f),
-            new Vector3(0.035f, 0.151f, -0.001f), new Vector3(-0.03f, 0.067f, 0.004f),
-            new Vector3(-0.03f, 0.151f, 0.004f), new Vector3(0.035f, 0.151f, 0.001f) };
-        blade.triangles = new[] { 0, 1, 2, 3, 5, 4, 0, 3, 4, 0, 4, 1, 1, 4, 5, 1, 5, 2, 2, 5, 3, 2, 3, 0 };
-        blade.RecalculateNormals();
-        blade.RecalculateBounds();
-        GameObject edge = new("Shielded metal knife edge");
-        edge.transform.SetParent(transform, false);
-        edge.AddComponent<MeshFilter>().sharedMesh = blade;
-        edge.AddComponent<MeshRenderer>().sharedMaterial = metal;
+        grip = Material("Matte charcoal knife handle", new Color(0.045f, 0.052f, 0.055f), 0f, 0.20f);
+        metal = Material("Satin stainless knife steel", new Color(0.67f, 0.70f, 0.72f), 0.70f, 0.46f);
+        blade = BeveledPrism("Thin beveled knife blade", new[]
+        {
+            new Vector2(-0.016f, 0.035f), new Vector2(0.026f, 0.035f),
+            new Vector2(0.028f, 0.090f), new Vector2(0.022f, 0.139f),
+            new Vector2(0.006f, 0.180f), new Vector2(-0.013f, 0.212f),
+            new Vector2(-0.016f, 0.200f)
+        }, 0.003f, 0.0004f, new Vector2(0.78f, 0.97f));
+        handle = BeveledPrism("Rounded knife handle", new[]
+        {
+            new Vector2(-0.012f, -0.092f), new Vector2(0.004f, -0.096f),
+            new Vector2(0.015f, -0.087f), new Vector2(0.018f, -0.067f),
+            new Vector2(0.018f, 0.020f), new Vector2(0.012f, 0.035f),
+            new Vector2(-0.013f, 0.035f), new Vector2(-0.020f, 0.026f),
+            new Vector2(-0.022f, -0.063f), new Vector2(-0.020f, -0.080f)
+        }, 0.012f, 0.005f, new Vector2(0.77f, 0.94f));
+        MeshPart("Silver blade", blade, metal);
+        MeshPart("Dark rounded handle", handle, grip);
+        Vector2[] rivetOutline = new Vector2[12];
+        for (int i = 0; i < rivetOutline.Length; i++)
+        {
+            float angle = i * Mathf.PI * 2f / rivetOutline.Length;
+            rivetOutline[i] = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * 0.0035f;
+        }
+        rivet = BeveledPrism("Flush handle rivet", rivetOutline, 0.00075f, 0.00025f, Vector2.one * 0.80f);
+        for (int i = 0; i < 2; i++)
+        {
+            for (int side = -1; side <= 1; side += 2)
+            {
+                GameObject pin = MeshPart("Flush steel handle rivet", rivet, metal);
+                pin.transform.localPosition = new Vector3(-0.002f, -0.062f + i * 0.067f, side * 0.0117f);
+            }
+        }
+    }
+
+    // Convex outline, counterclockwise: thin perimeter plus inset face rings.
+    // Separate triangle vertices keep the blade faces and bevel normals crisp.
+    private static Mesh BeveledPrism(string name, Vector2[] outline, float faceDepth, float rimDepth, Vector2 inset)
+    {
+        List<Vector3> vertices = new();
+        List<int> triangles = new();
+        Vector2 center = Vector2.zero;
+        foreach (Vector2 point in outline) center += point;
+        center /= outline.Length;
+        for (int side = -1; side <= 1; side += 2)
+        {
+            for (int i = 0; i < outline.Length; i++)
+            {
+                Vector2 a = outline[i];
+                Vector2 b = outline[(i + 1) % outline.Length];
+                Vector2 innerA = center + Vector2.Scale(a - center, inset);
+                Vector2 innerB = center + Vector2.Scale(b - center, inset);
+                Vector3 outerA = new(a.x, a.y, side * rimDepth);
+                Vector3 outerB = new(b.x, b.y, side * rimDepth);
+                Vector3 faceA = new(innerA.x, innerA.y, side * faceDepth);
+                Vector3 faceB = new(innerB.x, innerB.y, side * faceDepth);
+                AddTriangle(new Vector3(center.x, center.y, side * faceDepth), faceA, faceB, side < 0);
+                AddTriangle(outerA, outerB, faceB, side < 0);
+                AddTriangle(outerA, faceB, faceA, side < 0);
+                if (side == 1)
+                {
+                    Vector3 backA = new(a.x, a.y, -rimDepth);
+                    Vector3 backB = new(b.x, b.y, -rimDepth);
+                    AddTriangle(backA, backB, outerB, false);
+                    AddTriangle(backA, outerB, outerA, false);
+                }
+            }
+        }
+        Mesh mesh = new() { name = name };
+        mesh.SetVertices(vertices);
+        mesh.SetTriangles(triangles, 0);
+        mesh.RecalculateNormals();
+        mesh.RecalculateBounds();
+        return mesh;
+
+        void AddTriangle(Vector3 a, Vector3 b, Vector3 c, bool reverse)
+        {
+            int start = vertices.Count;
+            vertices.Add(a);
+            vertices.Add(reverse ? c : b);
+            vertices.Add(reverse ? b : c);
+            triangles.Add(start);
+            triangles.Add(start + 1);
+            triangles.Add(start + 2);
+        }
     }
 
     private static Material Material(string name, Color color, float metallic, float smoothness)
@@ -56,18 +124,13 @@ public sealed class RescueNetCutter : MonoBehaviour
         return material;
     }
 
-    private void Part(string name, PrimitiveType type, Vector3 position, Vector3 scale, Material material, Quaternion? rotation = null)
+    private GameObject MeshPart(string name, Mesh mesh, Material material)
     {
-        GameObject part = GameObject.CreatePrimitive(type);
-        part.name = name;
+        GameObject part = new(name);
         part.transform.SetParent(transform, false);
-        part.transform.localPosition = position;
-        part.transform.localScale = scale;
-        part.transform.localRotation = rotation ?? Quaternion.identity;
-        part.GetComponent<Renderer>().sharedMaterial = material;
-        Collider collider = part.GetComponent<Collider>();
-        collider.enabled = false;
-        Destroy(collider);
+        part.AddComponent<MeshFilter>().sharedMesh = mesh;
+        part.AddComponent<MeshRenderer>().sharedMaterial = material;
+        return part;
     }
 
     public void SetEquipped(bool equipped)
@@ -81,23 +144,26 @@ public sealed class RescueNetCutter : MonoBehaviour
     {
         if (!IsEquipped || owner == null) return;
         float angle = screenDelta.sqrMagnitude > 0.01f ? Mathf.Atan2(screenDelta.y, screenDelta.x) * Mathf.Rad2Deg - 90f : 0f;
-        transform.rotation = owner.transform.rotation * Quaternion.Euler(0f, 0f, angle);
+        // Keep the handle lifted toward the viewer while the curved edge touches
+        // the strand, rather than laying the whole knife inside the curved shell.
+        transform.localRotation = Quaternion.AngleAxis(angle, Vector3.forward) * Quaternion.Euler(28f, -12f, 0f);
         Vector3 towardCamera = (owner.transform.position - worldPoint).normalized;
-        // Keep the whole guarded edge in front of the rope/shell surface.
-        transform.position = worldPoint + towardCamera * 0.02f - transform.up * 0.13f;
+        transform.position = worldPoint + towardCamera * 0.02f - transform.TransformVector(CuttingContact);
     }
 
     public void ResetPose()
     {
-        transform.localPosition = new Vector3(0.27f, -0.19f, 0.68f);
-        transform.localRotation = Quaternion.Euler(8f, -16f, -28f);
+        transform.localScale = Vector3.one * 0.86f;
+        transform.localPosition = new Vector3(0.29f, -0.22f, 0.76f);
+        transform.localRotation = Quaternion.Euler(5f, -12f, -32f);
     }
 
     private void OnDestroy()
     {
         if (grip != null) Destroy(grip);
         if (metal != null) Destroy(metal);
-        if (guard != null) Destroy(guard);
         if (blade != null) Destroy(blade);
+        if (handle != null) Destroy(handle);
+        if (rivet != null) Destroy(rivet);
     }
 }

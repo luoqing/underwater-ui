@@ -334,6 +334,7 @@ public static class MissionGameplayValidation
         Require(net.NextKnot == 0 && director.NetCutterEquipped && director.NetCutter != null,
             "A short target click cuts the net instead of only equipping the cutter.");
         RescueNetCutter cutter = director.NetCutter;
+        KnifeModelValidation.Run(cutter);
         ValidateMaterials(cutter.GetComponentsInChildren<Renderer>());
         foreach (Collider collider in cutter.GetComponentsInChildren<Collider>())
             Require(!collider.enabled, "The held cutter blocks animal/net raycasts.");

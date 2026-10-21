@@ -12,8 +12,8 @@ using UnityEngine.Rendering.Universal;
 public static class ClearWaterVisualValidation
 {
     private const string Key = "Underwater.ClearWaterVisual.";
-    private const string Output = "Logs/net-rescue-20261020/visual";
-    private static readonly string[] Names = { "garden", "lantern-close", "rescue-net", "net-contact-close", "whale-side", "net-released" };
+    private const string Output = "Logs/simple-knife-20261021/visual";
+    private static readonly string[] Names = { "garden", "lantern-close", "rescue-net", "net-contact-close", "whale-side", "net-released", "knife-held", "knife-cut-contact" };
 
     static ClearWaterVisualValidation()
     {
@@ -35,6 +35,12 @@ public static class ClearWaterVisualValidation
         Directory.CreateDirectory(Output);
         EditorSceneManager.OpenScene("Assets/Scenes/UnderwaterJourney.unity", OpenSceneMode.Single);
         EditorApplication.isPlaying = true;
+    }
+
+    public static void RunKnife()
+    {
+        Run();
+        SessionState.SetInt(Key + "Shot", 6);
     }
 
     private static void OnPlayMode(PlayModeStateChange state)
@@ -71,7 +77,7 @@ public static class ClearWaterVisualValidation
             if (!SessionState.GetBool(Key + "Prepared", false))
             {
                 if (index == 0) Invoke(director, "StartAdventure");
-                if (index == 2) Invoke(director, "StartRescue");
+                if (index == 2 || index == 6) Invoke(director, "StartRescue");
                 PoseCamera(index, camera, director);
                 if (index == 5)
                 {
@@ -116,7 +122,7 @@ public static class ClearWaterVisualValidation
             Debug.Log("UNDERWATER_CLEAR_WATER_VISUAL_FRAME " + Path.GetFullPath(path));
             if (++index == Names.Length)
             {
-                Debug.Log("UNDERWATER_CLEAR_WATER_VISUAL_PASS six production Play Mode renders including a live released net; diagnostic camera/mission setup, not manual gameplay");
+                Debug.Log("UNDERWATER_CLEAR_WATER_VISUAL_PASS production Play Mode renders; diagnostic camera/mission setup, not manual gameplay");
                 SessionState.SetInt(Key + "Result", 0);
                 EditorApplication.isPlaying = false;
                 return;
@@ -148,22 +154,29 @@ public static class ClearWaterVisualValidation
             Look(camera, LanternCameraPosition(beacon.transform.position), beacon.transform.position);
             if (!beacon.activeSelf) throw new InvalidOperationException("First production lantern is not active.");
         }
-        else if (index == 2 || index == 3 || index == 5)
+        else if (index == 2 || index == 3 || index == 5 || index == 6 || index == 7)
         {
             GameObject turtle = Field<GameObject>(director, "rescueTurtle");
-            FishingLineRescue lines = turtle.GetComponent<FishingLineRescue>();
+            FishingLineRescue lines = Field<FishingLineRescue>(director, "fishingLine");
             if (lines == null || !lines.TryGetNextKnotPosition(out Vector3 knot))
                 throw new InvalidOperationException("Production net/cut targets are missing.");
             Bounds bounds = RendererBounds(turtle);
             Vector3 outward = (knot - bounds.center).normalized;
             if (index == 2)
                 Look(camera, bounds.center + (outward + Vector3.up * 0.25f).normalized * bounds.extents.magnitude * 2.6f, bounds.center);
-            else if (index == 5)
+            else if (index == 5 || index >= 6)
                 Look(camera, turtle.transform.position + (outward + Vector3.up * 0.25f).normalized * 3.2f, bounds.center);
             else
             {
                 camera.fieldOfView = 32f;
                 Look(camera, knot + outward * Mathf.Max(0.9f, bounds.extents.magnitude * 0.48f), knot);
+            }
+            if (index >= 6)
+            {
+                if (!director.NetCutterEquipped) director.EquipNetCutter();
+                if (director.NetCutter == null) throw new InvalidOperationException("Missing equipped knife.");
+                if (index == 6) director.NetCutter.ResetPose();
+                else director.NetCutter.PoseAt(knot, new Vector2(30f, 12f));
             }
         }
         else

@@ -35,6 +35,10 @@ Do not edit, switch, overwrite or deploy the original project at
   first candidate while the close-drag and cut-marker corrections are tested.
 - The user also requested natural multicolour corals, spaced reef patches and
   additional distributed fish schools in this same isolated preview.
+- On 2026-10-21 the user requested an image-first simple emoji-like knife,
+  replacing the guarded cutter. Branch `visual/simple-knife-20261021` builds to
+  `Build/WebGLSimpleKnife`; preserve 8899/8900 and all previous build outputs.
+  Keep existing net-cut gestures, reach limits and mission logic unchanged.
 - Keep changes reviewable and reversible. Do not merge, push or publish without
   explicit user direction. Do not initialize Git in the original live project.
 - The original project is still evolving. This is a verified source snapshot,
