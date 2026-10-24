@@ -34,7 +34,11 @@ preview; the MP4 retains more colour and detail.
 
 The raw capture frames and logs stay excluded from Git. The MP4 and screenshots
 are committed with relative README links so the presentation does not depend on
-the developer's filesystem or private preview server. GitHub may open the MP4
-on its file page rather than showing a player directly inside README; the GIF
-provides an inline preview either way. Asset notices in `docs/DEVELOPMENT.md`
+the developer's filesystem or private preview server. The tested GitHub file
+page did not preview the repository MP4, so README uses a direct download link
+and a working inline GIF, not a misleading play button into an error page.
+For a native inline MP4 player later, upload the video as a GitHub attachment
+and paste its resulting URL into README; see GitHub's official
+[attachment guide](https://docs.github.com/en/get-started/writing-on-github/working-with-advanced-formatting/attaching-files).
+Asset notices in `docs/DEVELOPMENT.md`
 also apply to these recorded assets; no separate blanket media license is added.

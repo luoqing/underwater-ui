@@ -8,13 +8,13 @@
 
 ## 先看一段海底漫游
 
-[![海底场景动态预览，点击观看 MP4](docs/media/preview.gif)](docs/media/underwater-showcase.mp4)
+[![海底场景动态预览，点击下载完整 MP4](docs/media/preview.gif)](docs/media/underwater-showcase.mp4?raw=1)
 
-**▶ [观看 8 秒 MP4 展示](docs/media/underwater-showcase.mp4)** · [下载 MP4](docs/media/underwater-showcase.mp4?raw=1)
+**▶ [下载 8 秒 MP4 展示（720p）](docs/media/underwater-showcase.mp4?raw=1)**
 
 珊瑚水道 → 蓝色鱼近景 → 座头鲸 → 渔网救援场景。
 
-视频由当前 Unity 场景逐帧录制，采用编排镜头，无声；不是手动通关录像，也不代表浏览器或核显实测帧率。[素材与录制说明](docs/media/README.md)
+首页可直接看动态预览；MP4 下载后可用浏览器或播放器打开。视频由当前 Unity 场景逐帧录制，采用编排镜头，无声；不是手动通关录像，也不代表浏览器或核显实测帧率。[素材与录制说明](docs/media/README.md)
 
 ## 和海洋伙伴一起探索
 
