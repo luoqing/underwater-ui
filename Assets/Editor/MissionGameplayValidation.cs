@@ -33,6 +33,8 @@ public static class MissionGameplayValidation
             MovementSeafloorValidation.Run();
             CreatureGuidanceValidation.Run();
             FishSchoolMotionValidation.Run();
+            WhaleAudioValidation.ValidateMotion();
+            ReefLifeValidation.Run();
             Run();
         }
         catch (Exception error)
@@ -208,7 +210,9 @@ public static class MissionGameplayValidation
                         && control.xMax <= Screen.width && control.yMax <= Screen.height, "A swim arrow is oversized or outside the viewport.");
                 UnderwaterHud hud = UnderwaterHud.Instance;
                 ClearWaterStyleValidation.ValidateLive();
+                ReefLifeValidation.ValidateLive();
                 ValidateMinimalHud(director, hud);
+                WhaleAudioValidation.ValidateInPlayMode(director);
                 foreach (string id in new[] { "clownfish", "turtle", "manta", "whale" }) hud.Discover(id, id, string.Empty);
                 Require(Read<HashSet<string>>(hud, "discoveries").Count == 4 && ((string)Call(hud, "BuildDiscoveryLine")).Contains("座头鲸"),
                     "Whale is missing from the four-species field guide.");

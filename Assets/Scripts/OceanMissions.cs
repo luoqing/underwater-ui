@@ -64,6 +64,9 @@ public sealed class OceanMissionDirector : MonoBehaviour
     private AudioClip pendingDialogueClip;
     private Vector2 menuScroll;
     private bool showSubtitles;
+    private Transform whaleGuide;
+
+    public bool IsFindingWhale => whaleGuide != null;
 
     private const float RescueSurfaceHeight = UnderwaterWorld.WaterSurfaceHeight - 0.3f;
 
@@ -74,9 +77,9 @@ public sealed class OceanMissionDirector : MonoBehaviour
     public bool IsNetWithinReach => RescueDistance() <= 4.5f;
     public RescueNetCutter NetCutter => netCutter;
     public bool SubtitlesVisible => showSubtitles && Time.unscaledTime < dialogueUntil && !string.IsNullOrEmpty(dialogue);
-    private string CurrentObjective => mode == MissionMode.None
+    private string CurrentObjective => IsFindingWhale ? "跟着鲸鱼标记，去找鲸鱼" : mode == MissionMode.None
         ? UnderwaterHud.Instance?.FreeRoamObjective ?? "四处游游，认识海洋伙伴" : objective;
-    public string ActionHint => mode != MissionMode.Rescue ? string.Empty
+    public string ActionHint => IsFindingWhale ? "按住 ↑，跟着标记游" : mode != MissionMode.Rescue ? string.Empty
         : stage == 0 ? RescueDistance() > 4.5f ? "按住 ↑，靠近豆豆"
             : !NetCutterEquipped ? "点割网刀，准备救援" : "按住标记处，划开网绳"
         : rescueTurtle != null && rescueTurtle.transform.position.y >= UnderwaterWorld.WaterSurfaceHeight - 1.5f
@@ -100,6 +103,7 @@ public sealed class OceanMissionDirector : MonoBehaviour
         dialogueSource.loop = false;
         dialogueSource.spatialBlend = 0f;
         dialogueSource.volume = 0.92f;
+        ApplyVoiceSetting();
     }
 
     private void Start()
@@ -138,8 +142,7 @@ public sealed class OceanMissionDirector : MonoBehaviour
     {
         if (dialogueSource != null)
         {
-            dialogueSource.mute = UnderwaterAudio.GlobalMuted;
-            if (pendingDialogueClip != null && UnderwaterAudio.HasUserGesture())
+            if (pendingDialogueClip != null && UnderwaterAudio.VoiceEnabled && UnderwaterAudio.HasUserGesture())
             {
                 PlayDialogueClip(pendingDialogueClip);
                 pendingDialogueClip = null;
@@ -241,7 +244,7 @@ public sealed class OceanMissionDirector : MonoBehaviour
             OpenMenu();
             return;
         }
-        if (IsNetCuttingStage && GUI.Button(GetNetCutterButtonRect(), NetCutterEquipped ? "已装备" : "割网刀", buttonStyle))
+        if (!IsFindingWhale && IsNetCuttingStage && GUI.Button(GetNetCutterButtonRect(), NetCutterEquipped ? "已装备" : "割网刀", buttonStyle))
             EquipNetCutter();
 
         float scale = UiScale();
@@ -265,6 +268,35 @@ public sealed class OceanMissionDirector : MonoBehaviour
         diver?.SetHudMove(Vector3.zero);
     }
 
+    public void ToggleWhaleGuide()
+    {
+        if (IsFindingWhale) whaleGuide = null;
+        else
+        {
+            HeroWhaleDrift whale = FindFirstObjectByType<HeroWhaleDrift>();
+            if (whale == null)
+            {
+                UnderwaterHud.Instance?.ShowStatus("暂时找不到鲸鱼");
+                return;
+            }
+            whaleGuide = whale.transform;
+            diver?.BeginExploration();
+        }
+        showMenu = false;
+        diver?.SetHudMove(Vector3.zero);
+    }
+
+    public void ApplyVoiceSetting()
+    {
+        if (dialogueSource == null) return;
+        dialogueSource.mute = !UnderwaterAudio.VoiceEnabled;
+        if (!UnderwaterAudio.VoiceEnabled)
+        {
+            dialogueSource.Stop();
+            pendingDialogueClip = null;
+        }
+    }
+
     private void DrawMissionMenu()
     {
         if (menuPage == MenuPage.Role)
@@ -282,15 +314,22 @@ public sealed class OceanMissionDirector : MonoBehaviour
         GUI.Label(new Rect(28f * scale, 22f * scale, width - 56f * scale, 42f * scale), "选择今天的海底任务", titleStyle);
         GUI.Label(new Rect(32f * scale, 68f * scale, width - 64f * scale, 64f * scale), "选一个任务，再选你的海洋伙伴。", bodyStyle);
 
-        if (GUI.Button(new Rect(34f * scale, 140f * scale, width - 68f * scale, 66f * scale), "探险：追着鲸歌找星光", buttonStyle))
+        if (GUI.Button(new Rect(34f * scale, 112f * scale, width - 68f * scale, 50f * scale), "探险：追着鲸歌找星光", buttonStyle))
         {
             ChooseMission(MissionMode.Adventure);
         }
-        if (GUI.Button(new Rect(34f * scale, 218f * scale, width - 68f * scale, 66f * scale), "救援：送小海龟去呼吸", buttonStyle))
+        if (GUI.Button(new Rect(34f * scale, 170f * scale, width - 68f * scale, 50f * scale), "救援：送小海龟去呼吸", buttonStyle))
         {
             ChooseMission(MissionMode.Rescue);
         }
-        showSubtitles = GUI.Toggle(new Rect(34f * scale, 312f * scale, width - 68f * scale, 38f * scale), showSubtitles, showSubtitles ? "对白字幕：开" : "对白字幕：关", menuButtonStyle);
+        if (GUI.Button(new Rect(34f * scale, 230f * scale, width - 68f * scale, 44f * scale), IsFindingWhale ? "取消鲸鱼指引" : "寻找鲸鱼", buttonStyle))
+            ToggleWhaleGuide();
+        float audioWidth = (width - 80f * scale) * 0.5f;
+        if (GUI.Button(new Rect(34f * scale, 286f * scale, audioWidth, 38f * scale), UnderwaterAudio.VoiceEnabled ? "语音提示：开" : "语音提示：关", buttonStyle))
+            UnderwaterAudio.SetVoiceEnabled(!UnderwaterAudio.VoiceEnabled);
+        if (GUI.Button(new Rect(46f * scale + audioWidth, 286f * scale, audioWidth, 38f * scale), UnderwaterAudio.BackgroundEnabled ? "背景音：开" : "背景音：关", buttonStyle))
+            UnderwaterAudio.SetBackgroundEnabled(!UnderwaterAudio.BackgroundEnabled);
+        showSubtitles = GUI.Toggle(new Rect(34f * scale, 332f * scale, width - 68f * scale, 32f * scale), showSubtitles, showSubtitles ? "对白字幕：开" : "对白字幕：关", menuButtonStyle);
         if (mode != MissionMode.None && GUI.Button(new Rect(34f * scale, 382f * scale, 124f * scale, 32f * scale), "退出任务", buttonStyle))
         {
             ResetMission();
@@ -476,6 +515,7 @@ public sealed class OceanMissionDirector : MonoBehaviour
 
     private void ResetMission()
     {
+        whaleGuide = null;
         if (netCutter != null)
         {
             netCutter.SetEquipped(false);
@@ -602,7 +642,7 @@ public sealed class OceanMissionDirector : MonoBehaviour
         speaker = who;
         dialogue = line;
         AudioClip clip = string.IsNullOrEmpty(clipName) ? null : Resources.Load<AudioClip>($"Audio/Dialogues/{clipName}");
-        if (clip != null && dialogueSource != null)
+        if (clip != null && dialogueSource != null && UnderwaterAudio.VoiceEnabled)
         {
             if (UnderwaterAudio.HasUserGesture())
             {
@@ -619,6 +659,7 @@ public sealed class OceanMissionDirector : MonoBehaviour
 
     private void PlayDialogueClip(AudioClip clip)
     {
+        if (!UnderwaterAudio.VoiceEnabled) return;
         dialogueSource.Stop();
         dialogueSource.clip = clip;
         dialogueSource.Play();
@@ -631,7 +672,7 @@ public sealed class OceanMissionDirector : MonoBehaviour
         if (camera == null) return;
 
         Vector3 screen = camera.WorldToScreenPoint(target);
-        if (IsNetCuttingStage && screen.z > 0f && screen.x >= 0f && screen.x <= Screen.width
+        if (!IsFindingWhale && IsNetCuttingStage && screen.z > 0f && screen.x >= 0f && screen.x <= Screen.width
             && screen.y >= 0f && screen.y <= Screen.height)
             UnderwaterHud.DrawOverlayLabel(new Rect(screen.x - 8f, Screen.height - screen.y - 8f, 16f, 16f), "○", markerStyle);
         Vector3 localTarget = camera.transform.InverseTransformPoint(target);
@@ -649,10 +690,11 @@ public sealed class OceanMissionDirector : MonoBehaviour
 
         float scale = UiScale();
         int distance = Mathf.Max(0, Mathf.RoundToInt(Vector3.Distance(camera.transform.position, target)));
-        if (mode == MissionMode.Rescue && stage == 1)
+        if (!IsFindingWhale && mode == MissionMode.Rescue && stage == 1)
             distance = Mathf.CeilToInt(Mathf.Max(0f, RescueSurfaceHeight - rescueTurtle.transform.position.y));
-        string label = mode == MissionMode.Adventure ? "星光灯" : stage == 1 ? "水面" : "割网处";
-        string text = string.IsNullOrEmpty(direction) ? $"{label} · {distance} 米" : $"{direction} · {distance} 米";
+        string label = IsFindingWhale ? "鲸鱼" : mode == MissionMode.Adventure ? "星光灯" : stage == 1 ? "水面" : "割网处";
+        string text = string.IsNullOrEmpty(direction) ? $"{label} · {distance} 米"
+            : IsFindingWhale ? $"鲸鱼 · {direction} · {distance} 米" : $"{direction} · {distance} 米";
         float width = markerStyle.CalcSize(new GUIContent(text)).x + 12f * scale;
         float height = 28f * scale;
         float top = GetObjectiveRect().yMax + 16f * scale;
@@ -668,6 +710,11 @@ public sealed class OceanMissionDirector : MonoBehaviour
 
     private bool TryGetCurrentTarget(out Vector3 target)
     {
+        if (IsFindingWhale)
+        {
+            target = whaleGuide.position;
+            return true;
+        }
         if (mode == MissionMode.Adventure && stage >= 0 && stage < adventureBeacons.Count)
         {
             target = adventureBeacons[stage].transform.position;

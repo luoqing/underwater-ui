@@ -969,6 +969,14 @@ public sealed class UnderwaterWorld : MonoBehaviour
         GameObject mantaCompanion = SpawnResourceModel("Models/Manta", "Oceanic Manta Ray Companion", new Vector3(9f, 5.8f, 76f), Quaternion.Euler(0f, 238f, 0f), 6.5f, null);
         SpawnReefFish("Models/BlueTang", "Blue Tang companion 4", new Vector3(6.8f, 1.4f, 46f), Quaternion.Euler(1f, 22f, 0f), 1.35f, 6.2f, 0.44f);
         SpawnReefFish("Models/Clownfish", "Clownfish garden 3", new Vector3(-5.6f, 0.6f, 55f), Quaternion.Euler(-1f, 170f, 2f), 1.15f, 7.1f, 0.38f);
+        SpawnReefFish("Models/BlueTang", "Blue Tang garden 5", new Vector3(-1.8f, 4.6f, 9f), Quaternion.identity, 1.5f, 1.1f, 0.60f);
+        SpawnReefFish("Models/BlueTang", "Blue Tang garden 6", new Vector3(2.2f, 5.0f, 22f), Quaternion.Euler(0f, 160f, 0f), 1.4f, 3.6f, 0.55f);
+        SpawnReefFish("Models/BlueTang", "Blue Tang garden 7", new Vector3(-1.2f, 4.0f, 37f), Quaternion.Euler(0f, 25f, 0f), 1.6f, 5.2f, 0.64f);
+        SpawnReefFish("Models/BlueTang", "Blue Tang garden 8", new Vector3(2.0f, 3.8f, 61f), Quaternion.Euler(0f, 190f, 0f), 1.4f, 6.8f, 0.55f);
+        SpawnReefFish("Models/Clownfish", "Clownfish garden 4", new Vector3(1.2f, 3.5f, 12f), Quaternion.Euler(0f, 80f, 0f), 1.1f, 0.5f, 0.48f);
+        SpawnReefFish("Models/Clownfish", "Clownfish garden 5", new Vector3(-2.4f, 3.8f, 24f), Quaternion.Euler(0f, 240f, 0f), 1.2f, 2.3f, 0.52f);
+        SpawnReefFish("Models/Clownfish", "Clownfish garden 6", new Vector3(1.6f, 2.8f, 39f), Quaternion.Euler(0f, 110f, 0f), 1.0f, 4.5f, 0.44f);
+        SpawnReefFish("Models/Clownfish", "Clownfish garden 7", new Vector3(-1.4f, 3.4f, 57f), Quaternion.Euler(0f, 260f, 0f), 1.1f, 6.3f, 0.48f);
         AddEncounter(clownfish, "clownfish", "小丑鱼", "喜欢躲在海葵触手之间的珊瑚礁居民。");
         AddEncounter(turtle, "turtle", "绿海龟", "性情温和的远洋旅行者，能够穿越整片海域。");
         AddEncounter(manta, "manta", "远洋魔鬼鱼", "展开宽大的胸鳍，借着水流平稳滑翔。");
@@ -1026,11 +1034,9 @@ public sealed class UnderwaterWorld : MonoBehaviour
                 drift.floorClearance = Mathf.Clamp(targetSize * 0.22f, 0.34f, 0.82f);
                 drift.noseDistance = Mathf.Clamp(targetSize * 0.42f, 0.48f, 1.65f);
             }
-            if (resourcePath.EndsWith("BlueTang"))
-            {
-                BlueTangSwimAnimator animator = fish.AddComponent<BlueTangSwimAnimator>();
-                animator.phase = phase;
-            }
+            ReefFishSwimAnimator animator = fish.AddComponent<ReefFishSwimAnimator>();
+            animator.phase = phase;
+            animator.isBlueTang = resourcePath.EndsWith("BlueTang");
         }
         return fish;
     }
@@ -1205,12 +1211,23 @@ public sealed class UnderwaterWorld : MonoBehaviour
             }
             if (ShouldPlaceOnSeafloor(resourcePath))
             {
-                float groundHeight = SamplePlacementHeight(position.x, position.z, bounds.extents.x, bounds.extents.z);
                 float shallowEmbed = resourcePath.EndsWith("KelpCluster") ? 0.08f : resourcePath.Contains("Coral") ? 0.12f : 0.22f;
-                instance.transform.position += new Vector3(
-                    position.x - bounds.center.x,
-                    groundHeight - shallowEmbed - bounds.min.y,
-                    position.z - bounds.center.z);
+                instance.transform.position += new Vector3(position.x - bounds.center.x, 0f, position.z - bounds.center.z);
+                float verticalShift = float.PositiveInfinity;
+                float rootTop = bounds.min.y + Mathf.Min(bounds.size.y * 0.14f, 1.6f);
+                foreach (MeshFilter filter in instance.GetComponentsInChildren<MeshFilter>())
+                {
+                    if (filter.sharedMesh == null || !filter.sharedMesh.isReadable) continue;
+                    foreach (Vector3 vertex in filter.sharedMesh.vertices)
+                    {
+                        Vector3 point = filter.transform.TransformPoint(vertex);
+                        if (point.y > rootTop) continue;
+                        verticalShift = Mathf.Min(verticalShift, SampleSeafloorHeight(point.x, point.z) - point.y - shallowEmbed);
+                    }
+                }
+                if (float.IsPositiveInfinity(verticalShift))
+                    verticalShift = SamplePlacementHeight(position.x, position.z, bounds.extents.x, bounds.extents.z) - shallowEmbed - bounds.min.y;
+                instance.transform.position += Vector3.up * verticalShift;
             }
             else
             {
@@ -2289,6 +2306,7 @@ public sealed class CinematicDive : MonoBehaviour
     }
 
     public void SetHudMove(Vector3 move) => hudMove = Vector3.ClampMagnitude(move, 1f);
+    public void BeginExploration() { if (autoTour) EnterFreeDive(); }
     public MarineEncounter GuidedEncounter => guidedEncounter;
     public bool IsGuidingAnimal => guidingAnimal;
 
@@ -2919,86 +2937,89 @@ public sealed class ReefFishDrift : MonoBehaviour
         baseScale = transform.localScale;
         travel = phase;
         basePosition = transform.position - OrbitOffset();
-        motionVelocity = -transform.forward * Mathf.Lerp(1.8f, 3.2f, swimScale);
+        motionVelocity = transform.TransformDirection(isBlueTang ? Vector3.forward : Vector3.left) * 0.88f;
     }
 
-    private void Update()
+    private void Update() => SwimStep(Time.time, Time.deltaTime);
+
+    private void SwimStep(float time, float deltaTime)
     {
         if (releaseGlide > 0f)
         {
-            releaseGlide = Mathf.Max(0f, releaseGlide - Time.deltaTime);
-            float naturalSpeed = Mathf.Lerp(1.6f, 3.8f, swimScale);
-            Vector3 glideDirection = releaseVelocity.sqrMagnitude > 0.001f ? releaseVelocity.normalized : -transform.forward;
-            releaseVelocity = Vector3.MoveTowards(releaseVelocity, glideDirection * naturalSpeed, 1.8f * Time.deltaTime);
+            releaseGlide = Mathf.Max(0f, releaseGlide - deltaTime);
+            float naturalSpeed = 0.88f;
+            Vector3 glideDirection = releaseVelocity.sqrMagnitude > 0.001f ? releaseVelocity.normalized
+                : transform.TransformDirection(isBlueTang ? Vector3.forward : Vector3.left);
+            releaseVelocity = Vector3.MoveTowards(releaseVelocity, glideDirection * naturalSpeed, 1.8f * deltaTime);
             Vector3 beforeMove = transform.position;
-            Vector3 desiredPosition = beforeMove + releaseVelocity * Time.deltaTime;
+            Vector3 desiredPosition = beforeMove + releaseVelocity * deltaTime;
             transform.position = UnderwaterCollision.ResolveMove(transform, desiredPosition, collisionRadius, floorClearance, noseDistance, out bool avoidedObstacle);
             if (avoidedObstacle)
             {
-                releaseVelocity = (transform.position - beforeMove) / Mathf.Max(Time.deltaTime, 0.0001f);
+                releaseVelocity = (transform.position - beforeMove) / Mathf.Max(deltaTime, 0.0001f);
             }
             basePosition = transform.position - OrbitOffset();
             motionVelocity = releaseVelocity;
-            ApplySwimRotation(releaseVelocity, 0f, 5.5f);
+            ApplySwimRotation(releaseVelocity, 0f, 5.5f, deltaTime);
             transform.localScale = baseScale;
             return;
         }
 
-        float burst = isBlueTang
-            ? 0.88f + Mathf.Sin(Time.time * 0.74f + phase * 1.7f) * 0.13f
-            : 0.76f + Mathf.Max(0f, Mathf.Sin(Time.time * 1.18f + phase * 1.7f)) * 0.34f;
-        travel += Time.deltaTime * (isBlueTang ? 0.43f : 0.58f) * burst;
+        float radius = Mathf.Lerp(3.8f, 4.4f, swimScale);
+        Vector3 tangent = new(Mathf.Cos(travel) * radius,
+            Mathf.Cos(travel * 0.5f + phase) * 0.09f, -Mathf.Sin(travel) * radius * 0.86f);
+        float swimSpeed = 0.88f + Mathf.Sin(time * 0.74f + phase * 1.7f) * 0.07f;
+        travel += deltaTime * swimSpeed / Mathf.Max(0.1f, tangent.magnitude);
         Vector3 target = basePosition + OrbitOffset();
         Vector3 beforeDrift = transform.position;
-        float smoothTime = isBlueTang ? 0.32f : 0.24f;
-        float maxSpeed = isBlueTang ? Mathf.Lerp(2.5f, 4.8f, swimScale) : 5.8f * swimScale;
-        Vector3 desiredDrift = Vector3.SmoothDamp(beforeDrift, target, ref motionVelocity, smoothTime, maxSpeed, Time.deltaTime);
+        Vector3 desiredDrift = Vector3.SmoothDamp(beforeDrift, target, ref motionVelocity, 0.18f, 1.3f, deltaTime);
         transform.position = UnderwaterCollision.ResolveMove(transform, desiredDrift, collisionRadius, floorClearance, noseDistance, out bool driftAvoided);
         if (driftAvoided)
         {
-            motionVelocity = (transform.position - beforeDrift) / Mathf.Max(Time.deltaTime, 0.0001f);
+            motionVelocity = (transform.position - beforeDrift) / Mathf.Max(deltaTime, 0.0001f);
         }
 
-        Vector3 currentHeading = -transform.forward;
+        Vector3 currentHeading = transform.TransformDirection(isBlueTang ? Vector3.forward : Vector3.left);
         float turnAngle = motionVelocity.sqrMagnitude > 0.01f
             ? Vector3.SignedAngle(currentHeading, motionVelocity.normalized, Vector3.up)
             : 0f;
-        float finRhythm = Mathf.Sin(Time.time * (isBlueTang ? 5.8f : 7.2f) + phase) * (isBlueTang ? 0.28f : 1.1f);
-        float bank = Mathf.Clamp(-turnAngle * (isBlueTang ? 0.20f : 0.28f) + finRhythm, isBlueTang ? -5.5f : -7f, isBlueTang ? 5.5f : 7f);
-        ApplySwimRotation(motionVelocity, bank, isBlueTang ? 3.45f : 4f);
+        float bank = Mathf.Clamp(-turnAngle * 0.20f, -5f, 5f);
+        ApplySwimRotation(motionVelocity, bank, 5.5f, deltaTime);
         transform.localScale = baseScale;
     }
 
     private Vector3 OrbitOffset()
     {
-        if (isBlueTang)
-        {
-            return new Vector3(
-                Mathf.Sin(travel) * 3.4f * swimScale,
-                Mathf.Sin(travel * 0.54f + phase) * 0.31f * swimScale,
-                Mathf.Cos(travel) * 2.25f * swimScale);
-        }
-        return new Vector3(
-            Mathf.Sin(travel) * 2.8f * swimScale,
-            Mathf.Sin(travel * 1.52f + 0.8f) * 0.46f * swimScale,
-            Mathf.Cos(travel * 0.78f + 1.4f) * 1.35f * swimScale);
+        float radius = Mathf.Lerp(3.8f, 4.4f, swimScale);
+        return new Vector3(Mathf.Sin(travel) * radius,
+            Mathf.Sin(travel * 0.5f + phase) * 0.18f, Mathf.Cos(travel) * radius * 0.86f);
     }
 
     public Quaternion RotationForVelocity(Vector3 velocity, float bank)
     {
-        Vector3 direction = velocity.sqrMagnitude > 0.001f ? velocity.normalized : transform.forward;
-        return Quaternion.AngleAxis(bank, direction) * Quaternion.LookRotation(-direction, Vector3.up);
+        // Imported blue tang faces +Z; the clownfish faces -X, not -Z.
+        Vector3 nose = isBlueTang ? Vector3.forward : Vector3.left;
+        Vector3 direction = velocity.sqrMagnitude > 0.001f ? velocity.normalized : transform.TransformDirection(nose);
+        float pitch = Mathf.Clamp(direction.y, -0.16f, 0.16f);
+        direction.y = 0f;
+        if (direction.sqrMagnitude < 0.001f) direction = Vector3.ProjectOnPlane(transform.TransformDirection(nose), Vector3.up);
+        if (direction.sqrMagnitude < 0.001f) direction = Vector3.forward;
+        direction = direction.normalized + Vector3.up * pitch;
+        direction.Normalize();
+        return Quaternion.AngleAxis(bank, direction) * Quaternion.LookRotation(direction, Vector3.up)
+            * Quaternion.FromToRotation(nose, Vector3.forward);
     }
 
     public void ResumeFromGuidance(Vector3 velocity)
     {
-        releaseVelocity = velocity.sqrMagnitude > 0.01f ? Vector3.ClampMagnitude(velocity, 8.5f) : -transform.forward * 2.2f;
+        releaseVelocity = velocity.sqrMagnitude > 0.01f ? Vector3.ClampMagnitude(velocity, 2f)
+            : transform.TransformDirection(isBlueTang ? Vector3.forward : Vector3.left) * 0.88f;
         releaseGlide = 2.2f;
         basePosition = transform.position - OrbitOffset();
         motionVelocity = releaseVelocity;
     }
 
-    private void ApplySwimRotation(Vector3 velocity, float bank, float sharpness)
+    private void ApplySwimRotation(Vector3 velocity, float bank, float sharpness, float deltaTime)
     {
         if (velocity.sqrMagnitude < 0.001f)
         {
@@ -3006,83 +3027,7 @@ public sealed class ReefFishDrift : MonoBehaviour
         }
 
         Quaternion targetRotation = RotationForVelocity(velocity, bank);
-        transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, 1f - Mathf.Exp(-Time.deltaTime * sharpness));
-    }
-}
-
-public sealed class BlueTangSwimAnimator : MonoBehaviour
-{
-    public float phase;
-    private Mesh animatedMesh;
-    private Vector3[] restVertices;
-    private Vector3[] deformedVertices;
-    private float minimumZ;
-    private float length;
-
-    private void Start()
-    {
-        MeshFilter filter = GetComponentInChildren<MeshFilter>();
-        if (filter == null || filter.sharedMesh == null)
-        {
-            enabled = false;
-            return;
-        }
-
-        try
-        {
-            animatedMesh = Instantiate(filter.sharedMesh);
-            animatedMesh.name = $"{filter.sharedMesh.name} swimming";
-            animatedMesh.MarkDynamic();
-            restVertices = animatedMesh.vertices;
-            deformedVertices = new Vector3[restVertices.Length];
-            filter.sharedMesh = animatedMesh;
-        }
-        catch (UnityException)
-        {
-            enabled = false;
-            return;
-        }
-
-        Bounds bounds = animatedMesh.bounds;
-        minimumZ = bounds.min.z;
-        length = Mathf.Max(0.001f, bounds.size.z);
-        bounds.Expand(new Vector3(bounds.size.x * 0.20f, bounds.size.y * 0.12f, 0f));
-        animatedMesh.bounds = bounds;
-    }
-
-    private void LateUpdate()
-    {
-        if (animatedMesh == null || restVertices == null)
-        {
-            return;
-        }
-
-        if ((Time.frameCount & 1) != 0)
-        {
-            return;
-        }
-
-        float cycle = Time.time * 6.1f + phase;
-        for (int i = 0; i < restVertices.Length; i++)
-        {
-            Vector3 rest = restVertices[i];
-            float alongBody = Mathf.Clamp01((rest.z - minimumZ) / length);
-            float tailMask = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.52f, 1f, alongBody));
-            float wave = Mathf.Sin(cycle - tailMask * 1.48f) + Mathf.Sin(cycle * 2f - tailMask * 0.72f) * 0.10f;
-            rest.x += wave * tailMask * tailMask * length * 0.062f;
-            rest.y += Mathf.Sin(cycle - 1.15f - tailMask) * tailMask * tailMask * length * 0.006f;
-            deformedVertices[i] = rest;
-        }
-
-        animatedMesh.vertices = deformedVertices;
-    }
-
-    private void OnDestroy()
-    {
-        if (animatedMesh != null)
-        {
-            Destroy(animatedMesh);
-        }
+        transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, 1f - Mathf.Exp(-deltaTime * sharpness));
     }
 }
 
@@ -3101,24 +3046,31 @@ public sealed class HeroWhaleDrift : MonoBehaviour
         motionVelocity = heading * 3f;
     }
 
-    private void Update()
+    private void Update() => SwimStep(Time.time, Time.deltaTime);
+
+    private void SwimStep(float time, float deltaTime)
     {
-        float tailBeat = Mathf.Sin(Time.time * 2.18f - 0.72f);
+        float tailBeat = Mathf.Sin(time * 2.18f - 0.72f);
         float propulsion = 0.92f + Mathf.Max(0f, tailBeat) * 0.12f;
-        courseClock += Time.deltaTime * 0.065f;
+        courseClock += deltaTime * 0.065f;
         // A travelling course, with slow steering rather than a fixed orbit.
         float turn = Mathf.Sin(courseClock) * 2.4f;
-        heading = Quaternion.AngleAxis(turn * Time.deltaTime, Vector3.up) * heading;
+        heading = Quaternion.AngleAxis(turn * deltaTime, Vector3.up) * heading;
+        // Turn back gradually before leaving the open-water encounter area.
+        Vector3 home = Vector3.ProjectOnPlane(basePosition - transform.position, Vector3.up);
+        float returnStrength = Mathf.InverseLerp(26f, 42f, home.magnitude);
+        if (returnStrength > 0f)
+            heading = Vector3.RotateTowards(heading, home.normalized, deltaTime * returnStrength * 0.8f, 0f);
         float floor = UnderwaterWorld.SampleSeafloorHeight(transform.position.x, transform.position.z) + 5.5f;
         heading.y = Mathf.Clamp((Mathf.Max(basePosition.y, floor) - transform.position.y) * 0.12f, -0.12f, 0.18f);
         heading.Normalize();
-        motionVelocity = Vector3.Lerp(motionVelocity, heading * (3f * propulsion), 1f - Mathf.Exp(-Time.deltaTime * 0.85f));
+        motionVelocity = Vector3.Lerp(motionVelocity, heading * (3f * propulsion), 1f - Mathf.Exp(-deltaTime * 0.85f));
         Vector3 beforeMove = transform.position;
-        Vector3 desiredPosition = beforeMove + motionVelocity * Time.deltaTime;
+        Vector3 desiredPosition = beforeMove + motionVelocity * deltaTime;
         transform.position = UnderwaterCollision.ResolveMove(transform, desiredPosition, 1.45f, 2.1f, 4f, out bool avoidedObstacle);
         if (avoidedObstacle)
         {
-            motionVelocity = (transform.position - beforeMove) / Mathf.Max(Time.deltaTime, 0.0001f);
+            motionVelocity = (transform.position - beforeMove) / Mathf.Max(deltaTime, 0.0001f);
             if (motionVelocity.sqrMagnitude > 0.01f) heading = motionVelocity.normalized;
         }
 
@@ -3129,7 +3081,7 @@ public sealed class HeroWhaleDrift : MonoBehaviour
             Quaternion targetRotation = Quaternion.AngleAxis(bank, direction)
                 * Quaternion.LookRotation(direction, Vector3.up)
                 * Quaternion.Euler(tailBeat * 0.85f, 0f, 0f);
-            transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, 1f - Mathf.Exp(-Time.deltaTime * 2.4f));
+            transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, 1f - Mathf.Exp(-deltaTime * 2.4f));
         }
     }
 
@@ -3713,7 +3665,11 @@ public sealed class SurfaceDrift : MonoBehaviour
 public sealed class UnderwaterAudio : MonoBehaviour
 {
     private const int SampleRate = 22050;
-    public static bool GlobalMuted { get; private set; }
+    private const string VoicePreference = "Underwater.VoiceEnabled";
+    private const string BackgroundPreference = "Underwater.BackgroundEnabled";
+    private static UnderwaterAudio instance;
+    public static bool VoiceEnabled => PlayerPrefs.GetInt(VoicePreference, 1) != 0;
+    public static bool BackgroundEnabled => PlayerPrefs.GetInt(BackgroundPreference, 1) != 0;
     private AudioSource ambienceSource;
     private AudioSource movementSource;
     private AudioSource whaleSource;
@@ -3722,8 +3678,23 @@ public sealed class UnderwaterAudio : MonoBehaviour
     private AudioClip whaleClip;
     private CinematicDive diver;
     private bool started;
-    private bool muted;
     private float nextWhaleCall;
+
+    private void Awake() => instance = this;
+
+    public static void SetVoiceEnabled(bool enabled)
+    {
+        PlayerPrefs.SetInt(VoicePreference, enabled ? 1 : 0);
+        PlayerPrefs.Save();
+        OceanMissionDirector.Instance?.ApplyVoiceSetting();
+    }
+
+    public static void SetBackgroundEnabled(bool enabled)
+    {
+        PlayerPrefs.SetInt(BackgroundPreference, enabled ? 1 : 0);
+        PlayerPrefs.Save();
+        instance?.ApplyMute();
+    }
 
     private void Start()
     {
@@ -3750,6 +3721,7 @@ public sealed class UnderwaterAudio : MonoBehaviour
         whaleSource.rolloffMode = AudioRolloffMode.Logarithmic;
         whaleSource.volume = 0.58f;
         nextWhaleCall = Time.unscaledTime + 7f;
+        ApplyMute();
     }
 
     private void Update()
@@ -3757,10 +3729,10 @@ public sealed class UnderwaterAudio : MonoBehaviour
         Keyboard keyboard = Keyboard.current;
         if (keyboard != null && keyboard.mKey.wasPressedThisFrame)
         {
-            muted = !muted;
-            GlobalMuted = muted;
-            ApplyMute();
-            UnderwaterHud.Instance?.ShowStatus(muted ? "海洋声音已关闭" : "海洋声音已开启");
+            bool enabled = !VoiceEnabled && !BackgroundEnabled;
+            SetVoiceEnabled(enabled);
+            SetBackgroundEnabled(enabled);
+            UnderwaterHud.Instance?.ShowStatus(enabled ? "海洋声音已开启" : "海洋声音已关闭");
         }
 
         if (!started && HasUserGesture())
@@ -3776,11 +3748,11 @@ public sealed class UnderwaterAudio : MonoBehaviour
         }
 
         float swim = diver == null ? 0f : diver.SwimSpeed01;
-        movementSource.volume = muted ? 0f : Mathf.Lerp(0.015f, 0.26f, swim * swim);
+        movementSource.volume = Mathf.Lerp(0.015f, 0.26f, swim * swim);
         movementSource.pitch = Mathf.Lerp(0.72f, 1.22f, swim);
-        ambienceSource.volume = muted ? 0f : 0.30f;
+        ambienceSource.volume = 0.30f;
 
-        if (!muted && Time.unscaledTime >= nextWhaleCall && !whaleSource.isPlaying)
+        if (BackgroundEnabled && Time.unscaledTime >= nextWhaleCall && !whaleSource.isPlaying)
         {
             whaleSource.pitch = Random.Range(0.88f, 1.04f);
             whaleSource.Play();
@@ -3790,7 +3762,7 @@ public sealed class UnderwaterAudio : MonoBehaviour
 
     private void OnDestroy()
     {
-        GlobalMuted = false;
+        if (instance == this) instance = null;
         if (ambienceClip != null) Destroy(ambienceClip);
         if (movementClip != null) Destroy(movementClip);
         if (whaleClip != null) Destroy(whaleClip);
@@ -3811,6 +3783,7 @@ public sealed class UnderwaterAudio : MonoBehaviour
 
     private void ApplyMute()
     {
+        bool muted = !BackgroundEnabled;
         if (ambienceSource != null) ambienceSource.mute = muted;
         if (movementSource != null) movementSource.mute = muted;
         if (whaleSource != null) whaleSource.mute = muted;

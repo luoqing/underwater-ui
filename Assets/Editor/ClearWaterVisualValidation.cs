@@ -12,8 +12,8 @@ using UnityEngine.Rendering.Universal;
 public static class ClearWaterVisualValidation
 {
     private const string Key = "Underwater.ClearWaterVisual.";
-    private const string Output = "Logs/compact-reef-20261024/visual";
-    private static readonly string[] Names = { "garden", "lantern-close", "rescue-net", "net-contact-close", "whale-side", "net-released", "knife-held", "knife-cut-contact", "reef-entry", "reef-mid", "reef-exit" };
+    private const string Output = "Logs/reef-life-20261025/visual";
+    private static readonly string[] Names = { "garden", "lantern-close", "rescue-net", "net-contact-close", "whale-side", "net-released", "knife-held", "knife-cut-contact", "reef-entry", "reef-mid", "reef-exit", "reef-blue-tang", "reef-clownfish", "coral-grounding" };
 
     static ClearWaterVisualValidation()
     {
@@ -47,6 +47,12 @@ public static class ClearWaterVisualValidation
     {
         Run();
         SessionState.SetInt(Key + "Shot", 8);
+    }
+
+    public static void RunFishAndRoots()
+    {
+        Run();
+        SessionState.SetInt(Key + "Shot", 11);
     }
 
     private static void OnPlayMode(PlayModeStateChange state)
@@ -148,6 +154,24 @@ public static class ClearWaterVisualValidation
     private static void PoseCamera(int index, Camera camera, OceanMissionDirector director)
     {
         camera.fieldOfView = 54f;
+        if (index >= 11 && index <= 12)
+        {
+            ReefFishDrift subject = null;
+            foreach (ReefFishDrift candidate in UnityEngine.Object.FindObjectsByType<ReefFishDrift>(FindObjectsSortMode.None))
+                if (candidate.isBlueTang == (index == 11) && (subject == null || candidate.transform.lossyScale.x > subject.transform.lossyScale.x)) subject = candidate;
+            Vector3 nose = subject.transform.TransformDirection(index == 11 ? Vector3.forward : Vector3.left);
+            Vector3 side = Vector3.Cross(nose, Vector3.up).normalized;
+            Look(camera, subject.transform.position + side * 5.8f + Vector3.up * 1.3f + nose * 1.6f, subject.transform.position);
+            return;
+        }
+        if (index == 13)
+        {
+            Transform coral = GameObject.Find("Warm red coral accent").transform;
+            Vector3 center = coral.position;
+            float floor = UnderwaterWorld.SampleSeafloorHeight(center.x, center.z);
+            Look(camera, new Vector3(center.x - 5f, floor + 3f, center.z - 7f), new Vector3(center.x, floor + 1.4f, center.z));
+            return;
+        }
         if (index >= 8)
         {
             Vector3[] positions = { new(0f, 4.3f, -7f), new(0f, 4.3f, 25f), new(0f, 2.5f, 58f) };

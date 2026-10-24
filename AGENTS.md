@@ -47,6 +47,13 @@ Do not edit, switch, overwrite or deploy the original project at
   previous builds, the simple knife and mission/control/guidance repairs.
 - The original project is still evolving. This is a verified source snapshot,
   not a claim that future developer changes are synchronized automatically.
+- On 2026-10-24 the user requested whale navigation and separate voice/background
+  audio switches. Branch `feat/whale-finder-audio-20261024` builds to
+  `Build/WebGLWhaleAudio`; preserve the compact reef preview on port 8902.
+- The 2026-10-25 follow-up adds four blue tangs and four clownfish, corrects
+  species-specific nose/tail axes and near-school swimming speed, and fits actual
+  coral roots into the existing sand. The combined output is `Build/WebGLReefLife`;
+  keep previous outputs/ports intact and verify both full gameplay and real renders.
 
 Before committing, compare with the current source baseline. Record real Unity
 and browser validation separately from numerical geometry checks. Do not call a
