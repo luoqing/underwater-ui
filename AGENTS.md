@@ -41,6 +41,10 @@ Do not edit, switch, overwrite or deploy the original project at
   Keep existing net-cut gestures, reach limits and mission logic unchanged.
 - Keep changes reviewable and reversible. Do not merge, push or publish without
   explicit user direction. Do not initialize Git in the original live project.
+- On 2026-10-24 the user rejected the spread-out layout and selected 8894 r5
+  as the compact reference, also requesting more lively fish schools. Branch
+  `visual/compact-lively-reef-20261024` uses `Build/WebGLCompactReef`; retain all
+  previous builds, the simple knife and mission/control/guidance repairs.
 - The original project is still evolving. This is a verified source snapshot,
   not a claim that future developer changes are synchronized automatically.
 

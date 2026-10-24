@@ -625,20 +625,18 @@ public sealed class UnderwaterWorld : MonoBehaviour
 
     private void CreateShallowReef()
     {
-        // Stagger the existing colonies along the banks, with an open central
-        // swim lane. Brown/green reef masses frame the small coloured colonies.
-        SpawnResourceModel("Models/Reef", "Left foreground reef", new Vector3(-11.5f, -2.9f, -1f), Quaternion.Euler(0f, 26f, -4f), 24f, CreateFallbackReef, new Color(1.00f, 0.96f, 0.84f));
-        SpawnResourceModel("Models/ReefShelf", "Right foreground reef shelf", new Vector3(9f, -3.1f, 7f), Quaternion.Euler(0f, 218f, 1f), 13f, null, new Color(0.92f, 1.00f, 0.88f));
-        SpawnResourceModel("Models/Reef", "Right reef wall", new Vector3(13f, -3.7f, 28f), Quaternion.Euler(0f, 202f, 2f), 26f, CreateFallbackReef, new Color(0.96f, 1.00f, 0.88f));
-        SpawnResourceModel("Models/ReefShelf", "Left coral garden", new Vector3(-9f, -3.4f, 28f), Quaternion.Euler(0f, 34f, -2f), 12f, null, new Color(0.88f, 0.98f, 0.88f));
-        SpawnResourceModel("Models/Reef", "Left mid reef wall", new Vector3(-13.5f, -4.2f, 53f), Quaternion.Euler(0f, 34f, -3f), 25f, CreateFallbackReef, new Color(1.00f, 0.94f, 0.82f));
-        SpawnResourceModel("Models/ReefShelf", "Right coral garden", new Vector3(10.5f, -4.2f, 54f), Quaternion.Euler(0f, 194f, 2f), 12f, null, new Color(1.00f, 0.91f, 0.78f));
-        SpawnResourceModel("Models/CoralCluster", "Warm red coral accent", new Vector3(7.5f, -2.5f, 22f), Quaternion.Euler(0f, 148f, 0f), 4.8f, null, clearWaterLook ? new Color(1.12f, 0.56f, 0.42f) : new Color(1.18f, 0.48f, 0.38f));
-        SpawnResourceModel("Models/CoralCluster", "Violet coral accent", new Vector3(-7.2f, -2.9f, 43f), Quaternion.Euler(0f, 42f, 1f), 4.6f, null, clearWaterLook ? new Color(0.74f, 0.60f, 0.94f) : new Color(0.72f, 0.55f, 1.16f));
-        SpawnResourceModel("Models/CoralCluster", "Golden coral accent", new Vector3(7f, -3.4f, 50f), Quaternion.Euler(0f, 220f, -1f), 4.7f, null, clearWaterLook ? new Color(1.10f, 0.87f, 0.46f) : new Color(1.18f, 0.92f, 0.48f));
-        SpawnResourceModel("Models/ReefShelf", "Near pink reef shelf", new Vector3(-8.8f, -3.4f, 15f), Quaternion.Euler(0f, 12f, -2f), 7.4f, null, new Color(1.02f, 0.76f, 0.75f));
-        SpawnResourceModel("Models/ReefShelf", "Mid channel reef shelf", new Vector3(-11.8f, -3.7f, 78f), Quaternion.Euler(0f, 58f, -2f), 7.5f, null, new Color(0.90f, 1.00f, 0.87f));
-        SpawnResourceModel("Models/ReefShelf", "Far channel reef shelf", new Vector3(12.5f, -4f, 94f), Quaternion.Euler(0f, 226f, 1f), 7.2f, null, new Color(1.02f, 0.94f, 0.82f));
+        SpawnResourceModel("Models/Reef", "Left foreground reef", new Vector3(-8.5f, -2.9f, -1f), Quaternion.Euler(0f, 26f, -4f), 27f, CreateFallbackReef);
+        SpawnResourceModel("Models/ReefShelf", "Right foreground reef shelf", new Vector3(7.3f, -3.1f, 5f), Quaternion.Euler(0f, 218f, 1f), 15f, null, new Color(1.03f, 0.97f, 0.94f));
+        SpawnResourceModel("Models/Reef", "Right reef wall", new Vector3(10f, -3.7f, 22f), Quaternion.Euler(0f, 202f, 2f), 30f, CreateFallbackReef);
+        SpawnResourceModel("Models/ReefShelf", "Left coral garden", new Vector3(-7.4f, -3.4f, 25f), Quaternion.Euler(0f, 34f, -2f), 14f, null, new Color(0.96f, 1.02f, 1.03f));
+        SpawnResourceModel("Models/Reef", "Left mid reef wall", new Vector3(-10.5f, -4.2f, 45f), Quaternion.Euler(0f, 34f, -3f), 29f, CreateFallbackReef);
+        SpawnResourceModel("Models/ReefShelf", "Right coral garden", new Vector3(8.4f, -4.2f, 47f), Quaternion.Euler(0f, 194f, 2f), 13.5f, null, new Color(1.02f, 0.94f, 0.91f));
+        SpawnResourceModel("Models/CoralCluster", "Warm red coral accent", new Vector3(4.8f, -2.5f, 12f), Quaternion.Euler(0f, 148f, 0f), 8.5f, null, new Color(1.18f, 0.48f, 0.38f));
+        SpawnResourceModel("Models/CoralCluster", "Violet coral accent", new Vector3(-5.4f, -2.9f, 20f), Quaternion.Euler(0f, 42f, 1f), 7.5f, null, new Color(0.72f, 0.55f, 1.16f));
+        SpawnResourceModel("Models/CoralCluster", "Golden coral accent", new Vector3(5.8f, -3.4f, 35f), Quaternion.Euler(0f, 220f, -1f), 8f, null, new Color(1.18f, 0.92f, 0.48f));
+        SpawnResourceModel("Models/ReefShelf", "Near pink reef shelf", new Vector3(-6.2f, -3.4f, 7f), Quaternion.Euler(0f, 12f, -2f), 11f, null, new Color(1.06f, 0.88f, 0.91f));
+        SpawnResourceModel("Models/ReefShelf", "Mid channel reef shelf", new Vector3(-9.8f, -3.7f, 59f), Quaternion.Euler(0f, 58f, -2f), 7.5f, null, new Color(0.98f, 1.02f, 1.00f));
+        SpawnResourceModel("Models/ReefShelf", "Far channel reef shelf", new Vector3(10.2f, -4f, 72f), Quaternion.Euler(0f, 226f, 1f), 7.2f, null, new Color(1.03f, 0.97f, 0.92f));
         SpawnResourceModel("Models/CoralCluster", "Blue coral accent", new Vector3(7.8f, -3.6f, 73f), Quaternion.Euler(0f, 78f, 0f), 4.2f, null, new Color(0.55f, 0.71f, 0.97f));
         SpawnResourceModel("Models/CoralCluster", "Rust orange coral accent", new Vector3(-7.5f, -3.8f, 91f), Quaternion.Euler(0f, 186f, -1f), 4.4f, null, new Color(1.04f, 0.63f, 0.40f));
     }
@@ -647,12 +645,12 @@ public sealed class UnderwaterWorld : MonoBehaviour
     {
         Vector3[] positions =
         {
-            new(-17f, -3.2f, 38f), new(17.5f, -3.6f, 48f), new(-18f, -4.1f, 73f), new(18f, -4.4f, 88f)
+            new(-10f, -3.2f, 43f), new(9f, -3.6f, 50f), new(-14f, -4.1f, 61f), new(13f, -4.4f, 68f)
         };
         for (int i = 0; i < positions.Length; i++)
         {
             Color kelpTint = i % 2 == 0 ? new Color(0.48f, 0.66f, 0.42f) : new Color(0.42f, 0.60f, 0.50f);
-            GameObject kelp = SpawnResourceModel("Models/KelpCluster", $"Kelp Cluster {i + 1}", positions[i], Quaternion.Euler(0f, i * 83f + 18f, 0f), Random.Range(6f, 8f), null, kelpTint);
+            GameObject kelp = SpawnResourceModel("Models/KelpCluster", $"Kelp Cluster {i + 1}", positions[i], Quaternion.Euler(0f, i * 83f + 18f, 0f), Random.Range(7f, 10f), null, kelpTint);
             if (kelp != null)
             {
                 SwayingPlant sway = kelp.AddComponent<SwayingPlant>();
@@ -705,15 +703,15 @@ public sealed class UnderwaterWorld : MonoBehaviour
         Material eyeMaterial = MakeLit("School fish eyes", new Color(0.008f, 0.012f, 0.015f), 0f, 0.86f);
         eyeMaterial.enableInstancing = true;
 
-        // 250 fish (+33% over 188), spread across seven depths and side bays.
+        // Compact shallow schools frame the r5 reef; later groups keep the route alive.
         // All schools reuse the same four meshes and existing material palette.
-        CreateFishSchool(new Vector3(-3.2f, 2.4f, 23f), 44, 5f, bodyMaterials, finMaterials, eyeMaterial, 0.20f);
-        CreateFishSchool(new Vector3(7.2f, 4.8f, 40f), 36, 5.5f, bodyMaterials, finMaterials, eyeMaterial, 0.17f);
-        CreateFishSchool(new Vector3(-6.8f, 6.7f, 62f), 40, 6.3f, bodyMaterials, finMaterials, eyeMaterial, 0.19f);
-        CreateFishSchool(new Vector3(6.5f, 1.4f, 84f), 34, 6f, bodyMaterials, finMaterials, eyeMaterial, 0.17f);
-        CreateFishSchool(new Vector3(-5.8f, -0.5f, 105f), 36, 6f, bodyMaterials, finMaterials, eyeMaterial, 0.16f);
-        CreateFishSchool(new Vector3(6f, -5.8f, 128f), 30, 6f, deepBodyMaterials, deepFinMaterials, eyeMaterial, 0.14f);
-        CreateFishSchool(new Vector3(-6.3f, -7.4f, 150f), 30, 5.5f, deepBodyMaterials, deepFinMaterials, eyeMaterial, 0.14f);
+        CreateFishSchool(new Vector3(-1f, 2.2f, 16f), 80, 5f, bodyMaterials, finMaterials, eyeMaterial, 0.20f);
+        CreateFishSchool(new Vector3(-2f, 2.5f, 31f), 78, 6f, bodyMaterials, finMaterials, eyeMaterial, 0.19f);
+        CreateFishSchool(new Vector3(3f, 1.8f, 49f), 72, 6.5f, bodyMaterials, finMaterials, eyeMaterial, 0.19f);
+        CreateFishSchool(new Vector3(-3f, 2.2f, 72f), 48, 5.5f, bodyMaterials, finMaterials, eyeMaterial, 0.18f);
+        CreateFishSchool(new Vector3(4f, -0.5f, 99f), 28, 5.5f, bodyMaterials, finMaterials, eyeMaterial, 0.16f);
+        CreateFishSchool(new Vector3(-3f, -5.8f, 126f), 24, 5.2f, deepBodyMaterials, deepFinMaterials, eyeMaterial, 0.14f);
+        CreateFishSchool(new Vector3(2.5f, -7.4f, 150f), 20, 5f, deepBodyMaterials, deepFinMaterials, eyeMaterial, 0.14f);
     }
 
     private void CreateFishSchool(Vector3 center, int count, float radius, Material[] bodyMaterials, Material[] finMaterials, Material eyeMaterial, float scale)
@@ -958,19 +956,19 @@ public sealed class UnderwaterWorld : MonoBehaviour
 
     private void CreateOpenOcean()
     {
-        SpawnReefFish("Models/BlueTang", "Hero Blue Tang", new Vector3(8.6f, 3.8f, 17f), Quaternion.Euler(-2f, 0f, 0f), 3.1f, 0.2f, 0.88f);
-        SpawnReefFish("Models/BlueTang", "Blue Tang companion 1", new Vector3(-8.4f, 2.8f, 30f), Quaternion.Euler(-4f, 178f, 0f), 2.1f, 1.7f, 0.72f);
-        SpawnReefFish("Models/BlueTang", "Blue Tang companion 2", new Vector3(11.5f, 4.2f, 51f), Quaternion.Euler(2f, 8f, 0f), 1.7f, 3.1f, 0.58f);
-        SpawnReefFish("Models/BlueTang", "Blue Tang companion 3", new Vector3(-9.5f, 1.4f, 64f), Quaternion.Euler(-3f, 184f, 0f), 1.45f, 4.8f, 0.48f);
-        GameObject clownfish = SpawnReefFish("Models/Clownfish", "Clownfish close pass", new Vector3(-7.8f, 0.9f, 12f), Quaternion.Euler(0f, 12f, -2f), 2.35f, 2.4f, 0.68f);
-        SpawnReefFish("Models/Clownfish", "Clownfish garden 1", new Vector3(7.7f, 1.0f, 37f), Quaternion.Euler(0f, 188f, 3f), 1.55f, 4.2f, 0.48f);
-        SpawnReefFish("Models/Clownfish", "Clownfish garden 2", new Vector3(-11f, 0.6f, 54f), Quaternion.Euler(0f, 8f, -1f), 1.25f, 5.6f, 0.40f);
+        SpawnReefFish("Models/BlueTang", "Hero Blue Tang", new Vector3(6.2f, 4.2f, 10.5f), Quaternion.Euler(-2f, 0f, 0f), 3.1f, 0.2f, 0.88f);
+        SpawnReefFish("Models/BlueTang", "Blue Tang companion 1", new Vector3(-4.2f, 3.4f, 14.5f), Quaternion.Euler(-4f, 178f, 0f), 2.1f, 1.7f, 0.72f);
+        SpawnReefFish("Models/BlueTang", "Blue Tang companion 2", new Vector3(4.4f, 2.4f, 24f), Quaternion.Euler(2f, 8f, 0f), 1.7f, 3.1f, 0.58f);
+        SpawnReefFish("Models/BlueTang", "Blue Tang companion 3", new Vector3(-3.6f, 0.8f, 31f), Quaternion.Euler(-3f, 184f, 0f), 1.45f, 4.8f, 0.48f);
+        GameObject clownfish = SpawnReefFish("Models/Clownfish", "Clownfish close pass", new Vector3(-3.4f, 0.6f, 8.5f), Quaternion.Euler(0f, 12f, -2f), 2.35f, 2.4f, 0.68f);
+        SpawnReefFish("Models/Clownfish", "Clownfish garden 1", new Vector3(3.6f, 0.4f, 18f), Quaternion.Euler(0f, 188f, 3f), 1.55f, 4.2f, 0.48f);
+        SpawnReefFish("Models/Clownfish", "Clownfish garden 2", new Vector3(-4.8f, 0.1f, 27f), Quaternion.Euler(0f, 8f, -1f), 1.25f, 5.6f, 0.40f);
         GameObject turtle = SpawnResourceModel("Models/Turtle", "Green Sea Turtle", new Vector3(-6.2f, 1.8f, 20f), Quaternion.Euler(0f, 68f, 0f), 4.8f, null);
         GameObject manta = SpawnResourceModel("Models/Manta", "Oceanic Manta Ray", new Vector3(-8f, 7.2f, 47f), Quaternion.Euler(0f, 98f, 0f), 8.8f, null);
         GameObject turtleCompanion = SpawnResourceModel("Models/Turtle", "Green Sea Turtle Companion", new Vector3(8.5f, 2.7f, 43f), Quaternion.Euler(0f, 214f, 0f), 3.7f, null);
         GameObject mantaCompanion = SpawnResourceModel("Models/Manta", "Oceanic Manta Ray Companion", new Vector3(9f, 5.8f, 76f), Quaternion.Euler(0f, 238f, 0f), 6.5f, null);
-        SpawnReefFish("Models/BlueTang", "Blue Tang companion 4", new Vector3(10.5f, 2.2f, 91f), Quaternion.Euler(1f, 22f, 0f), 1.35f, 6.2f, 0.44f);
-        SpawnReefFish("Models/Clownfish", "Clownfish garden 3", new Vector3(-8.6f, 0.8f, 82f), Quaternion.Euler(-1f, 170f, 2f), 1.15f, 7.1f, 0.38f);
+        SpawnReefFish("Models/BlueTang", "Blue Tang companion 4", new Vector3(6.8f, 1.4f, 46f), Quaternion.Euler(1f, 22f, 0f), 1.35f, 6.2f, 0.44f);
+        SpawnReefFish("Models/Clownfish", "Clownfish garden 3", new Vector3(-5.6f, 0.6f, 55f), Quaternion.Euler(-1f, 170f, 2f), 1.15f, 7.1f, 0.38f);
         AddEncounter(clownfish, "clownfish", "小丑鱼", "喜欢躲在海葵触手之间的珊瑚礁居民。");
         AddEncounter(turtle, "turtle", "绿海龟", "性情温和的远洋旅行者，能够穿越整片海域。");
         AddEncounter(manta, "manta", "远洋魔鬼鱼", "展开宽大的胸鳍，借着水流平稳滑翔。");
@@ -2826,11 +2824,11 @@ public sealed class FishSwimmer : MonoBehaviour
         velocity = transform.right * speed;
         tail = transform.Find("Tail");
         fins = transform.Find("Dorsal and pectoral fins");
-        routeRadius = radius * 0.27f;
-        routeSpeed = 1f;
+        routeRadius = radius * 0.70f;
+        routeSpeed = 2.5f;
         schoolPhase = schoolCenter.x * 0.173f + schoolCenter.z * 0.071f;
-        float initialClock = Time.time * 0.11f + schoolPhase;
-        Vector3 initialCourse = SchoolCourse(initialClock);
+        float initialClock = Time.time * 0.11f * routeSpeed + schoolPhase;
+        Vector3 initialCourse = SchoolVelocity(initialClock).normalized;
         Quaternion initialFormationRotation = Quaternion.LookRotation(initialCourse, Vector3.up);
         Vector3 initialOffset = formationOffset.sqrMagnitude > 0.001f ? formationOffset : transform.position - schoolCenter;
         localFormationOffset = Quaternion.Inverse(initialFormationRotation) * initialOffset;
@@ -2838,41 +2836,49 @@ public sealed class FishSwimmer : MonoBehaviour
 
     private void Update()
     {
-        float groupClock = Time.time * 0.11f * routeSpeed + schoolPhase;
-        Vector3 course = SchoolCourse(groupClock);
+        SwimStep(Time.time, Time.deltaTime);
+    }
+
+    private void SwimStep(float time, float deltaTime)
+    {
+        float groupClock = time * 0.11f * routeSpeed + schoolPhase;
+        Vector3 routeVelocity = SchoolVelocity(groupClock);
+        Vector3 course = routeVelocity.normalized;
         Quaternion formationRotation = Quaternion.LookRotation(course, Vector3.up);
         Vector3 movingCenter = schoolCenter + new Vector3(
             Mathf.Sin(groupClock) * routeRadius,
             Mathf.Sin(groupClock * 0.63f + schoolPhase) * radius * 0.08f,
             Mathf.Cos(groupClock * 0.82f) * routeRadius * 0.82f);
         Vector3 personalCurrent = new(
-            Mathf.Sin(Time.time * 0.42f + phase) * radius * 0.022f,
-            Mathf.Sin(Time.time * 0.31f + phase * 1.7f) * radius * 0.018f,
-            Mathf.Cos(Time.time * 0.37f + phase * 0.8f) * radius * 0.022f);
+            Mathf.Sin(time * 0.42f + phase) * radius * 0.022f,
+            Mathf.Sin(time * 0.31f + phase * 1.7f) * radius * 0.018f,
+            Mathf.Cos(time * 0.37f + phase * 0.8f) * radius * 0.022f);
         Vector3 target = movingCenter + formationRotation * localFormationOffset * 0.56f + personalCurrent;
         Vector3 toTarget = target - transform.position;
-        float currentNoise = Mathf.PerlinNoise(phase * 0.21f + 7.3f, Time.time * 0.075f);
+        float currentNoise = Mathf.PerlinNoise(phase * 0.21f + 7.3f, time * 0.075f);
         float burst = Mathf.Lerp(0.82f, 1.16f, currentNoise);
-        Vector3 courseVelocity = course * speed * burst;
+        // Follow the actual travelling route, rather than swimming against a
+        // nearly stationary formation target that cancels the forward velocity.
+        Vector3 courseVelocity = routeVelocity * burst;
         Vector3 formationCorrection = Vector3.ClampMagnitude(toTarget * 0.84f, speed * 0.94f);
-        Vector3 desiredVelocity = courseVelocity + formationCorrection;
-        velocity = Vector3.SmoothDamp(velocity, desiredVelocity, ref steeringVelocity, 0.42f, speed * 1.85f, Time.deltaTime);
+        Vector3 desiredVelocity = Vector3.ClampMagnitude(courseVelocity + formationCorrection, speed * 1.35f);
+        velocity = Vector3.SmoothDamp(velocity, desiredVelocity, ref steeringVelocity, 0.42f, speed * 1.85f, deltaTime);
         Vector3 beforeMove = transform.position;
-        Vector3 desiredPosition = beforeMove + velocity * Time.deltaTime;
+        Vector3 desiredPosition = beforeMove + velocity * deltaTime;
         transform.position = UnderwaterCollision.ResolveMove(transform, desiredPosition, 0.055f, 0.13f, 0.11f, out bool avoidedObstacle);
         if (avoidedObstacle)
         {
-            velocity = (transform.position - beforeMove) / Mathf.Max(Time.deltaTime, 0.0001f);
+            velocity = (transform.position - beforeMove) / Mathf.Max(deltaTime, 0.0001f);
             velocity += (Vector3.up * 0.34f + transform.right * Mathf.Sign(Mathf.Sin(phase)) * 0.42f) * speed;
         }
         if (velocity.sqrMagnitude > 0.01f)
         {
             float bank = Mathf.Clamp(Vector3.SignedAngle(transform.right, velocity.normalized, Vector3.up) * -0.42f, -18f, 18f);
             Quaternion targetRotation = Quaternion.LookRotation(velocity.normalized, Vector3.up) * Quaternion.Euler(0f, -90f, bank);
-            transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, 1f - Mathf.Exp(-Time.deltaTime * 2.75f));
+            transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, 1f - Mathf.Exp(-deltaTime * 2.75f));
         }
         transform.localScale = baseScale;
-        float beat = Time.time * (7.2f + speed * 1.35f) + phase;
+        float beat = time * (7.2f + speed * 1.35f) + phase;
         if (tail != null)
         {
             tail.localRotation = Quaternion.Euler(0f, Mathf.Sin(beat) * 25f + Mathf.Sin(beat * 2f) * 3.5f, 0f);
@@ -2883,13 +2889,13 @@ public sealed class FishSwimmer : MonoBehaviour
         }
     }
 
-    private static Vector3 SchoolCourse(float clock)
+    private Vector3 SchoolVelocity(float clock)
     {
-        Vector3 tangent = new(
-            Mathf.Cos(clock),
-            Mathf.Cos(clock * 0.63f) * 0.10f,
-            -Mathf.Sin(clock * 0.82f) * 0.82f);
-        return tangent.normalized;
+        float angularSpeed = 0.11f * routeSpeed;
+        return new Vector3(
+            Mathf.Cos(clock) * routeRadius,
+            Mathf.Cos(clock * 0.63f + schoolPhase) * radius * 0.08f * 0.63f,
+            -Mathf.Sin(clock * 0.82f) * routeRadius * 0.82f * 0.82f) * angularSpeed;
     }
 }
 

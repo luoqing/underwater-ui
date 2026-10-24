@@ -12,8 +12,8 @@ using UnityEngine.Rendering.Universal;
 public static class ClearWaterVisualValidation
 {
     private const string Key = "Underwater.ClearWaterVisual.";
-    private const string Output = "Logs/simple-knife-20261021/visual";
-    private static readonly string[] Names = { "garden", "lantern-close", "rescue-net", "net-contact-close", "whale-side", "net-released", "knife-held", "knife-cut-contact" };
+    private const string Output = "Logs/compact-reef-20261024/visual";
+    private static readonly string[] Names = { "garden", "lantern-close", "rescue-net", "net-contact-close", "whale-side", "net-released", "knife-held", "knife-cut-contact", "reef-entry", "reef-mid", "reef-exit" };
 
     static ClearWaterVisualValidation()
     {
@@ -41,6 +41,12 @@ public static class ClearWaterVisualValidation
     {
         Run();
         SessionState.SetInt(Key + "Shot", 6);
+    }
+
+    public static void RunReef()
+    {
+        Run();
+        SessionState.SetInt(Key + "Shot", 8);
     }
 
     private static void OnPlayMode(PlayModeStateChange state)
@@ -76,7 +82,7 @@ public static class ClearWaterVisualValidation
             int index = SessionState.GetInt(Key + "Shot", 0);
             if (!SessionState.GetBool(Key + "Prepared", false))
             {
-                if (index == 0) Invoke(director, "StartAdventure");
+                if (index == 0 || index == 8) Invoke(director, "StartAdventure");
                 if (index == 2 || index == 6) Invoke(director, "StartRescue");
                 PoseCamera(index, camera, director);
                 if (index == 5)
@@ -142,6 +148,13 @@ public static class ClearWaterVisualValidation
     private static void PoseCamera(int index, Camera camera, OceanMissionDirector director)
     {
         camera.fieldOfView = 54f;
+        if (index >= 8)
+        {
+            Vector3[] positions = { new(0f, 4.3f, -7f), new(0f, 4.3f, 25f), new(0f, 2.5f, 58f) };
+            Vector3[] targets = { new(0f, 2.3f, 18f), new(0f, 2f, 44f), new(0f, 0f, 80f) };
+            Look(camera, positions[index - 8], targets[index - 8]);
+            return;
+        }
         if (index == 0)
         {
             Look(camera, new Vector3(0f, 4.3f, -7f), new Vector3(0f, 2.3f, 18f));

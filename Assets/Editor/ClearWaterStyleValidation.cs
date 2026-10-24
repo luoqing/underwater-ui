@@ -55,9 +55,11 @@ public static class ClearWaterStyleValidation
         HashSet<Vector3> schools = new();
         HashSet<Mesh> meshes = new();
         HashSet<Material> materials = new();
+        int nearFish = 0;
         foreach (FishSwimmer swimmer in fish)
         {
             schools.Add(swimmer.schoolCenter);
+            if (swimmer.schoolCenter.z < 60f) nearFish++;
             foreach (MeshFilter filter in swimmer.GetComponentsInChildren<MeshFilter>()) meshes.Add(filter.sharedMesh);
             foreach (Renderer renderer in swimmer.GetComponentsInChildren<Renderer>())
             {
@@ -65,16 +67,32 @@ public static class ClearWaterStyleValidation
                 Require(renderer.sharedMaterial.enableInstancing, "A school fish lost its shared instancing-enabled material.");
             }
         }
-        Require(fish.Length == 250 && schools.Count == 7, "The reef does not contain 250 fish in seven distributed schools.");
+        Require(fish.Length == 350 && schools.Count == 7, "The reef does not contain 350 fish in seven schools.");
         Require(meshes.Count == 4 && materials.Count <= 25, "Extra schools created per-fish mesh or material copies.");
         foreach (string name in new[] { "Warm red coral accent", "Violet coral accent", "Golden coral accent", "Blue coral accent", "Rust orange coral accent" })
         {
             GameObject coral = GameObject.Find(name);
-            Require(coral != null && Mathf.Abs(coral.transform.position.x) >= 7f,
+            Require(coral != null && Mathf.Abs(coral.transform.position.x) >= 4.5f,
                 "A coloured coral colony is missing or blocks the central swim lane.");
         }
+        RequireReefFootprint("Left foreground reef", new Vector2(-8.5f, -1f), 27f);
+        RequireReefFootprint("Right reef wall", new Vector2(10f, 22f), 30f);
+        Require(nearFish == 230, "The shallow reef lost its compact near-field fish schools.");
         Debug.Log($"UNDERWATER_REEF_DISTRIBUTION_VALIDATED fish={fish.Length}; schools={schools.Count}; sharedMeshes={meshes.Count}; sharedMaterials={materials.Count}; five side-bank coral accents; GPU frame rate not measured");
         Debug.Log("UNDERWATER_CLEAR_WATER_LIVE_VALIDATED sharp depth; sun-aligned narrow shafts; split compact arrows");
+    }
+
+    private static void RequireReefFootprint(string name, Vector2 center, float size)
+    {
+        GameObject reef = GameObject.Find(name);
+        Require(reef != null, "Missing compact reef: " + name);
+        Renderer[] renderers = reef.GetComponentsInChildren<Renderer>();
+        Require(renderers.Length > 0, "Missing reef renderers: " + name);
+        Bounds bounds = renderers[0].bounds;
+        foreach (Renderer renderer in renderers) bounds.Encapsulate(renderer.bounds);
+        Require(Vector2.Distance(new Vector2(bounds.center.x, bounds.center.z), center) < 0.02f
+            && Mathf.Abs(Mathf.Max(bounds.size.x, bounds.size.y, bounds.size.z) - size) < 0.02f,
+            "A compact r5 reef's visible center or size changed: " + name);
     }
 
     private static T Read<T>(object subject, string name) => (T)subject.GetType().GetField(name, Private).GetValue(subject);

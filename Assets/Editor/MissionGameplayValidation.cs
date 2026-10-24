@@ -32,6 +32,7 @@ public static class MissionGameplayValidation
             RescueRopeValidation.Run();
             MovementSeafloorValidation.Run();
             CreatureGuidanceValidation.Run();
+            FishSchoolMotionValidation.Run();
             Run();
         }
         catch (Exception error)
