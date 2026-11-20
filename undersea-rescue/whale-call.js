@@ -1,6 +1,9 @@
 import recording from "./assets/voices/glacier-call.m4a";
 
 let decoded, source, revision = 0;
+export function whaleCalling() {
+  return Boolean(source);
+}
 export function quietWhale() {
   revision++;
   if (source) source.stop();

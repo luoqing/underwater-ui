@@ -1,4 +1,4 @@
-import { whaleCall, quietWhale } from "./whale-call.js";
+import { whaleCall, whaleCalling, quietWhale } from "./whale-call.js";
 import { createScore } from "./rescue-score.js";
 import lines from "./rescue-lines.json";
 import { playVoice, stopVoice } from "./rescue-voice.js";
@@ -555,7 +555,7 @@ function frame(now, id) {
   if (state.route || !state.roaming) tickMission(dt);
   updateCaption();
   const read = ocean.render(state, dt);
-  if (sound && !document.hidden) score?.update(state, read, captionStart !== null);
+  if (sound && !document.hidden) score?.update(state, read, captionStart !== null || whaleCalling());
   if (state.roaming) {
     breathe();
     if (state.leg) {

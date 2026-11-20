@@ -21,7 +21,15 @@ function chapter(s) {
 
 export function createScore(ctx) {
   const cache = new Map();
-  let wanted, current, change = 0, level, nextCall = Infinity, signalBus;
+  const musicBus = ctx.createGain();
+  musicBus.connect(ctx.destination);
+  let wanted, current, change = 0, nextCall = Infinity, signalBus;
+  let knockUntil = 0, ducked = false;
+  function duckMusic(active) {
+    if (active === ducked) return;
+    ducked = active;
+    musicBus.gain.setTargetAtTime(active ? .22 : 1, ctx.currentTime, active ? .025 : .65);
+  }
   function get(name) {
     if (!cache.has(name)) {
       cache.set(name, fetch(recordings[name]).then(response => {
@@ -52,11 +60,15 @@ export function createScore(ctx) {
     change++;
     wanted = undefined;
     nextCall = Infinity;
+    knockUntil = 0;
+    duckMusic(false);
     if (signalBus) { signalBus.disconnect(); signalBus = null; }
     fadeOut();
   }
   // In the story this is a wing knocking the hollow frame, audible on phone speakers.
   function knock(at, length, strength, pan) {
+    knockUntil = Math.max(knockUntil, at + length + .25);
+    duckMusic(true);
     if (!signalBus) {
       signalBus = ctx.createGain();
       signalBus.connect(ctx.destination);
@@ -77,7 +89,7 @@ export function createScore(ctx) {
     });
   }
   let retryAt = 0;
-  function update(s, location, speaking) {
+  function update(s, location, foregroundPlaying) {
     if (ctx.state !== "running") return;
     const name = chapter(s), now = ctx.currentTime;
     if (name !== wanted && now >= retryAt) {
@@ -91,12 +103,13 @@ export function createScore(ctx) {
         const source = ctx.createBufferSource(), gain = ctx.createGain();
         source.buffer = buffer;
         source.loop = true;
-        source.connect(gain).connect(ctx.destination);
+        source.connect(gain).connect(musicBus);
         source.onended = () => { source.disconnect(); gain.disconnect(); };
         gain.gain.value = .0001;
-        source.start(ctx.currentTime + (s.leg === "cage" ? 1.35 : 0));
+        const at = ctx.currentTime + (s.leg === "cage" ? 1.35 : 0);
+        gain.gain.setTargetAtTime(name === "cage" ? .14 : .18, at, .48);
+        source.start(at);
         current = { source, gain };
-        level = undefined;
       });
     }
     if ((s.leg === "ridge" || s.leg === "cage") && now >= nextCall) {
@@ -107,12 +120,7 @@ export function createScore(ctx) {
       }
       nextCall = now + 6.8;
     }
-    if (!current) return;
-    const target = speaking ? .19 : name === "cage" ? .55 : .71;
-    if (target !== level) {
-      current.gain.gain.setTargetAtTime(target, now, speaking ? .09 : .48);
-      level = target;
-    }
+    duckMusic(foregroundPlaying || now < knockUntil);
   }
   function signal() {
     const now = ctx.currentTime;
