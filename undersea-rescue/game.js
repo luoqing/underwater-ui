@@ -1,3 +1,4 @@
+import { whaleCall, quietWhale } from "./whale-call.js";
 import { createScore } from "./rescue-score.js";
 import lines from "./rescue-lines.json";
 import { playVoice, stopVoice } from "./rescue-voice.js";
@@ -18,31 +19,6 @@ let ocean,
   sound = true,
   session = 0;
 const ease = (a, b, t) => a + (b - a) * (1 - Math.exp(-t));
-function tone(start, end, delay = 0.01, length = 0.55) {
-  if (!ctx || !sound) return;
-  const at = ctx.currentTime + delay,
-    osc = ctx.createOscillator(),
-    gain = ctx.createGain();
-  osc.type = "sine";
-  osc.frequency.setValueAtTime(start, at);
-  osc.frequency.exponentialRampToValueAtTime(end, at + length);
-  gain.gain.setValueAtTime(0.001, at);
-  gain.gain.exponentialRampToValueAtTime(0.13, at + 0.05);
-  gain.gain.exponentialRampToValueAtTime(0.001, at + length);
-  osc.connect(gain);
-  gain.connect(ctx.destination);
-  osc.start(at);
-  osc.stop(at + length + 0.01);
-}
-function call(real) {
-  tone(real ? 185 : 242, real ? 118 : 238, 0.01, real ? 0.82 : 0.24);
-  tone(
-    real ? 150 : 242,
-    real ? 102 : 238,
-    real ? 1.02 : 0.43,
-    real ? 0.66 : 0.24,
-  );
-}
 let breathAt = 0,
   breathing = null;
 function breathe() {
@@ -94,9 +70,11 @@ $("audio").onclick = () => {
   if (sound) {
     $("panel").classList.remove("spoken");
     audioStart();
+    state.nextSong = state.time;
     if (state.line && (!state.roaming || state.route))
       speakLine(state.line);
   } else {
+    quietWhale();
     stopVoice();
     score?.stop();
     ctx?.suspend().catch(() => {});
@@ -163,19 +141,41 @@ function meter(name, l, r) {
   };
 }
 const legs = {
-  calf: "寻找幼鲸泡泡",
-  gate1: "带泡泡游出背流湾",
-  gate2: "带泡泡穿过峡口",
-  lee: "沿礁肩带幼鲸绕开潮沟",
-  mother: "游向母鲸",
-  cage: "潜向沙坡沉笼",
+  song: "沿声纹游向礁口",
+  calf: "游近那头小鲸",
+  gate1: "陪泡泡游到峡口",
+  gate2: "顺着缓流穿过去",
+  lee: "贴着右侧礁壁绕行",
+  mother: "游向鲸鱼妈妈",
+  ridge: "循着敲击声绕过礁肩",
+  cage: "靠近横梁下的小翼",
 };
+const saveKey = "undersea-rescue.journey.v1";
+function checkpoint() {
+  try {
+    const data = JSON.parse(localStorage.getItem(saveKey));
+    if (data && Object.hasOwn(legs, data.leg) && Array.isArray(data.position)
+      && data.position.length === 3 && data.position.every(Number.isFinite)) return data;
+  } catch {}
+  return null;
+}
+function refreshMenu() {
+  buttons[0].querySelector("strong").textContent = checkpoint() ? "继续潜水" : "开始潜水";
+  $("load").textContent = "";
+}
 function startLeg(leg) {
+  quietWhale();
   stopVoice();
   state.line = null;
   state.leg = leg;
   state.step = "navigate";
+  state.nextSong = state.time + .3;
+  state.legStart = state.time;
+  if (leg !== "song") {
+    try { localStorage.setItem(saveKey, JSON.stringify({leg, position:ocean.diverPosition(), gate:state.gate})); } catch {}
+  }
   $("panel").hidden = true;
+  $("swim-tip").hidden = true;
   $("dive-hud").hidden = false;
   $("route-guide").textContent = legs[leg];
 }
@@ -186,6 +186,9 @@ function arrive() {
   ocean.clearKeys();
   $("dive-hud").hidden = true;
   $("panel").hidden = false;
+  quietWhale();
+  if (leg === "song") return startLeg("calf");
+  if (leg === "ridge") { state.foundCage = true; return startLeg("cage"); }
   if (leg === "gate1") return crossing();
   if (leg === "lee") return startLeg("gate2");
   if (leg === "gate2") return startLeg("mother");
@@ -196,7 +199,8 @@ const cueStarts = {
   lost: [[2.5,"刚才"],[4.2,"我一转弯"]],
   rhythm: [[1.3,"先是"],[4.45,"最后"]],
   trust: [[1.9,"我要是"],[3.55,"你等等"]],
-  mother: [[2.5,"慢慢游"],[5.4,"小翼"]],
+  mother: [[2.5,"慢慢游"]],
+  knock: [],
   cage: [[1.27,"我的右"],[3.21,"先别拉"],[4.6,"能把"]],
   space: [[1.35,"你把"],[3.75,"我就能"]],
   clear: [[1.1,"你看"],[3.25,"泡泡"]]
@@ -217,6 +221,11 @@ function updateCaption() {
 function showReplies(id, heard) {
   if (state.line !== id) return;
   captionStart = null;
+  if (id === "mother") {
+    state.line = null;
+    startReunionPause();
+    return;
+  }
   $("panel").classList.toggle("spoken", heard);
   $("skip-line").hidden = true;
   $("controls").hidden = false;
@@ -243,23 +252,18 @@ function conversation(id) {
   if (sound) {
     $("controls").hidden = true;
     $("skip-line").hidden = false;
-    $("narrative").textContent = line.slice(0,line.indexOf(cueStarts[id][0][1]));
+    $("narrative").textContent = cueStarts[id].length ? line.slice(0,line.indexOf(cueStarts[id][0][1])) : line;
     speakLine(id);
   }
+  if (id === "mother" && !sound) state.mutedMotherUntil = state.time + 5.2;
   if (id === "lost") {
-    button("怎么唱的？", () => conversation("rhythm"), true);
-    button("我陪你找", () => conversation("trust"));
-  } else if (id === "rhythm" || id === "trust")
-    button(id === "trust" ? "一起听" : "听鲸歌", briefingWhale, true);
-  else if (id === "mother")
-    button(
-      "我去找小翼",
-      () => {
-        state.story = "manta";
-        startLeg("cage");
-      },
-      true,
-    );
+    button("陪它找找", () => {
+      state.escorting = true;
+      startLeg("gate1");
+    }, true);
+  } else if (id === "knock") {
+    button("去那边看看", () => { state.story = "manta"; startLeg("ridge"); }, true);
+  }
   else if (id === "cage") {
     button("哪边能动？", () => conversation("space"), true);
     button("看看笼架", rigging);
@@ -274,6 +278,7 @@ function conversation(id) {
     }, true);
     button("回海图", exitDive);
   }
+  if (id === "mother") return;
   const replay = button("重听", () => {
     $("panel").classList.remove("spoken");
     if (!sound) $("audio").click();
@@ -287,116 +292,26 @@ function conversation(id) {
   replay.title = "重听对白";
   replay.replaceChildren($("replay-icon").content.cloneNode(true));
 }
-function briefingWhale() {
-  state.step = "tune";
-  page(
-    "水听器 · 接收",
-    "听清鲸歌",
-    "调到信号最强处。",
-  );
-  const signal = meter("信号", 82, 100);
-  function adjust(v) {
-    state.freq = v;
-    const strength = Math.max(0, 100 - Math.abs(v - state.targetHz) * 3.4);
-    signal(strength, Math.round(strength) + "%");
-    if (strength > 82) tone(160, 127, 0.01, 0.2);
-  }
-  range("调谐", state.freq, 40, 100, adjust, " Hz");
-  adjust(state.freq);
-  button(
-    "锁定呼声",
-    () => {
-      if (Math.abs(state.freq - state.targetHz) > 5)
-        return message("杂音还很重。向信号变强的一侧微调。");
-      call(true);
-      bearings();
-    },
-    true,
-  );
-}
-function bearings() {
-  state.step = "listen";
-  page(
-    "水听器 · 辨向",
-    "哪边是母鲸？",
-    "试听两侧，找出一长一短、音调渐低的呼唤。",
-  );
-  const choose = button(
-    "向此处领航",
-    () => {
-      if (state.channel === undefined) return message("先选一侧水听器试听。");
-      if (state.channel !== state.right)
-        return message("幼鲸没有跟来。这个方向只有等长的短音，再听听另一侧。");
-      state.gate = 0;
-      crossing();
-    },
-    true,
-  );
-  for (const [i, name] of ["西侧", "东侧"].entries()) {
-    const b = button("试听" + name, () => {
-      state.channel = i;
-      call(i === state.right);
-      message(
-        name +
-          "录音　" +
-          (i === state.right
-            ? "━━━━ ↘　━━ ↘　（一长一短）"
-            : "━━ →　━━ →　（等长短音）"),
-      );
-    });
-    $("controls").insertBefore(b, choose);
-  }
+function startReunionPause() {
+  state.step = "still";
+  state.line = null;
+  state.stillSince = state.time;
+  state.knocked = false;
+  $("panel").hidden = true;
 }
 function crossing() {
   state.step = "cross";
-  const second = state.gate === 1;
-  page(
-    "护航 · " + (second ? "峡口" : "背流湾"),
-    second ? "越过最后一道潮沟" : "带幼鲸离开背流湾",
-    second
-      ? state.route
-        ? "等流速回落，或带泡泡沿右侧礁肩绕行。"
-        : "峡口更窄。观察漂沙和流速表，等横流回落到绿色区间再出发。"
-      : "等指针进入浅绿区。",
-  );
-  state.limit = second ? 29 : 42;
+  page("", "峡口的水正往旁边推", "等指针落进浅绿区，带泡泡游过去。");
+  state.limit = 32;
   state.showFlow = meter("横流", 0, state.limit);
-  button(
-    "发出领航信号",
-    () => {
-      if (state.flow > state.limit) {
-        state.push = state.tide > 0 ? 1 : -1;
-        tone(120, 88);
-        message("横流把幼鲸推回了湾内。等水流转弱后再试。");
-        return;
-      }
-      tone(200, 340);
-      if (state.route) {
-        state.escorting = true;
-        state.gate++;
-        startLeg(second ? "gate2" : "gate1");
-        return;
-      }
-      state.step = "swim";
-      state.goal = second ? 1 : 0.48;
-      state.gate++;
-      state.targetLane = second ? -2.25 : 2.25;
-      page(
-        "护航 · 操舵",
-        "带泡泡沿缓流穿过峡口",
-        "幼鲸会跟随你的航向。用方向键或舵杆调整左右位置，抵消横流漂移，让白色指针进入绿色航道。",
-      );
-      state.showLane = meter("航道", 0, 0);
-      range("舵杆", 50, 0, 100, (v) => (state.steer = (v - 50) / 50), "%");
-    },
-    true,
-  );
-  if (second && state.route) {
-    button("沿礁肩绕行", () => {
-      state.gate++;
-      startLeg("lee");
-    });
-  }
+  button("现在游过去", () => {
+    if (state.flow > state.limit) {
+      state.push = Math.sign(state.tide);
+      return message("泡泡退了半步。等水慢一点。");
+    }
+    startLeg("gate2");
+  }, true);
+  button("沿礁肩绕行", () => startLeg("lee"));
 }
 function rigging() {
   state.step = "rig";
@@ -435,19 +350,8 @@ function ballast() {
 }
 function finish() {
   state.step = "done";
-  const wh = state.story === "whale";
-  call(wh);
-  if (state.route) return conversation(wh ? "mother" : "clear");
-  page(
-    "潜航记录 · 救援完成",
-    wh ? "母鲸接住了那声回应" : "沙地重新有了动静",
-    wh
-      ? "幼鲸游到母鲸身侧。两道背影穿过峡口，水听器里终于有了重叠的呼声。"
-      : "笼架悬停在海床上方。蝠鲼从横梁下滑出，绕过沙坡游向深水。",
-  );
-  button("进入另一项救援", () => start(wh ? "manta" : "whale"), true);
-  button("重玩本次潜航", () => start(state.story));
-  button("返回海图", exitDive);
+  try { localStorage.removeItem(saveKey); } catch {}
+  conversation("clear");
 }
 function observe(index) {
   state.step = "observe";
@@ -545,6 +449,7 @@ for (const btn of document.querySelectorAll("[data-key]")) {
       () => ocean?.swimKey(btn.dataset.key, false);
 }
 function exitDive() {
+  quietWhale();
   score?.stop();
   releaseStick();
   if (location.hash && location.protocol.startsWith("http"))
@@ -559,7 +464,7 @@ function exitDive() {
   state.story = null;
   $("menu").hidden = false;
   $("dive").hidden = true;
-  $("load").textContent = "选择救援或自由观察";
+  refreshMenu();
   buttons[0].focus();
 }
 $("exit").onclick = exitDive;
@@ -583,7 +488,7 @@ async function start(story, route = false) {
       const status = $("companion-status");
       clearTimeout(companionTimer);
       status.hidden = !name;
-      status.textContent = name ? name + (matchMedia("(pointer: coarse)").matches ? "同游中 · 再双点退出" : "同游中 · 再双击退出") : "";
+      status.textContent = name ? name + ((navigator.maxTouchPoints > 0 || matchMedia("(pointer: coarse)").matches) ? "同游中 · 再双点退出" : "同游中 · 再双击退出") : "";
       $("view").dataset.companion = name || "";
       if (name) companionTimer = setTimeout(() => { status.hidden = true; }, 2800);
     });
@@ -604,8 +509,8 @@ async function start(story, route = false) {
       flow: 0,
       push: 0,
       tilt: 0,
-      freq: 42,
-      targetHz: 65 + Math.floor(Math.random() * 25),
+      foundCage: false,
+      mutedMotherUntil: 0,
       lane: 0,
       steer: 0,
       right: Math.random() < 0.5 ? 0 : 1,
@@ -616,14 +521,20 @@ async function start(story, route = false) {
     $("menu").hidden = true;
     $("dive").hidden = false;
     ocean.reset();
-    if (!route && story !== "roam")
-      story === "observe"
-        ? observe(0)
-        : story === "whale"
-          ? briefingWhale()
-          : rigging();
+    if (story === "observe") observe(0);
     switchSwim(story === "roam" || route, false);
-    if (route) startLeg("calf");
+    if (route) {
+      const saved = checkpoint();
+      if (saved) {
+        ocean.restoreDiver(saved.position);
+        state.escorting = !["song","calf"].includes(saved.leg);
+        if (state.escorting) ocean.restoreEscort();
+        state.foundCage = saved.leg === "cage";
+        if (["ridge","cage"].includes(saved.leg)) state.story = "manta";
+        state.gate = saved.gate || 0;
+      }
+      startLeg(saved?.leg || "song");
+    }
     last = performance.now();
     requestAnimationFrame((now) => frame(now, id));
   } catch (err) {
@@ -649,7 +560,15 @@ function frame(now, id) {
     breathe();
     if (state.leg) {
       const guide = $("route-guide");
-      const label = legs[state.leg] + "　" + read.bearing + "　" + Math.round(read.range) + " 米";
+      const listening = state.leg === "song" || state.leg === "calf" || state.leg === "mother";
+      if (listening && sound && !document.hidden && state.time >= state.nextSong) {
+        whaleCall(ctx, read.signalPan, read.range);
+        state.nextSong = state.time + 12;
+      }
+      const firstListen = state.leg === "song" && state.time - state.legStart < 3;
+      const label = firstListen ? "礁石后面，传来一声鲸鸣…" :
+        state.leg === "song" ? ((navigator.maxTouchPoints > 0 || matchMedia("(pointer: coarse)").matches) ? "推摇杆，游向声纹" : "按 W，游向声纹") + " · " + read.bearing :
+        legs[state.leg] + " · " + read.bearing;
       if (label !== guide.textContent) guide.textContent = label;
       if (read.arrived) arrive();
     }
@@ -663,45 +582,23 @@ function frame(now, id) {
 }
 function tickMission(dt) {
   state.time += dt;
+  if (state.line === "mother" && !sound && state.time >= state.mutedMotherUntil) startReunionPause();
+  if (state.step === "still") {
+    const elapsed = state.time - state.stillSince;
+    if (elapsed >= 2.3 && !state.knocked) {
+      state.knocked = true;
+      if (sound) score?.signal();
+      page("", "", "礁石后响了三下。咚、咚……咚。");
+      $("panel").classList.add("dialogue");
+      $("panel").hidden = false;
+    }
+    if (elapsed >= 4.8) conversation("knock");
+  }
   state.tide = Math.sin(state.time * (state.gate === 1 ? 0.94 : 0.78) + 0.53);
   state.flow = Math.abs(state.tide) * 100;
   state.push = ease(state.push, 0, dt * 2);
   if (state.step === "cross") {
     state.showFlow(state.flow, (state.flow / 68).toFixed(1) + " 节");
-  }
-  if (state.step === "swim") {
-    const direction = held.has("ArrowLeft")
-      ? -1
-      : held.has("ArrowRight")
-        ? 1
-        : state.steer;
-    state.lane = clamp(
-      state.lane + dt * (direction * 2.8 + state.tide * 0.35),
-      -4,
-      4,
-    );
-    const aligned = Math.abs(state.lane - state.targetLane) < 1.05;
-    const end = aligned ? state.goal : state.goal - 0.025;
-    state.travel = Math.max(
-      state.travel,
-      Math.min(end, state.travel + dt * 0.108),
-    );
-    const screen = (x) => (x + 4) * 12.5;
-    state.showLane(
-      screen(state.lane),
-      aligned
-        ? "已对准"
-        : state.lane < state.targetLane
-          ? "向右调整"
-          : "向左调整",
-      screen(state.targetLane - 1.05),
-      screen(state.targetLane + 1.05),
-    );
-    if (state.travel >= state.goal) {
-      state.steer = 0;
-      if (state.gate === 2) finish();
-      else crossing();
-    }
   }
   if (state.step === "lift") {
     const center = 29 + 43 * state.lift + 6 * Math.sin(state.time * 0.75),
@@ -771,6 +668,7 @@ addEventListener("blur", () => {
 });
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) {
+    quietWhale();
     score?.stop();
     held.clear();
     releaseStick();
@@ -778,7 +676,7 @@ document.addEventListener("visibilitychange", () => {
   }
 });
 buttons.forEach((b) => (b.onclick = () => start(b.dataset.story)));
-$("load").textContent = "选择救援或自由观察";
+refreshMenu();
 
 if (location.hash === "#dive") start("roam");
 if (location.hash === "#atlas") start("observe");

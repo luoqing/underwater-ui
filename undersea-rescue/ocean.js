@@ -580,11 +580,18 @@ export async function makeOcean(host, onCompanion) {
     target.y -= .75;
   }
   const gates = {
+    song: new T.Vector3(-2.4, 3.4, 2.2),
+    ridge: new T.Vector3(1.7, 3.9, -40.5),
     lee: new T.Vector3(3.6, 4.6, -17.4),
     gate1: new T.Vector3(0.8, 3.1, -12),
     gate2: new T.Vector3(-0.7, 3.3, -22),
   };
-  const cageTarget = new T.Vector3(0.25, 1.45, -4);
+  const cageTarget = new T.Vector3(0.4, reef.ground(.4, -45.8) + 1.45, -45.8);
+  const ripple = new T.Mesh(
+    new T.RingGeometry(.95, 1, 64),
+    new T.MeshBasicMaterial({color:0xc3f5ef, transparent:true, opacity:0, depthWrite:false, side:T.DoubleSide})
+  );
+  scene.add(ripple);
   const routeCalf = new T.Vector3();
   function targetFor(leg) {
     if (leg === "calf") return calf.position;
@@ -624,11 +631,11 @@ export async function makeOcean(host, onCompanion) {
       if (reunion) center.copy(mother.position).lerp(calf.position, 0.38);
       else
         center
-          .set(0.25, 2.45, -4)
+          .set(cageTarget.x, cageTarget.y + 1, cageTarget.z)
           .lerp(
             ray.position,
             0.44 +
-              0.46 * (1 - Math.exp(-Math.max(0, -ray.position.z - 4) * 0.35)),
+              0.46 * (1 - Math.exp(-Math.max(0, cageTarget.z - ray.position.z) * 0.35)),
           );
       if (changed) {
         // Choose a clear sightline down the canyon once, then keep the same side of the action.
@@ -834,6 +841,11 @@ export async function makeOcean(host, onCompanion) {
         inPlace ? camera.getWorldDirection(direction) : null,
       );
     },
+    diverPosition() { return diver.position.toArray(); },
+    restoreEscort() { routeCalf.copy(diver.position); routeCalf.x -= 2.8; },
+    restoreDiver(position) {
+      diver.reset(new T.Vector3(...position), new T.Vector3(0, 0, -1));
+    },
     leaveWater() {
       companion.stop(true);
       firstTap = null;
@@ -884,13 +896,13 @@ export async function makeOcean(host, onCompanion) {
       flow.value = diveActive ? Math.sin(t * 0.78 + 0.53) : s.tide;
       const observatory = s.story === "observe" && !diveActive;
       const subject = observatory ? atlas[s.specimen] : null;
-      calf.visible = wh || diveActive || subject?.key === "calf";
-      mother.visible = wh || diveActive || subject?.key === "mother";
-      rig.visible = s.route || (s.story === "manta" && !diveActive);
-      ray.visible = rig.visible || diveActive || subject?.key === "ray";
+      calf.visible = s.route ? s.leg !== "song" : diveActive || subject?.key === "calf";
+      mother.visible = s.route ? (s.leg === "mother" || s.line === "mother" || s.step === "still" || s.line === "knock" || !wh) : diveActive || subject?.key === "mother";
+      rig.visible = s.route && s.foundCage;
+      ray.visible = s.route ? rig.visible : diveActive || subject?.key === "ray";
       orbitFree = observatory;
       const sceneShot =
-        s.line === "mother" || (s.step === "done" && wh)
+        s.line === "mother" || s.step === "still" || s.line === "knock" || (s.step === "done" && wh)
           ? "reunion"
           : !wh &&
               (s.step === "escape" ||
@@ -913,15 +925,15 @@ export async function makeOcean(host, onCompanion) {
         -1.12 + 0.16 * Math.sin(t * 0.44) - journey * 1.56,
         0.055 * Math.cos(t * 0.71),
       );
-      rig.position.set(0.25, 0.12 + 3.3 * s.lift, -4);
+      rig.position.set(cageTarget.x, cageTarget.y - 1.33 + 3.3 * s.lift, cageTarget.z);
       rig.rotation.z = -0.09 * (1 - s.lift) + s.tilt;
       const freed = T.MathUtils.smoothstep(s.escape, 0, 1);
       ray.position.set(
-        0.25 - 2.1 * freed * freed,
-        0.63 +
+        cageTarget.x - 2.1 * freed * freed,
+        cageTarget.y - .82 +
           0.046 * Math.sin(t * 0.8) +
           1.35 * T.MathUtils.smoothstep(freed, 0.52, 1),
-        -4 - 7.5 * freed,
+        cageTarget.z - 7.5 * freed,
       );
       ray.rotation.set(
         0.02 * Math.cos(t),
@@ -932,7 +944,7 @@ export async function makeOcean(host, onCompanion) {
       if (!wh && s.escape < 0.16)
         ray.position.y = Math.min(ray.position.y, rig.position.y + 1.4 - 0.52);
       reef.separate(ray.position, 0.48);
-      const z = wh ? base : -4;
+      const z = wh ? base : cageTarget.z;
       if (s.route) {
         const adult = whales[1], young = whales[0];
         cruise(adult, adult.patrol, adult.motion.distance / adult.patrolLength + .09);
@@ -942,7 +954,7 @@ export async function makeOcean(host, onCompanion) {
           reef.separate(calf.position, 1.75);
           routeCalf.copy(calf.position);
         } else {
-          if (wh && s.step !== "talk") {
+          if (wh && !["talk","still"].includes(s.step)) {
             camera.getWorldDirection(direction);
             future.copy(diver.position);
             future.x += 2.8 * direction.z - 1.7 * direction.x;
@@ -994,9 +1006,9 @@ export async function makeOcean(host, onCompanion) {
       fauna.update(t);
       const large = diveActive
         ? [
-            { center: calf.position, radius: 2.55 },
-            { center: mother.position, radius: 4.3 },
-            { center: ray.position, radius: 1.6 },
+            ...(calf.visible ? [{ center: calf.position, radius: 2.55 }] : []),
+            ...(mother.visible ? [{ center: mother.position, radius: 4.3 }] : []),
+            ...(ray.visible ? [{ center: ray.position, radius: 1.6 }] : []),
             { center: fauna.turtle.position, radius: 0.59 },
             ...fauna.jellyBounds,
           ]
@@ -1031,6 +1043,14 @@ export async function makeOcean(host, onCompanion) {
       eels.instanceMatrix.needsUpdate = true;
       dust.position.x = Math.sin(t * 0.17) * 0.7;
       dust.position.y = Math.sin(t * 0.24) * 0.24;
+      ripple.visible = s.route && (s.leg === "song" || s.leg === "ridge");
+      if (ripple.visible) {
+        const cycle = ((t - s.legStart) % 3) / 3;
+        ripple.position.copy(targetFor(s.leg));
+        ripple.quaternion.copy(camera.quaternion);
+        ripple.scale.setScalar(.3 + cycle * 1.25);
+        ripple.material.opacity = .38 * Math.sin(cycle * Math.PI);
+      }
       if (diveActive) {
         const info = diver.move(dt, camera, reef, garden.colliders, large);
         if (s.leg) {

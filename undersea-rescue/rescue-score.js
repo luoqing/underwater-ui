@@ -8,12 +8,13 @@ import safe from "./assets/score/safe.m4a";
 const recordings = { reef, escort, reunion, cage, lift, safe };
 
 function chapter(s) {
+  if (s.leg === "song" || s.step === "still") return null;
   if (s.step === "listen" || s.step === "tune") return null;
   if (s.line === "clear" || s.step === "done") return "safe";
   if (s.step === "escape") return s.escape < .66 ? "lift" : "safe";
   if (s.step === "lift") return "lift";
   if (s.story === "manta" && (s.route || !s.roaming)) return "cage";
-  if (s.leg === "mother" || s.line === "mother") return "reunion";
+  if (s.leg === "mother" || s.line === "mother" || s.line === "knock") return "reunion";
   if (s.escorting || s.step === "cross" || s.step === "swim") return "escort";
   return "reef";
 }
@@ -83,7 +84,7 @@ export function createScore(ctx) {
       const version = ++change;
       wanted = name;
       fadeOut();
-      nextCall = name === "cage" && s.leg === "cage" ? now + .25 : Infinity;
+      nextCall = name === "cage" && (s.leg === "ridge" || s.leg === "cage") ? now + .25 : Infinity;
       if (name) get(name).then(buffer => {
         if (version !== change) return;
         if (!buffer) { wanted = undefined; retryAt = ctx.currentTime + 3; return; }
@@ -98,7 +99,7 @@ export function createScore(ctx) {
         level = undefined;
       });
     }
-    if (s.leg === "cage" && now >= nextCall) {
+    if ((s.leg === "ridge" || s.leg === "cage") && now >= nextCall) {
       const proximity = 1 / (1 + (location?.range ?? 12) / 14);
       const pan = location?.signalPan ?? 0;
       for (const [delay, tail] of [[0,.14],[.28,.14],[.67,.51]]) {
@@ -113,5 +114,10 @@ export function createScore(ctx) {
       level = target;
     }
   }
-  return { update, stop };
+  function signal() {
+    const now = ctx.currentTime;
+    for (const [delay, tail] of [[0,.14],[.28,.14],[.67,.51]])
+      knock(now + .025 + delay, tail, .14, .38);
+  }
+  return { update, stop, signal };
 }

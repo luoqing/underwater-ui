@@ -597,3 +597,12 @@ button:disabled {
   padding:4px 10px; border-radius:12px; background:#0b303bb8; color:#edf8f3;
   white-space:nowrap; font-size:13px; pointer-events:none; z-index:2;
 }
+
+#missions { display:flex; flex-flow:column; align-items:flex-start; gap:.65rem; }
+#missions button { width:auto; min-height:44px; }
+#missions [data-story="route"] { display:flex; gap:2.2rem; align-items:center; padding:.72em 1.3em; }
+#menu #missions [data-story="route"] b { display:inline; font-size:1em; }
+#menu #missions [data-story="observe"] { padding:.35em .25em; background:transparent; border:0; color:#ecf7ef; text-decoration:underline; text-underline-offset:.35em; font-size:1rem; }
+#load:empty { display:none; }
+
+#panel.dialogue h2:empty { display:none; }

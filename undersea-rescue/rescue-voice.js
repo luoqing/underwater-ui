@@ -1,11 +1,12 @@
 import lost from "./assets/voices/lost.m4a";
 import rhythm from "./assets/voices/rhythm.m4a";
 import trust from "./assets/voices/trust.m4a";
-import mother from "./assets/voices/mother.m4a";
+import mother from "./assets/voices/reunion.m4a";
+import knock from "./assets/voices/heard-knocking.m4a";
 import cage from "./assets/voices/cage.m4a";
 import space from "./assets/voices/space.m4a";
 import clear from "./assets/voices/clear.m4a";
-const urls = { lost, rhythm, trust, mother, cage, space, clear };
+const urls = { lost, rhythm, trust, mother, knock, cage, space, clear };
 const buffers = new Map();
 let active,
   revision = 0;
