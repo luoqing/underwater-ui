@@ -82,37 +82,42 @@ function seaMaterial(mat, kelp = false, rock = false) {
 }
 
 function salvageRig() {
-  const rig = new T.Group(),
-    bar = new T.MeshStandardMaterial({ color: 0x694a34, roughness: 0.93 });
-  function rod(from, to, radius, material) {
-    const a = new T.Vector3(...from),
-      b = new T.Vector3(...to),
-      v = b.clone().sub(a);
-    const m = new T.Mesh(
-      new T.CylinderGeometry(radius, radius, v.length(), 6),
-      material,
-    );
-    m.position.copy(a).lerp(b, 0.5);
-    m.quaternion.setFromUnitVectors(new T.Vector3(0, 1, 0), v.normalize());
-    rig.add(m);
+  const halfWidth = 2.2, halfDepth = 2.05;
+  // The lowest rail is set into the uneven sand. The underside stays open for release.
+  const bottom = -0.82, top = 1.55;
+  const pieces = [];
+  function bar(from, to, radius) {
+    const a = new T.Vector3(...from), b = new T.Vector3(...to);
+    const axis = b.clone().sub(a);
+    const geometry = new T.CylinderGeometry(radius, radius, axis.length(), 8);
+    geometry.applyQuaternion(new T.Quaternion().setFromUnitVectors(new T.Vector3(0, 1, 0), axis.normalize()));
+    geometry.translate(...a.lerp(b, 0.5).toArray());
+    pieces.push(geometry);
   }
-  for (const x of [-2.2, 2.2]) {
-    for (const z of [-1.45, 1.45]) rod([x, 0, z], [x, 1.4, z], 0.08, bar);
-    for (const y of [0.1, 0.75, 1.4])
-      rod([x, y, -1.45], [x, y, 1.45], 0.044, bar);
-  }
-  for (const z of [-1.45, 1.45]) {
-    rod([-2.2, 1.4, z], [2.2, 1.4, z], 0.08, bar);
-  }
-  for (let x = -2; x <= 2; x += 0.42)
-    rod([x, 1.4, -1.45], [x, 1.4, 1.45], 0.022, bar);
-  rig.traverse((m) => {
-    if (m.isMesh) {
-      m.castShadow = true;
-      m.receiveShadow = true;
+  for (const x of [-halfWidth, halfWidth]) {
+    for (const z of [-halfDepth, halfDepth]) bar([x,bottom,z], [x,top,z], 0.065);
+    for (const y of [bottom, 0.25, top]) bar([x,y,-halfDepth], [x,y,halfDepth], 0.048);
+    for (let i = 1; i < 9; i++) {
+      const z = halfDepth * (2 * i / 9 - 1);
+      bar([x,bottom,z], [x,top,z], 0.03);
     }
-  });
-  return rig;
+  }
+  for (const z of [-halfDepth, halfDepth]) {
+    for (const y of [bottom, 0.25, top]) bar([-halfWidth,y,z], [halfWidth,y,z], 0.048);
+    for (let i = 1; i < 10; i++) {
+      const x = halfWidth * (i / 5 - 1);
+      bar([x,bottom,z], [x,top,z], 0.03);
+    }
+  }
+  for (let i = 1; i < 10; i++) {
+    const x = halfWidth * (i / 5 - 1);
+    bar([x,top,-halfDepth], [x,top,halfDepth], 0.025);
+  }
+  const cage = new T.Mesh(mergeGeometries(pieces), new T.MeshStandardMaterial({
+    color: 0x634b3d, metalness: 0.24, roughness: 0.87
+  }));
+  cage.castShadow = cage.receiveShadow = true;
+  return cage;
 }
 
 export async function makeOcean(host) {
@@ -621,7 +626,7 @@ export async function makeOcean(host) {
       if (changed) {
         // Choose a clear sightline down the canyon once, then keep the same side of the action.
         shot.anchor.copy(center);
-        const radius = (reunion ? 14.5 : 7.2) * Math.max(1, 1 / camera.aspect);
+        const radius = (reunion ? 14.5 : 8.5) * Math.max(1, 1 / camera.aspect);
         const h = mother.rotation.y;
         const nearSide =
           Math.sign(
@@ -864,7 +869,7 @@ export async function makeOcean(host) {
         0.25 - 2.1 * freed * freed,
         0.63 +
           0.046 * Math.sin(t * 0.8) +
-          1.35 * T.MathUtils.smoothstep(freed, 0.27, 1),
+          1.35 * T.MathUtils.smoothstep(freed, 0.52, 1),
         -4 - 7.5 * freed,
       );
       ray.rotation.set(
