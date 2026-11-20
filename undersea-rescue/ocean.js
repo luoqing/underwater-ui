@@ -75,7 +75,7 @@ function seaMaterial(mat, kelp = false, rock = false) {
     float litPatch=.50+.50*sin(p.x*.53+sin(p.y*.62));
     diffuseColor.rgb *= .92+ridge*(.17+litPatch*.27);
     diffuseColor.rgb += vec3(.035,.056,.043)*ridge*litPatch;
-    diffuseColor.rgb *= exp(-max(0.,9.-waterPos.y)*vec3(.030,.009,.006));
+    diffuseColor.rgb *= exp(-max(0.,9.-waterPos.y)*vec3(.016,.007,.005));
     ${rock ? "diffuseColor.rgb *= .94+.035*sin(waterPos.y*19.+1.7*sin(waterPos.x*1.8+waterPos.z*.7)) + .045*sw(p*5.,0.);" : ""}`,
     );
   };
@@ -168,8 +168,9 @@ export async function makeOcean(host, onCompanion) {
   }
   host.replaceChildren(renderer.domElement);
   const scene = new T.Scene();
-  scene.background = new T.Color(0x087eb2);
-  scene.fog = new T.FogExp2(0x168bc0, 0.045);
+  // Leave the near reef clear and blend the far canyon into open water.
+  scene.background = new T.Color(0x087faf);
+  scene.fog = new T.Fog(scene.background, 8, 56);
   const diveLamp = new T.PointLight(0xffead0, 31, 9, 2);
   scene.add(diveLamp);
   const camera = new T.PerspectiveCamera(54, 1, 0.08, 105);
@@ -198,8 +199,8 @@ export async function makeOcean(host, onCompanion) {
   scene.environmentIntensity = 0.45;
   pmrem.dispose();
   env.dispose();
-  scene.add(new T.HemisphereLight(0xcaf3fb, 0x658485, 1.52));
-  const sun = new T.DirectionalLight(0xffefd2, 2.7);
+  scene.add(new T.HemisphereLight(0xd9f4f8, 0x78918c, 1.62));
+  const sun = new T.DirectionalLight(0xffefdc, 2.7);
   sun.position.set(-11, 23, 1);
   sun.target.position.set(1, 0, -12);
   scene.add(sun, sun.target);
@@ -313,15 +314,15 @@ export async function makeOcean(host, onCompanion) {
     new T.PlaneGeometry(140, 140, 120, 120),
     new T.ShaderMaterial({
       side: T.DoubleSide,
-      uniforms: { time: waveTime, surfaceMap: { value: surfaceMap } },
+      uniforms: { time: waveTime, surfaceMap: { value: surfaceMap }, openWater: { value: scene.fog.color } },
       vertexShader: `varying vec3 p;uniform float time;void main(){p=(modelMatrix*vec4(position,1.)).xyz;p.y+=.12*sin(p.x*.7+time)+.1*cos(p.z*.8-time*.6);gl_Position=projectionMatrix*viewMatrix*vec4(p,1.);}`,
       fragmentShader:
-        `varying vec3 p;uniform float time;uniform sampler2D surfaceMap;` +
+        `varying vec3 p;uniform float time;uniform sampler2D surfaceMap;uniform vec3 openWater;` +
         surfaceNoise +
         `void main(){vec2 q=p.xz*.64;float w=sw(q,time)+.23*sw(q*2.7,time*.84)+.11*sw(q*6.4,time*.91);
  vec3 n=normalize(vec3((sw(q+vec2(.08,0.),time)-sw(q,time))*2.4,1.,(sw(q+vec2(0.,.08),time)-sw(q,time))*2.4));vec3 eye=normalize(p-cameraPosition);
  float sky=smoothstep(.44,.82,eye.y+.28*w);float glint=pow(max(0.,dot(normalize(n+vec3(-.34,.1,-.25)),normalize(vec3(-.45,.78,-.42)-eye*.25))),18.);
- float sun=exp(-.065*length(p.xz-vec2(-6.,-12.)));vec3 c=mix(vec3(.009,.17,.32),vec3(.40,.75,.78),sky)+vec3(.02,.27,.41)*(.52+.44*w)+vec3(.91,.88,.59)*glint*sun;vec2 rippleUV=p.xz*.040+vec2(w*.012,sw(q*.54,time*.6)*.016);vec3 refraction=texture2D(surfaceMap,rippleUV).rgb;c=mix(c,refraction*vec3(.46,.88,1.12)*(.77+.34*sky)+vec3(.0,.045,.12),.64);float dist=distance(cameraPosition,p);c=mix(c,vec3(.008,.255,.51),smoothstep(10.,56.,dist));gl_FragColor=vec4(c,1.);
+ float sun=exp(-.065*length(p.xz-vec2(-6.,-12.)));vec3 c=mix(vec3(.009,.17,.32),vec3(.40,.75,.78),sky)+vec3(.02,.27,.41)*(.52+.44*w)+vec3(.91,.88,.59)*glint*sun;vec2 rippleUV=p.xz*.040+vec2(w*.012,sw(q*.54,time*.6)*.016);vec3 refraction=texture2D(surfaceMap,rippleUV).rgb;c=mix(c,refraction*vec3(.46,.88,1.12)*(.77+.34*sky)+vec3(.0,.045,.12),.64);float dist=distance(cameraPosition,p);c=mix(c,openWater,smoothstep(10.,56.,dist));gl_FragColor=vec4(c,1.);
  #include <colorspace_fragment>
  }`,
     }),

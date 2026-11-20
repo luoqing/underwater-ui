@@ -35,9 +35,9 @@ export function legacyPigment(mat, box, tint, variation, light) {
    vec3 amber=vec3(1.,.35,.075),lilac=vec3(.57,.20,1.);
    vec3 pigment=mix(colonyInk,mix(amber,lilac,smoothstep(.42,.73,bloom)),.44*smoothstep(.32,.84,bloom));
    float highlight=smoothstep(.64,1.0,localH);
-   pigment=mix(pigment,vec3(1.,.78,.62),.37*highlight);
+   pigment=mix(pigment,vec3(1.,.78,.62),.25*highlight);
    vec3 detail=pigment*(.13+1.17*pow(max(0.,lumin),.69));
-   diffuseColor.rgb=mix(diffuseColor.rgb,detail,.73*living);
+   diffuseColor.rgb=mix(diffuseColor.rgb,detail,.79*living);
   `,
     );
     shader.fragmentShader = shader.fragmentShader.replace(
