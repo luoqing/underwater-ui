@@ -988,6 +988,7 @@ export async function makeOcean(host) {
             direction.x * future.z - direction.z * future.x,
             direction.x * future.x + direction.z * future.z,
           );
+          info.signalPan = -Math.sin(angle);
           info.bearing =
             Math.abs(angle) > 2.35
               ? "在身后"

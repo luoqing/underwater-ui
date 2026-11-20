@@ -614,9 +614,9 @@ function frame(now, id) {
   const dt = Math.min(Math.max(0, (now - last) / 1000), 0.1);
   last = now;
   if (state.route || !state.roaming) tickMission(dt);
-  if (sound && !document.hidden) score?.update(state);
   updateCaption();
   const read = ocean.render(state, dt);
+  if (sound && !document.hidden) score?.update(state, read, captionStart !== null);
   if (state.roaming) {
     breathe();
     if (state.leg) {
