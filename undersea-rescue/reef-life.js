@@ -45,6 +45,20 @@ export const species = [
   },
 ];
 
+// Model length sets the observation distance, in scene metres.
+export const atlas = [
+  ...species,
+  { key: "jelly", name: "海月水母", length: .94, tilt: .14, note: "看透明的伞沿。它收拢一下，再慢慢舒展开，伞下的口腕跟着水流摆动。" },
+  { key: "mother", name: "鲸鱼妈妈", length: 10, angle: 1.15, note: "先看尾巴，再看它留下的水路。尾鳍上下拍几次，鲸鱼妈妈便舒展开胸鳍，滑过峡口。" },
+  { key: "calf", name: "幼鲸 · 泡泡", length: 5.7, angle: 1.15, note: "泡泡在峡谷里兜圈。看它拐弯时，哪一侧的胸鳍先倾斜？" },
+  { key: "turtle", name: "海龟", length: 1.48, angle: 1.15, tilt: .24, note: "盯住前面两只像桨一样的鳍肢。划水后稍稍停一下，海龟还会往前滑。" },
+  { key: "clown", name: "小丑鱼", length: .30, tilt: .22, note: "沿着橙白条纹找它。它绕着同一簇礁丛探头、转身，又游回同伴身边。" },
+  { key: "lion", name: "狮子鱼", length: .46, note: "它把胸鳍张成两把扇子，缓缓沿礁游动。看它转身时，深浅相间的条纹怎样掠过岩石。" },
+  { key: "ray", name: "蝠鲼 · 小翼", length: 3.45, tilt: .35, note: "在开阔水里找小翼。它的两片大胸鳍像翅膀一样起伏，转弯时还能看见浅色的腹面。" },
+  { key: "tang", name: "蓝倒吊", length: .33, note: "蓝色鱼群里藏着一抹亮黄。跟住其中一条，看看转弯时它和邻居怎样错开。" },
+  { key: "eel", name: "花园鳗", length: .68, tilt: .2, note: "看沙地上露出的小脑袋。身体在洞口轻轻摇摆，旁边还有一整群伙伴。" },
+];
+
 export function floorHeight(x, z) {
   return (
     0.25 * Math.sin(x * 0.6 + Math.sin(z * 0.29)) +

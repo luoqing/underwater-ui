@@ -36,6 +36,7 @@ export function makeShoal(sources, reef, mobileMeshes, light) {
     schoolBatch(sources.tang, 34, 0.245, true, light, mobileMeshes),
     schoolBatch(sources.mackerel, 17, 0.4, false, light, mobileMeshes),
   ];
+  const featuredTang = new T.Object3D();
   const object = new T.Object3D(),
     desired = new T.Vector3(),
     delta = new T.Vector3(),
@@ -110,6 +111,10 @@ export function makeShoal(sources, reef, mobileMeshes, light) {
       );
       object.scale.setScalar(a.scale);
       object.updateMatrix();
+      if (i === 17) {
+        featuredTang.position.copy(object.position);
+        featuredTang.rotation.copy(object.rotation);
+      }
       batches[g === 3 ? 1 : g].setMatrixAt(
         (i % 17) + (g === 3 ? 17 : 0),
         object.matrix,
@@ -119,6 +124,7 @@ export function makeShoal(sources, reef, mobileMeshes, light) {
   }
   return {
     batches,
+    featuredTang,
     update,
     reset() {
       for (const a of animals) a.spawned = false;

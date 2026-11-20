@@ -21,7 +21,7 @@ import lionFile from "./assets/lionfish.glb";
 import surfaceFile from "./assets/surface.jpg";
 import { obstacles } from "./collision.js";
 import { makeShoal } from "./shoal.js";
-import { reefLife, species, floorHeight } from "./reef-life.js";
+import { reefLife, atlas, floorHeight } from "./reef-life.js";
 import grouperFile from "./assets/spotted-grouper.glb";
 import wrasseFile from "./assets/moon-wrasse.glb";
 import flounderFile from "./assets/olive-flounder.glb";
@@ -509,6 +509,11 @@ export async function makeOcean(host) {
     garden,
     reef,
   );
+  const eel = new T.Object3D();
+  const atlasAnimals = {
+    jelly: fauna.jelly, mother, calf, turtle: fauna.turtle,
+    clown: fauna.clown, lion: fauna.lion, ray, tang: school.featuredTang, eel,
+  };
   const diver = createDiver();
   let diveActive = false;
 
@@ -833,10 +838,12 @@ export async function makeOcean(host) {
       for (const w of whales) w.motion.advance(dt);
       waveTime.value = t;
       flow.value = diveActive ? Math.sin(t * 0.78 + 0.53) : s.tide;
-      calf.visible = mother.visible = wh || diveActive;
-      rig.visible = s.route || (s.story === "manta" && !diveActive);
-      ray.visible = rig.visible || diveActive;
       const observatory = s.story === "observe" && !diveActive;
+      const subject = observatory ? atlas[s.specimen] : null;
+      calf.visible = wh || diveActive || subject?.key === "calf";
+      mother.visible = wh || diveActive || subject?.key === "mother";
+      rig.visible = s.route || (s.story === "manta" && !diveActive);
+      ray.visible = rig.visible || diveActive || subject?.key === "ray";
       orbitFree = observatory;
       const sceneShot =
         s.line === "mother" || (s.step === "done" && wh)
@@ -904,7 +911,7 @@ export async function makeOcean(host) {
           reef.separate(routeCalf, 1.75);
           calf.position.copy(routeCalf);
         }
-      } else if (diveActive) {
+      } else if (diveActive || observatory) {
         for (const [i, w] of whales.entries()) {
           cruise(w, w.path, w.motion.distance / w.length + (i ? .34 : .2));
         }
@@ -939,7 +946,7 @@ export async function makeOcean(host) {
         }
         reef.separate(calf.position, 1.75);
       }
-      if (wh || diveActive) for (const w of whales) w.motion.pose(dt);
+      if (wh || diveActive || observatory) for (const w of whales) w.motion.pose(dt);
       fauna.update(t);
       const large = diveActive
         ? [
@@ -968,9 +975,13 @@ export async function makeOcean(host) {
           ez = 3.2 + Math.cos(i * 9.5) * 1.8;
         tmp.position.set(x, floorHeight(x, ez) - 0.11, ez);
         tmp.rotation.set(0, 0.22 * i, 0.1 * Math.sin(t + i));
-        tmp.scale.set(1, wh ? 0.87 : 0.38, 1);
+        tmp.scale.set(1, wh || subject?.key === "eel" ? 0.87 : 0.38, 1);
         tmp.updateMatrix();
         eels.setMatrixAt(i, tmp.matrix);
+        if (i === 0 && subject?.key === "eel") {
+          eel.position.set(.08,.32,0).applyMatrix4(tmp.matrix);
+          eel.rotation.copy(tmp.rotation);
+        }
       }
       eels.instanceMatrix.needsUpdate = true;
       dust.position.x = Math.sin(t * 0.17) * 0.7;
@@ -1031,8 +1042,7 @@ export async function makeOcean(host) {
       );
       if (observatory) {
         const id = s.specimen,
-          fish = residents.featured[id],
-          flat = id === 3;
+          fish = subject.key ? atlasAnimals[subject.key] : residents.featured[id];
         if (lastSpecimen !== id) {
           snap = true;
           az = 0;
@@ -1044,9 +1054,9 @@ export async function makeOcean(host) {
         observerHeading +=
           Math.atan2(Math.sin(headingError), Math.cos(headingError)) *
           (1 - Math.exp(-dt * 2.4));
-        const subjectAngle = az + observerHeading + 0.2;
-        const range = species[id].length * (camera.aspect < 1 ? 2.35 : 1.4);
-        const tilt = (flat ? 0.9 : 0.09) + pitch;
+        const subjectAngle = az + (subject.key === "jelly" ? 0 : observerHeading) + (subject.angle ?? 0.2);
+        const range = subject.length * (camera.aspect < 1 ? 2.35 : 1.4);
+        const tilt = (subject.tilt ?? (id === 3 ? 0.9 : 0.09)) + pitch;
         aim.copy(fish.position);
         aim.y -= range * 0.06;
         pos.set(

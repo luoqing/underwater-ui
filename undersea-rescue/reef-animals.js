@@ -120,5 +120,5 @@ export function reefAnimals(scene, actor, sources, garden, reef) {
       );
     });
   }
-  return { update, turtle, jellyBounds };
+  return { update, turtle, jellyBounds, jelly: jellies[3], clown: clowns[2].node, lion: lions[0].node };
 }

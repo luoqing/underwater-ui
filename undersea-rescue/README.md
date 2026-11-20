@@ -6,7 +6,7 @@
 
 - **雾里的鲸歌**　调谐水听器、比较两个方向的录音、抓住缓流时机，并用舵杆或方向键把幼鲸带过背流湾和峡口。
 - **沉笼之下**　选择托举位置，跟随潮流与载荷变化调整托举力度，把笼架抬到蝠鲼能通过的高度。
-- **峡谷鱼类图鉴**　选择六种鱼之一，近距离观察体形与游姿，拖动可绕鱼观察。
+- **海洋动物图鉴**　可选择十五个观察对象，包括鲸鱼妈妈和幼鲸、海龟、海月水母、小丑鱼、狮子鱼和蝠鲼。拖动画面可绕着动物观察。
 
 ## 模型与制作
 
@@ -41,6 +41,6 @@ assets 中的 GLB 可导入 Blender 等支持 glTF 的工具。峡谷、砂岩�
 
 - [妙搭试玩](https://x9rh6mrc62.feishuapp.com/app/app_17j9p095fkf)
 - [Sites 试玩](https://undersea-rescue.lqtsing.chatgpt.site/)
-- [手机横屏实录和玩法口播对比](https://github.com/luoqing/underwater-ui/releases/tag/undersea-rescue-voices-v1)
+- [手机横屏实录和玩法口播对比](https://github.com/luoqing/underwater-ui/releases/tag/undersea-rescue-atlas-v3)
 
 在本目录运行 `npm ci` 和 `npm run build`。打开生成的 `index.html` 即可游玩，也可以把 `play.html` 和 `assets/` 部署到静态网站。

@@ -2,7 +2,7 @@ import { createScore } from "./rescue-score.js";
 import lines from "./rescue-lines.json";
 import { playVoice, stopVoice } from "./rescue-voice.js";
 import { swimKeys } from "./dive-controls.js";
-import { species } from "./reef-life.js";
+import { atlas } from "./reef-life.js";
 import { makeOcean } from "./ocean.js";
 import cover from "./assets/reef-color-reference.jpg";
 const $ = (id) => document.getElementById(id);
@@ -237,7 +237,7 @@ $("skip-line").onclick = () => { stopVoice(); showReplies(state.line,true); };
 function conversation(id) {
   const [name, line] = lines[id];
   state.step = "talk";
-  page("",name.split(" · ").pop(),line);
+  page("",name,line);
   $("panel").classList.add("dialogue");
   state.line = id;
   if (sound) {
@@ -443,10 +443,17 @@ function finish() {
 function observe(index) {
   state.step = "observe";
   state.specimen = index;
-  const fish = species[index];
-  page("近距观测 · " + fish.latin, fish.name, fish.note);
-  for (const [i, f] of species.entries())
-    button(f.name, () => observe(i), i === index);
+  const entry = atlas[index];
+  page("", entry.name, entry.note);
+  const picker = document.createElement("select");
+  picker.setAttribute("aria-label", "选择观察的海洋动物");
+  for (const [i, animal] of atlas.entries()) picker.add(new Option(animal.name, String(i)));
+  picker.value = String(index);
+  picker.onchange = () => {
+    observe(Number(picker.value));
+    $("controls").querySelector("select").focus({ preventScroll: true });
+  };
+  $("controls").append(picker);
 }
 let hintTimer;
 function switchSwim(on, inPlace = true) {

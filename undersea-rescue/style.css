@@ -580,3 +580,14 @@ button:disabled {
 #menu #missions button:first-child { background:#28595fd9; }
 #menu #missions span { color:#c8ded8; }
 #menu #missions b { display:none; }
+
+#controls select {
+  max-width: 100%;
+  min-height: 44px;
+  padding: 5px 12px;
+  font: inherit;
+  border: 1px solid #a8d0cb80;
+  border-radius: 12px;
+  background: #123e49;
+  color: #f1f8f5;
+}
