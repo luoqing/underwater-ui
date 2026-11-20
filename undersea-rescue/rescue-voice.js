@@ -16,9 +16,9 @@ export function stopVoice() {
     active = null;
   }
 }
-export async function playVoice(context, id) {
+export async function playVoice(context, id, onStart, onFinish) {
   stopVoice();
-  if (!context) return;
+  if (!context || context.state !== "running") { onFinish(false); return; }
   const ticket = revision;
   try {
     if (!buffers.has(id))
@@ -36,10 +36,12 @@ export async function playVoice(context, id) {
     active = source;
     source.onended = () => {
       source.disconnect();
-      if (active === source) active = null;
+      if (active === source) { active = null; onFinish(true); }
     };
+    onStart(context.currentTime);
     source.start();
   } catch {
     buffers.delete(id);
+    if (ticket === revision) onFinish(false);
   }
 }

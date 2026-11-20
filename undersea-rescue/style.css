@@ -549,3 +549,34 @@ button:disabled {
 @media (max-width:650px) and (orientation:portrait) {
   .swim-caption { max-width: calc(100% - 40px); bottom: calc(max(16px,env(safe-area-inset-bottom)) + 110px); }
 }
+
+/* Controls sit at the edge of the water, with the same hit area in either sound state. */
+#dive header { justify-content: flex-end; background: none; padding: max(7px,env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)); }
+#dive nav { gap: 2px; }
+#dive .icon { display: inline-grid; place-items: center; width:44px; height:44px; padding:0; border:0; border-radius:50%; color:#edf9f4; background:radial-gradient(circle, #0b3845ab 0 51%, transparent 54%); }
+#dive .icon svg { width:19px; height:19px; filter:drop-shadow(0 1px 2px #0d3847); }
+#audio[aria-pressed="true"] .mute, #audio[aria-pressed="false"] .waves { display:none; }
+#dive .depth-controls { gap:0; }
+#dive .depth-line { top:max(14px,env(safe-area-inset-top)); color:#e6f3ef; font-weight:600; }
+#dive article:not(.dialogue) { background:#0b3942d9; border:1px solid #c6e5dd3b; border-radius:10px; box-shadow:none; padding:10px 14px; }
+#dive #phase { display:none; }
+#dive article h2 { font-family:inherit; font-size:18px; font-weight:600; }
+#dive #controls button:not(.icon), #dive #face-target { background:#123e49cf; border:1px solid #c0ded547; border-radius:18px; color:#f1f8f5; }
+#dive #controls button.primary { background:#31656ce0; border-color:#c7e6db89; color:#f3fffa; }
+#dive .band { background:#a4dfc1; }
+#dive .slider input { accent-color:#97cdbb; }
+#dive #feedback { color:#d1e8e2; }
+#dive #panel.dialogue { width:min(94vw,680px); bottom:max(8px,env(safe-area-inset-bottom)); max-height:none; overflow:visible; pointer-events:none; }
+#dive #panel.dialogue h2, #dive #panel.dialogue #narrative { background:#0b303bb8; color:#f6faf5; border:0; padding:3px 6px; line-height:1.7; -webkit-box-decoration-break:clone; box-decoration-break:clone; }
+#dive #panel.dialogue h2 { font-size:13px; color:#c6e7dc; border-radius:5px 0 0 5px; }
+#dive #panel.dialogue #narrative { margin:0; border-radius:0 5px 5px 0; font-size:clamp(14px,1.6vw,17px); }
+#dive #panel.dialogue #skip-line { pointer-events:auto; vertical-align:middle; margin-left:2px; }
+#dive #panel.dialogue #controls { margin:2px 0 0; }
+#dive #panel.dialogue #controls button { pointer-events:auto; }
+#dive #panel.dialogue.spoken h2, #dive #panel.dialogue.spoken #narrative { display:none; }
+#dive #panel.watch-release { visibility:hidden; }
+#menu .intro h1 { margin-bottom:16px; }
+#menu #missions button { color:#ebf5f0; border-color:#c0dbd563; background:#0b3743cc; }
+#menu #missions button:first-child { background:#28595fd9; }
+#menu #missions span { color:#c8ded8; }
+#menu #missions b { display:none; }
