@@ -264,7 +264,16 @@ function conversation(id) {
     button("哪边能动？", () => conversation("space"), true);
     button("看看笼架", rigging);
   } else if (id === "space") button("一起抬", rigging, true);
-  else if (id === "clear") button("回海图", exitDive, true);
+  else if (id === "clear") {
+    button("一起潜水", () => {
+      state.story = "roam";
+      state.route = false;
+      state.leg = state.line = null;
+      state.step = "";
+      switchSwim(true);
+    }, true);
+    button("回海图", exitDive);
+  }
   const replay = button("重听", () => {
     $("panel").classList.remove("spoken");
     if (!sound) $("audio").click();
@@ -455,7 +464,7 @@ function observe(index) {
   };
   $("controls").append(picker);
 }
-let hintTimer;
+let hintTimer, companionTimer;
 function switchSwim(on, inPlace = true) {
   releaseStick();
   if (on) stopVoice();
@@ -565,7 +574,19 @@ async function start(story, route = false) {
   buttons.forEach((b) => (b.disabled = true));
   $("load").textContent = "正在装载峡谷与动物模型…";
   try {
-    loading ??= makeOcean($("view"));
+    loading ??= makeOcean($("view"), name => {
+      if (name && state.story === "observe" && !state.roaming) switchSwim(true);
+      if (name) {
+        clearTimeout(hintTimer);
+        $("swim-tip").hidden = true;
+      }
+      const status = $("companion-status");
+      clearTimeout(companionTimer);
+      status.hidden = !name;
+      status.textContent = name ? name + (matchMedia("(pointer: coarse)").matches ? "同游中 · 再双点退出" : "同游中 · 再双击退出") : "";
+      $("view").dataset.companion = name || "";
+      if (name) companionTimer = setTimeout(() => { status.hidden = true; }, 2800);
+    });
     ocean = await loading;
     if (session !== id) return;
     Object.assign(state, {

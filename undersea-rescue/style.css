@@ -591,3 +591,9 @@ button:disabled {
   background: #123e49;
   color: #f1f8f5;
 }
+
+#companion-status {
+  position:absolute; top:max(12px,env(safe-area-inset-top)); left:50%; transform:translateX(-50%);
+  padding:4px 10px; border-radius:12px; background:#0b303bb8; color:#edf8f3;
+  white-space:nowrap; font-size:13px; pointer-events:none; z-index:2;
+}

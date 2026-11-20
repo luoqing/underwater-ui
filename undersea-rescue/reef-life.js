@@ -254,5 +254,5 @@ export function reefLife(sources, scene, reef, light) {
       );
     }
   }
-  return { update, featured };
+  return { update, featured, actors };
 }

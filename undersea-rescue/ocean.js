@@ -1,3 +1,4 @@
+import { swimCompanion } from "./swim-companion.js";
 import { whaleMotion } from "./whale-swim.js";
 import blueTangFile from "./assets/blue-tang.glb";
 import kelpFile from "./assets/kelp-cluster.glb";
@@ -120,7 +121,7 @@ function salvageRig() {
   return cage;
 }
 
-export async function makeOcean(host) {
+export async function makeOcean(host, onCompanion) {
   const renderer = new T.WebGLRenderer({
     antialias: true,
     powerPreference: "high-performance",
@@ -712,6 +713,21 @@ export async function makeOcean(host) {
     shot.lastRotation.copy(camera.quaternion);
     shot.active = true;
   }
+  const companions = [];
+  function addAnimal(node,name,radius,speed,axis="x") {
+    companions.push({node,name,radius,speed,axis});
+  }
+  for (const a of residents.actors) addAnimal(a.fish,atlas[a.index].name,.12,.95);
+  school.batches.forEach((b,i)=>addAnimal(b,["金色拟花鮨","蓝倒吊","日本竹荚鱼"][i],.12,1.2));
+  for (const j of fauna.jellies) addAnimal(j,"海月水母",.42,.35,"drift");
+  for (const f of fauna.clowns) addAnimal(f.node,"小丑鱼",.12,.85);
+  for (const f of fauna.lions) addAnimal(f.node,"狮子鱼",.18,.55);
+  addAnimal(fauna.turtle,"海龟",.46,1.2,"z");
+  addAnimal(calf,"幼鲸 · 泡泡",1.35,2.9,"z");
+  addAnimal(mother,"鲸鱼妈妈",2.25,3.1,"z");
+  addAnimal(ray,"蝠鲼 · 小翼",.85,1.75,"-x");
+  const companion = swimCompanion(host,camera,reef,garden.colliders,companions,onCompanion);
+  let trappedRay = false, canSwimTogether = false, onRoute = false, firstTap = null, press = null;
   let viewPointer = null;
   let orbitFree = false,
     az = 0,
@@ -721,12 +737,21 @@ export async function makeOcean(host) {
     clock = 0,
     lastSpecimen = -1;
   host.onpointerdown = (e) => {
-    if (viewPointer !== null) return;
+    if (viewPointer !== null || e.button !== 0) return;
+    press = {x:e.clientX,y:e.clientY,time:e.timeStamp};
     viewPointer = e.pointerId;
     host.setPointerCapture(e.pointerId);
     drag = [e.clientX, e.clientY];
   };
   host.onpointermove = (e) => {
+    if (press && e.pointerId === viewPointer && Math.hypot(e.clientX-press.x,e.clientY-press.y)>10) {
+      press=null;
+      firstTap=null;
+    }
+    if (companion.active && (e.pointerType === "mouse" || viewPointer === e.pointerId)) {
+      companion.point(e.clientX,e.clientY);
+      return;
+    }
     if (!drag || viewPointer !== e.pointerId) return;
     if (diveActive) {
       diver.turn(e.clientX - drag[0], e.clientY - drag[1]);
@@ -747,6 +772,15 @@ export async function makeOcean(host) {
     host.onlostpointercapture =
       (e) => {
         if (viewPointer === e.pointerId) {
+          if (e.type === "pointerup" && press && canSwimTogether && e.timeStamp-press.time<380) {
+            const close = firstTap && firstTap.kind===e.pointerType && e.timeStamp-firstTap.time<400 &&
+              Math.hypot(e.clientX-firstTap.x,e.clientY-firstTap.y)<24;
+            if (close) {
+              companion.toggle(e.clientX,e.clientY, a => !(trappedRay && a.node === ray) && !(onRoute && (a.node === calf || a.node === mother)));
+              firstTap=null;
+            } else firstTap={x:e.clientX,y:e.clientY,time:e.timeStamp,kind:e.pointerType};
+          } else firstTap=null;
+          press=null;
           drag = null;
           viewPointer = null;
         }
@@ -800,12 +834,16 @@ export async function makeOcean(host) {
       );
     },
     leaveWater() {
+      companion.stop(true);
+      firstTap = null;
       diveActive = false;
       diver.clear();
       drag = null;
       snap = true;
     },
     reset() {
+      companion.stop(true);
+      firstTap = null;
       frameTimes = [];
       lastFrame = 0;
       lastReport = performance.now();
@@ -826,6 +864,11 @@ export async function makeOcean(host) {
       resize();
     },
     render(s, dt) {
+      companion.restore();
+      onRoute = s.route;
+      trappedRay = (s.route || s.story === "manta") && s.escape < 1;
+      canSwimTogether = s.story === "observe" || s.story === "roam" || (diveActive && (!s.route || s.leg));
+      if (!canSwimTogether) { companion.stop(true); firstTap=null; }
       clock += dt;
       const t = clock,
         wh = s.story === "whale",
@@ -970,6 +1013,7 @@ export async function makeOcean(host) {
       if (diveActive && rig.visible)
         large.push({ center: rig.position, radius: 2.65 });
       school.update(t, dt, s.tide, large, camera.position);
+      companion.update(dt);
       for (let i = 0; i < 32; i++) {
         const x = 3.8 + Math.sin(i * 44.7) * 1.05,
           ez = 3.2 + Math.cos(i * 9.5) * 1.8;

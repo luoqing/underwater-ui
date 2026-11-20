@@ -140,5 +140,13 @@ export function legacyReefs(scene, reef, sources, light, mobileMeshes) {
     b.copy(a).addScaledVector(direction, dist);
     separate(b, r);
   }
-  return { ground, separate, cameraArm };
+  function blocked(line, distance) {
+    if (reef.blocked(line, distance)) return true;
+    return objects.some(o => {
+      if (!line.intersectsBox(o.box)) return false;
+      ray.copy(line).applyMatrix4(o.inverse);
+      return !!o.tree.raycastFirst(ray, T.DoubleSide, .001, (distance-.015)/o.scale);
+    });
+  }
+  return { ground, separate, cameraArm, blocked };
 }

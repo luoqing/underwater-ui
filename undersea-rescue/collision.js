@@ -43,7 +43,10 @@ export function obstacles(meshes) {
     }
     return y;
   }
-  return { separate, cameraArm, ground };
+  function blocked(line, distance) {
+    return trees.some(tree => tree.raycastFirst(line, DoubleSide, 0.001, distance - 0.015));
+  }
+  return { separate, cameraArm, ground, blocked };
 }
 
 export function outsideBall(point, center, radius, velocity, offset) {
