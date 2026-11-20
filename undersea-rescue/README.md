@@ -40,6 +40,7 @@ assets 中的 GLB 可导入 Blender 等支持 glTF 的工具。峡谷、砂岩�
 
 - [妙搭试玩](https://x9rh6mrc62.feishuapp.com/app/app_17j9p095fkf)
 - [Sites 试玩](https://undersea-rescue.lqtsing.chatgpt.site/)
+- [新版连续救援试玩 · 手机横屏游戏原声](https://github.com/luoqing/underwater-ui/releases/tag/undersea-rescue-journey-v4)
 - [前版手机横屏游戏原声实录](https://github.com/luoqing/underwater-ui/releases/tag/undersea-rescue-atlas-v3)
 
 在本目录运行 `npm ci` 和 `npm run build`。打开生成的 `index.html` 即可游玩，也可以把 `play.html` 和 `assets/` 部署到静态网站。
