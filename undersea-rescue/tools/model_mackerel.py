@@ -3,6 +3,7 @@ from pathlib import Path
 import io, json, math, struct
 import numpy as np
 from PIL import Image
+from fish_glb import write_fish, silhouette
 
 root=Path(__file__).resolve().parents[1]/'assets'
 im=Image.open(root/'mackerel-skin.jpg').convert('RGB')
@@ -50,7 +51,6 @@ targets=[]
 for sign in [-1,1]:
     d=np.zeros_like(geom);d[:,2]=sign*tail*.055;d[:,0]=tail*.008;targets.append(d)
 # Black background around the fin outline becomes transparent.
-rgb=np.asarray(im);alpha=np.uint8(np.clip((np.max(rgb,axis=2).astype(float)-14)/18,0,1)*255)
+rgb=np.asarray(im);alpha = silhouette(rgb)
 image=Image.fromarray(np.dstack((rgb,alpha)));image.thumbnail((1200,600))
-from fish_glb import write_fish
 write_fish(root/'horse-mackerel.glb','Japanese horse mackerel',geom,norm,uv,tri,targets,image)

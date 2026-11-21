@@ -1,6 +1,14 @@
 import io, json, struct
 import numpy as np
 
+def silhouette(rgb):
+    """Remove exterior backdrop while preserving enclosed pupils and dark markings."""
+    from scipy.ndimage import binary_closing, binary_fill_holes
+    value = rgb.max(axis=2).astype(float)
+    interior = binary_fill_holes(binary_closing(value > 25, iterations=2))
+    return np.where(interior, 255, np.clip((value - 16) * 12.75, 0, 255)).astype(np.uint8)
+
+
 def write_fish(path,name,geom,norm,uv,tri,targets,image,pectoral=None):
     picture=io.BytesIO();image.save(picture,format='PNG',optimize=True)
     doc={'asset':{'version':'2.0'},'scene':0,'scenes':[{'nodes':[0]}],'nodes':[{'name':name,'mesh':0}],'bufferViews':[],'accessors':[]}

@@ -3,7 +3,7 @@ from pathlib import Path
 import math
 import numpy as np
 from PIL import Image
-from fish_glb import write_fish
+from fish_glb import write_fish, silhouette
 
 assets = Path(__file__).resolve().parents[1] / "assets"
 image = Image.open(assets / "reef-pair-skin.jpg").convert("RGB")
@@ -11,7 +11,7 @@ image = Image.open(assets / "reef-pair-skin.jpg").convert("RGB")
 crop_top = round(.40 * image.height)
 crop = image.crop((0, crop_top, image.width, image.height))
 rgb = np.asarray(crop)
-alpha = np.uint8(np.clip((rgb.max(axis=2).astype(float)-16)/20, 0, 1)*255)
+alpha = silhouette(rgb)
 atlas = Image.fromarray(np.dstack((rgb, alpha)))
 metres = .24 / (507-82)  # standard silhouette from caudal edge to snout
 positions, uvs, triangles, paddle = [], [], [], []
