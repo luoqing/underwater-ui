@@ -1,11 +1,12 @@
 import * as T from "three";
+import { fitSub } from "./sub-fleet.js";
 
 export const boatLegs = new Set(["hydro", "fork", "shoalPass", "reefPass", "armDock"]);
-export const berth = new T.Vector3(-1.6, 4.4, -29.7);
+
 export function rescueSub(model, scene) {
   const hull = new T.Group();
-  const scale = .69;
-  model.scale.setScalar(scale);
+  const equip=fitSub(model);
+  equip("echo");
   hull.add(model);
   scene.add(hull);
   const contact = new T.Vector3(), base = new T.Vector3(), elbow = new T.Vector3();
@@ -38,10 +39,19 @@ export function rescueSub(model, scene) {
   });
   hull.visible=false;
   return {
+    select(id){
+      equip(id);
+      lamps.forEach((lamp,i)=>{
+        const side=i?1:-1;
+        if(id==="swift")lamp.position.set(-.34,.255,side*.19);
+        else if(id==="stone")lamp.position.set(-.32,.41,side*.19);
+        else lamp.position.set(-.72,.68,side*.20);
+      });
+    },
     hide() { hull.visible=false; },
     drive(camera, diver, s, cage, reef, info) {
       hull.visible=true;
-      const docked = s.foundCage && !s.leg;
+      const docked = s.route && s.foundCage && !s.leg;
       if (docked) {
         hull.position.set(cage.x, cage.y + .08, cage.z + 3.48);
         hull.rotation.set(0,Math.PI/2,0);

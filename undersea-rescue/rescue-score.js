@@ -93,7 +93,7 @@ export function createScore(ctx) {
   }
   let motor, throttle;
   function engine(s, speed) {
-    if (!s.boat || !s.leg) {
+    if (!s.boat || (s.route && !s.leg)) {
       if (motor) {motor.stop();motor.disconnect();throttle.disconnect();motor=null;}
       return;
     }

@@ -1,7 +1,7 @@
 import * as T from "three";
 import { outsideBall } from "./collision.js";
 
-function schoolBatch(source, count, length, rotate, light, mobileMeshes) {
+export function schoolBatch(source, count, length, rotate, light, mobileMeshes) {
   const specimen = source.scene.getObjectByProperty("isMesh", true);
   const geometry = (
     mobileMeshes.get(specimen.geometry) || specimen.geometry
@@ -51,6 +51,9 @@ export function makeShoal(sources, reef, mobileMeshes, light) {
     spawned: false,
   }));
   function update(t, dt, flow, large, eye, observingTang) {
+    const visible=observingTang || (Math.abs(eye.x)<43 && eye.z<34 && eye.z>-63 && eye.y>-30);
+    for (const b of batches)b.visible=visible;
+    if(!visible)return;
     for (let i = 0; i < animals.length; i++) {
       const a = animals[i],
         g = a.group,

@@ -1,3 +1,4 @@
+import { habitats } from "./outer-ocean.js";
 import * as T from "three";
 import { legacyPigment } from "./reef-pigment.js";
 import { MeshBVH } from "three-mesh-bvh";
@@ -88,6 +89,11 @@ export function legacyReefs(scene, reef, sources, light, mobileMeshes) {
     [1.5, -18.6, 3.5, 2.68, 0.44, 0xe9eedb],
     [-0.85, -42, 3.9, 1.7, 0.54, 0xf6ddd5],
   );
+  for(const [i,h] of habitats.entries()){
+    reefs.push([h.x+4.7,h.z+3.2,6.8+i%4,i*1.41,.59,0xffffff]);
+    shelves.push([h.x-3.8,h.z+1.4,4.4+i%3,i*1.67,.44,0xffffff]);
+    clusters.push([h.x+3.1,h.z-2.7,2.3+i%2,i*2.19,.32,0xffffff]);
+  }
   plant(sources.garden, reefs);
   plant(sources.shelf, shelves);
   plant(sources.cluster, clusters);

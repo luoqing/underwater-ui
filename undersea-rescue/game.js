@@ -1,3 +1,5 @@
+import fleetPreview from "./assets/rescue-fleet.jpg";
+import { fleet } from "./sub-fleet.js";
 import { boatLegs } from "./echo-sub.js";
 import { whaleCall, whaleCalling, quietWhale } from "./whale-call.js";
 import { createScore } from "./rescue-score.js";
@@ -12,6 +14,25 @@ document.body.style.setProperty("--cover", `url("${cover}")`);
 const state = { story: null },
   buttons = [...document.querySelectorAll("[data-story]")];
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+const picker=$("vessels");
+picker.style.setProperty("--fleet-preview", `url("${fleetPreview}")`);
+let vesselId="echo";
+try {
+  const saved=localStorage.getItem("undersea-rescue.vessel");
+  if (Object.hasOwn(fleet,saved)) vesselId=saved;
+} catch {}
+for (const [id,v] of Object.entries(fleet)) {
+  const card=document.createElement("label"), input=document.createElement("input");
+  input.type="radio"; input.name="vessel"; input.value=id; input.checked=id===vesselId;
+  const image=document.createElement("span"), title=document.createElement("strong"), feature=document.createElement("small");
+  image.className="sub-preview "+id; image.setAttribute("aria-hidden","true");
+  title.textContent=v.name; feature.textContent=v.feature;
+  card.append(input,image,title,feature); picker.append(card);
+  input.onchange=()=>{
+    vesselId=id;
+    try {localStorage.setItem("undersea-rescue.vessel",id);} catch {}
+  };
+}
 let ocean,
   loading,
   last = 0,
@@ -142,12 +163,12 @@ function meter(name, l, r) {
   };
 }
 const legs = {
-  song: "沿声纹游向礁口",
-  calf: "游近那头小鲸",
-  gate1: "跟着泡泡游到峡口",
+  song: "沿声纹驶向礁口",
+  calf: "靠近那头小鲸",
+  gate1: "跟着泡泡驶向峡口",
   gate2: "顺着缓流穿过去",
   lee: "贴着右侧礁壁绕行",
-  mother: "游向鲸鱼妈妈",
+  mother: "靠近鲸鱼妈妈",
   hydro: "停艇听声 · 左右拨杆转舵",
   fork: "驶向礁缝入口",
   shoalPass: "从两只水母之间穿过",
@@ -189,9 +210,7 @@ function startLeg(leg) {
   $("face-target").disabled = state.boat && leg !== "hydro";
   $("face-target").title = state.boat ? (leg==="hydro" ? "重听敲击" : "航向提示") : "转向当前救援目标";
   $("face-target").setAttribute("aria-description",$("face-target").title);
-  $("dive-hud").classList.toggle("at-helm",!!state.boat);
-  document.querySelector(".keyboard-guide").innerHTML=state.boat ? "W 推进 · S 倒车 · A 左舵 · D 右舵<br>E 上浮 · Q 下潜" : "W 前进 · S 后退 · A 左移 · D 右移<br>E 上浮 · Q 下潜";
-  if (leg === "gate1") ocean.faceWaypoint(leg);
+
 }
 function arrive() {
   const leg = state.leg;
@@ -286,8 +305,8 @@ function conversation(id) {
       startLeg("gate1");
     }, true);
   } else if (id === "knock") {
-    button("驾驶听潮号", () => {
-      state.story="manta"; state.boat=true; state.boardSince=state.time; ocean.boardSub();
+    button("辨听敲击声", () => {
+      state.story="manta"; state.reunionSince=state.time;
       startLeg("hydro");
     },true);
   }
@@ -297,12 +316,12 @@ function conversation(id) {
   } else if (id === "space") button("一起抬", state.boat ? armControl : rigging, true);
   else if (id === "clear") {
     button("一起潜水", () => {
-      state.boat = false;
+      state.foundCage = false;
       state.story = "roam";
       state.route = false;
       state.leg = state.line = null;
       state.step = "";
-      switchSwim(true);
+      switchSwim(true, false, true);
     }, true);
     button("回海图", exitDive);
   }
@@ -332,7 +351,7 @@ function crossing() {
   page("", "峡口的水正往旁边推", "等指针落进浅绿区，带泡泡游过去。");
   state.limit = 32;
   state.showFlow = meter("横流", 0, state.limit);
-  button("现在游过去", () => {
+  button("趁缓流通过", () => {
     if (state.flow > state.limit) {
       state.push = Math.sign(state.tide);
       return message("泡泡退了半步。等水慢一点。");
@@ -411,12 +430,11 @@ function observe(index) {
   $("controls").append(picker);
 }
 let hintTimer, companionTimer;
-function switchSwim(on, inPlace = true) {
+function switchSwim(on, inPlace = true, keepPosition = false) {
   releaseStick();
-  if (!state.boat) {
-    $("dive-hud").classList.remove("at-helm");
-    document.querySelector(".keyboard-guide").innerHTML="W 前进 · S 后退 · A 左移 · D 右移<br>E 上浮 · Q 下潜";
-  }
+  $("dive-hud").classList.toggle("at-helm",!!state.boat);
+  document.querySelector(".keyboard-guide").innerHTML=state.boat ? "W 推进 · S 倒车 · A 左舵 · D 右舵<br>E 上浮 · Q 下潜" : "W 前进 · S 后退 · A 左移 · D 右移<br>E 上浮 · Q 下潜";
+  $("swim-tip").lastElementChild.textContent=state.boat ? "前后推杆控制航速 · 左右转舵 · 右侧升潜" : "左手摇杆游动 · 右手划动转向 · 双点动物同游";
   if (on) stopVoice();
   state.roaming = on;
   held.clear();
@@ -431,7 +449,7 @@ function switchSwim(on, inPlace = true) {
   const roamLabel = on ? "返回任务" : "自由潜水";
   $("roam-toggle").title = roamLabel;
   $("roam-toggle").setAttribute("aria-label",roamLabel);
-  if (on) ocean.enterWater(inPlace);
+  if (on) { if (!keepPosition) ocean.enterWater(inPlace, state.story==="roam"); }
   else {
     stopBreath();
     ocean.leaveWater();
@@ -545,7 +563,7 @@ async function start(story, route = false) {
     if (session !== id) return;
     Object.assign(state, {
       story,
-      boat:false, boardSince:-8, armHeld:false, armReach:0, pingTime:-10,
+      boat:route || story==="roam", vessel:fleet[vesselId], reunionSince:-8, armHeld:false, armReach:0, pingTime:-10,
       route,
       leg: null,
       gate: 0,
@@ -572,6 +590,7 @@ async function start(story, route = false) {
     $("menu").hidden = true;
     $("dive").hidden = false;
     ocean.reset();
+    ocean.selectVessel(vesselId);
     if (story === "observe") observe(0);
     switchSwim(story === "roam" || route, false);
     if (route) {
@@ -579,13 +598,11 @@ async function start(story, route = false) {
       if (saved) {
         if (saved.leg==="ridge") saved.leg="fork";
         if (saved.leg==="cage") saved.leg="armDock";
-        state.boat=boatLegs.has(saved.leg);
-        if (state.boat) state.story="manta";
-        if (saved.leg==="hydro") ocean.boardSub(); else ocean.restoreDiver(saved.position);
+        if (boatLegs.has(saved.leg)) state.story="manta";
+        ocean.restoreDiver(saved.position);
         state.escorting = !["song","calf"].includes(saved.leg);
         if (state.escorting) ocean.restoreEscort(saved.leg);
-        state.foundCage = saved.leg === "cage";
-        if (["ridge","cage"].includes(saved.leg)) state.story = "manta";
+
         state.gate = saved.gate || 0;
       }
       startLeg(saved?.leg || "song");
@@ -621,8 +638,8 @@ function frame(now, id) {
         state.nextSong = state.time + 12;
       }
       const firstListen = state.leg === "song" && state.time - state.legStart < 3;
-      const label = firstListen ? "礁石后面，传来一声鲸鸣…" :
-        state.leg === "song" ? ((navigator.maxTouchPoints > 0 || matchMedia("(pointer: coarse)").matches) ? "推摇杆，游向声纹" : "按 W，游向声纹") + " · " + read.bearing :
+      const label = firstListen ? state.vessel.name+" · 礁后传来一声鲸鸣…" :
+        state.leg === "song" ? ((navigator.maxTouchPoints > 0 || matchMedia("(pointer: coarse)").matches) ? "推摇杆，驶向声纹" : "按 W，驶向声纹") + " · " + read.bearing :
         (read.calfWaiting ? "泡泡游回来接你" : legs[state.leg]) + " · " + read.bearing;
       let text=label;
       if (state.leg==="hydro") {
@@ -640,7 +657,7 @@ function frame(now, id) {
     }
     if (!$("dive-hud").hidden) {
       const depth = $("dive-readout");
-      const label = "↓ " + read.depth + " m";
+      const label = (state.story==="roam" ? read.zone+" · " : "") + "↓ " + read.depth + " m";
       if (depth.textContent !== label) depth.textContent = label;
     }
   }
@@ -668,7 +685,7 @@ function tickMission(dt) {
   }
   if (state.step==="arm") {
     state.armReach=Math.min(1,state.armReach+dt*1.45);
-    if (state.armHeld && state.armReach>=1) state.lift=Math.min(1,state.lift+dt*.20);
+    if (state.armHeld && state.armReach>=1) state.lift=Math.min(1,state.lift+dt*state.vessel.lift);
     message(state.lift>0 ? Math.round(state.lift*100)+"% · "+(state.armHeld?"托举中":"止回扣已托稳") : "");
     if (state.lift>=1) {
       state.armHeld=false; state.step="escape";

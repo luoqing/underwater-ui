@@ -1,4 +1,5 @@
-import { rescueSub, berth } from "./echo-sub.js";
+import { oceanFloor, offshoreAnimals } from "./outer-ocean.js";
+import { rescueSub } from "./echo-sub.js";
 import subFile from "./assets/echo-sub.glb";
 import { swimCompanion } from "./swim-companion.js";
 import { whaleClearance } from "./whale-clearance.js";
@@ -316,7 +317,7 @@ export async function makeOcean(host, onCompanion) {
   surfaceMap.colorSpace = T.SRGBColorSpace;
   surfaceMap.wrapS = surfaceMap.wrapT = T.MirroredRepeatWrapping;
   const water = new T.Mesh(
-    new T.PlaneGeometry(140, 140, 120, 120),
+    new T.PlaneGeometry(360, 360, 120, 120),
     new T.ShaderMaterial({
       side: T.DoubleSide,
       uniforms: { time: waveTime, surfaceMap: { value: surfaceMap }, openWater: { value: scene.fog.color } },
@@ -398,6 +399,8 @@ export async function makeOcean(host, onCompanion) {
       m.geometry = mobileMeshes.get(m.geometry);
     solid.push(m);
   });
+  const shelfFloor=oceanFloor(solid.find(m=>m.material.name==="Rippled sand").material);
+  scene.add(shelfFloor);solid.push(shelfFloor);
   const reef = legacyReefs(
       scene,
       obstacles(solid),
@@ -482,6 +485,7 @@ export async function makeOcean(host, onCompanion) {
     scene.add(group);
     return group;
   }
+  const offshore=offshoreAnimals(scene,{anthias:anthiasSource,tang:tangSource,mackerel,turtle:turtleSource},actor,reef,mobileMeshes,seaMaterial,touchScreen);
   const calf = actor(whale, 5.7),
     mother = actor(whale, 10),
     ray = actor(manta, 3.45),
@@ -854,14 +858,14 @@ export async function makeOcean(host, onCompanion) {
     faceWaypoint(leg) {
       if (leg) diver.face(lookouts[leg] ? routeCalf : targetFor(leg));
     },
-    enterWater(inPlace) {
+    enterWater(inPlace, explore) {
       diveActive = true;
       diver.reset(
-        inPlace ? camera.position : null,
-        inPlace ? camera.getWorldDirection(direction) : null,
+        inPlace ? camera.position : explore ? new T.Vector3(0,3.3,12) : null,
+        inPlace ? camera.getWorldDirection(direction) : explore ? new T.Vector3(.065,-.12,.99).normalize() : null,
       );
     },
-    boardSub() { diver.reset(berth, new T.Vector3(1,-.03,.20).normalize()); },
+    selectVessel(id) { sub.select(id); },
     diverPosition() { return diver.position.toArray(); },
     restoreEscort(leg) {
       routeCalf.copy(diver.position);
@@ -912,7 +916,7 @@ export async function makeOcean(host, onCompanion) {
       companion.restore();
       onRoute = s.route;
       trappedRay = (s.route || s.story === "manta") && s.escape < 1;
-      canSwimTogether = !s.boat && (s.story === "observe" || s.story === "roam" || (diveActive && (!s.route || s.leg)));
+      canSwimTogether = (!s.route || !s.boat) && (s.story === "observe" || s.story === "roam" || (diveActive && (!s.route || s.leg)));
       if (!canSwimTogether) { companion.stop(true); firstTap=null; }
       clock += dt;
       const t = clock,
@@ -980,7 +984,7 @@ export async function makeOcean(host, onCompanion) {
       if (s.route) {
         const adult = whales[1], young = whales[0];
         cruise(adult, adult.patrol, adult.motion.distance / adult.patrolLength + .09);
-        if (s.boat) mother.position.z+=12*T.MathUtils.smoothstep(s.time-s.boardSince,0,7);
+        if (s.route && !wh) mother.position.z+=12*T.MathUtils.smoothstep(s.time-s.reunionSince,0,7);
         reef.separate(mother.position, 2.3);
         if (!s.escorting) {
           cruise(young, young.patrol, .76 * young.motion.distance / young.patrolLength);
@@ -1064,19 +1068,20 @@ export async function makeOcean(host, onCompanion) {
         reef.separate(calf.position, 1.75);
       }
       fauna.update(t);
-      if (s.boat) for (let i=0;i<3;i++) {
+      if (s.route && !wh) for (let i=0;i<3;i++) {
         const j=fauna.jellies[i], phase=t*.58+i*Math.PI*.7;
         j.position.set(-2.2+1.4*Math.sin(phase),5.3+.45*Math.cos(phase),-38-i*1.4);
         fauna.jellyBounds[i].center.copy(j.position);
       }
       if (!s.boat) sub.hide();
+      const pelagic=offshore(t,diver.position,diveActive);
       const large = diveActive
         ? [
             ...(calf.visible ? [{ center: calf.position, radius: 2.55 }] : []),
             ...(mother.visible ? [{ center: mother.position, radius: 4.3 }] : []),
             ...(ray.visible ? [{ center: ray.position, radius: 1.6 }] : []),
             { center: fauna.turtle.position, radius: 0.59 },
-            ...fauna.jellyBounds,
+            ...fauna.jellyBounds,...pelagic,
           ]
         : observatory
           ? []
@@ -1121,12 +1126,12 @@ export async function makeOcean(host, onCompanion) {
         ripple.material.opacity = .38 * Math.sin(cycle * Math.PI);
       }
       if (diveActive) {
-        const info = diver.move(dt, camera, reef, garden.colliders, large, s.boat ? .9 : .27);
+        const info = diver.move(dt, camera, reef, garden.colliders, large, s.boat ? .9 : .27, s.boat ? s.vessel : null);
         if (s.leg) {
           direction.subVectors(targetFor(s.leg), camera.position);
           info.arrived = activeGate
             ? direction.lengthSq() < 2.5 ** 2
-            : direction.length() <= (s.leg === "mother" ? 5.8 : 3.6);
+            : direction.length() <= (s.leg === "mother" ? 6.2 : s.leg==="calf" ? 4.5 : 3.6);
           // A follower can pass the waypoint to either side of the whale. Count the
           // channel opening as a passage, even when the exact point is missed.
           if (activeGate && lookouts[s.leg] && direction.z >= 0 &&
@@ -1143,7 +1148,7 @@ export async function makeOcean(host, onCompanion) {
             direction.x * future.z - direction.z * future.x,
             direction.x * future.x + direction.z * future.z,
           );
-          info.aligned = Math.abs(angle)<=.35;
+          info.aligned = Math.abs(angle)<=(s.leg==="hydro" ? s.vessel.bearing : .35);
           info.signalPan = -Math.sin(angle);
           if (s.leg === "hydro") info.arrived=false;
           if (s.leg === "armDock") info.arrived=info.range<1.65;

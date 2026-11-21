@@ -36,9 +36,9 @@ export function obstacles(meshes) {
   function ground(x, z) {
     ray.origin.set(x, 16, z);
     ray.direction.set(0, -1, 0);
-    let y = -1;
+    let y = -55;
     for (const tree of trees) {
-      const h = tree.raycastFirst(ray, DoubleSide, 0, 24);
+      const h = tree.raycastFirst(ray, DoubleSide, 0, 80);
       if (h) y = Math.max(y, h.point.y);
     }
     return y;

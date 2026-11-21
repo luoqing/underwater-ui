@@ -47,14 +47,14 @@ export function createDiver() {
     if (down) keys.add(code);
     else keys.delete(code);
   }
-  function move(dt, camera, reef, colonies, animals, radius=.27) {
+  function move(dt, camera, reef, colonies, animals, radius=.27, vessel=null) {
     if (keys.has("ArrowLeft")) yaw += dt * 1.35;
     if (keys.has("ArrowRight")) yaw -= dt * 1.35;
     if (keys.has("ArrowUp")) pitch = clamp(pitch + dt * 0.85, -1.35, 1.35);
     if (keys.has("ArrowDown")) pitch = clamp(pitch - dt * 0.85, -1.35, 1.35);
-    const piloting = radius > .3;
+    const piloting = !!vessel;
     const helm = stick.x + Number(keys.has("KeyD")) - Number(keys.has("KeyA"));
-    if (piloting) yaw -= helm * 1.55 * dt;
+    if (piloting) yaw -= helm * vessel.turn * dt;
     fwd.set(
       -Math.sin(yaw) * Math.cos(pitch),
       Math.sin(pitch),
@@ -75,16 +75,16 @@ export function createDiver() {
     desired
       .clampLength(0, 1)
       .multiplyScalar(
-        keys.has("ShiftLeft") || keys.has("ShiftRight") ? 4.9 : 2.65,
+        keys.has("ShiftLeft") || keys.has("ShiftRight") ? (vessel ? vessel.thrust*1.4 : 4.9) : (vessel?.thrust ?? 2.65),
       );
     velocity.lerp(desired, 1 - Math.exp(-dt * 5.6));
     origin.copy(position);
     const steps = Math.max(1, Math.ceil((velocity.length() * dt) / 0.1));
     for (let i = 0; i < steps; i++) {
       position.addScaledVector(velocity, dt / steps);
-      position.x = clamp(position.x, -13, 13);
-      position.z = clamp(position.z, -54, 13);
-      position.y = clamp(position.y, -0.25, 9.2);
+      position.x = clamp(position.x, -78, 78);
+      position.z = clamp(position.z, -117, 76);
+      position.y = clamp(position.y, -48, 9.2);
       for (const c of colonies) {
         const rx = c.radius + radius,
           ry = c.height + radius;
@@ -117,7 +117,7 @@ export function createDiver() {
       speed: velocity.length(),
       distance: travel.toFixed(1),
       zone:
-        position.z > -9 ? "珊瑚花园" : position.z > -25 ? "水母湾" : "鲸游峡口",
+        position.y < -18 ? "深水海盆" : position.z > 32 || position.z < -70 || Math.abs(position.x)>41 ? "外礁斜坡" : position.z > 15 ? "海龟浅滩" : position.z > -9 ? "珊瑚花园" : position.z > -25 ? "水母湾" : "鲸游峡口",
     };
   }
   return {
