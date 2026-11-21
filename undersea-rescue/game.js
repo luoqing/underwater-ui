@@ -160,7 +160,6 @@ function checkpoint() {
   return null;
 }
 function refreshMenu() {
-  document.querySelector('[data-story="route"] strong').textContent = checkpoint() ? "继续海底救援" : "海底救援";
   $("load").textContent = "";
 }
 function startLeg(leg) {
