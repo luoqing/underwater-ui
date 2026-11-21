@@ -609,5 +609,6 @@ button:disabled {
 .depth-line { flex-direction:column; align-items:flex-start; gap:4px; }
 .keyboard-guide { display:none; }
 @media (hover:hover) and (pointer:fine) {
+  #dive-readout { display:none; }
   .keyboard-guide { display:block; padding:3px 7px; background:#082d35a8; border-radius:4px; font-size:13px; line-height:1.55; }
 }

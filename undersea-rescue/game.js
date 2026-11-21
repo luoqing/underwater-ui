@@ -181,8 +181,10 @@ function startLeg(leg) {
   if (leg === "gate1") ocean.faceWaypoint(leg);
 }
 function arrive() {
-  releaseStick();
   const leg = state.leg;
+  if (leg === "lee") return startLeg("gate2");
+  if (leg === "gate2") return startLeg("mother");
+  releaseStick();
   state.leg = null;
   ocean.clearKeys();
   $("dive-hud").hidden = true;
@@ -191,8 +193,6 @@ function arrive() {
   if (leg === "song") return startLeg("calf");
   if (leg === "ridge") { state.foundCage = true; return startLeg("cage"); }
   if (leg === "gate1") return crossing();
-  if (leg === "lee") return startLeg("gate2");
-  if (leg === "gate2") return startLeg("mother");
   conversation(leg === "calf" ? "lost" : leg);
 }
 // Start times follow the pauses in the seven recorded Mandarin lines.
@@ -570,7 +570,7 @@ function frame(now, id) {
       const firstListen = state.leg === "song" && state.time - state.legStart < 3;
       const label = firstListen ? "礁石后面，传来一声鲸鸣…" :
         state.leg === "song" ? ((navigator.maxTouchPoints > 0 || matchMedia("(pointer: coarse)").matches) ? "推摇杆，游向声纹" : "按 W，游向声纹") + " · " + read.bearing :
-        (read.calfWaiting ? "泡泡在等你" : legs[state.leg]) + " · " + read.bearing;
+        (read.calfWaiting ? "泡泡游回来接你" : legs[state.leg]) + " · " + read.bearing;
       if (label !== guide.textContent) guide.textContent = label;
       if (read.arrived) arrive();
     }

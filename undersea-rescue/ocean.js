@@ -594,7 +594,11 @@ export async function makeOcean(host, onCompanion) {
   scene.add(ripple);
   const routeCalf = new T.Vector3();
   // Wait beyond the crossing so a diver following the tail can enter the trigger.
-  const crossingLookout = gates.gate1.clone().add(new T.Vector3(0, 0.35, -3.8));
+  const lookouts = Object.fromEntries(["gate1", "lee", "gate2"].map(leg =>
+    [leg, gates[leg].clone().add(new T.Vector3(0, 0.35, -3.8))]));
+  lookouts.mother = mother.position;
+  const rendezvous = new T.Vector3();
+  let loopPhase = 0, guideLeg = null;
   let calfWaiting = false;
   function targetFor(leg) {
     if (leg === "calf") return calf.position;
@@ -835,7 +839,7 @@ export async function makeOcean(host, onCompanion) {
       diver.clear();
     },
     faceWaypoint(leg) {
-      if (leg) diver.face(leg === "gate1" ? routeCalf : targetFor(leg));
+      if (leg) diver.face(lookouts[leg] ? routeCalf : targetFor(leg));
     },
     enterWater(inPlace) {
       diveActive = true;
@@ -847,8 +851,9 @@ export async function makeOcean(host, onCompanion) {
     diverPosition() { return diver.position.toArray(); },
     restoreEscort(leg) {
       routeCalf.copy(diver.position);
-      if (leg === "gate1") {
-        direction.subVectors(crossingLookout, routeCalf).clampLength(0, 4.8);
+      if (lookouts[leg]) {
+        const toward = leg === "mother" ? whales[1].patrol.getPointAt(.09) : lookouts[leg];
+        direction.subVectors(toward, routeCalf).clampLength(0, 4.8);
         routeCalf.add(direction);
         reef.separate(routeCalf, 1.75);
       } else routeCalf.x -= 2.8;
@@ -878,6 +883,7 @@ export async function makeOcean(host, onCompanion) {
       snap = true;
       clock = 0;
       calfWaiting = false;
+      guideLeg = null;
       lastSpecimen = -1;
       for (const w of whales) w.motion.reset();
       shot.mode = null;
@@ -966,13 +972,31 @@ export async function makeOcean(host, onCompanion) {
           routeCalf.copy(calf.position);
         } else {
           let pace = 1;
-          if (s.leg === "gate1" || s.step === "cross") {
+          const leg = s.step === "cross" ? "gate1" : s.leg;
+          const lookout = lookouts[leg];
+          if (lookout) {
+            if (guideLeg !== leg) calfWaiting = false;
+            guideLeg = leg;
             const gap = routeCalf.distanceTo(diver.position);
-            const ahead = routeCalf.distanceToSquared(crossingLookout) < diver.position.distanceToSquared(crossingLookout);
-            calfWaiting = ahead && gap > (calfWaiting ? 5.8 : 7.5);
-            pace = calfWaiting ? 0 : 0.72;
-            future.copy(crossingLookout);
-            future.y += 0.12 * Math.sin(t * 0.8);
+            const ahead = routeCalf.distanceToSquared(lookout) < diver.position.distanceToSquared(lookout);
+            const atLookout = leg !== "mother" && routeCalf.distanceToSquared(lookout) < 2.8 ** 2;
+            const circling = atLookout || s.step === "cross" || (ahead && gap > (calfWaiting ? 5.4 : 7.2));
+            if (circling) {
+              // Stay within sight and swim an arc back towards a diver who has stopped.
+              direction.subVectors(lookout, diver.position).clampLength(0, 6.2);
+              rendezvous.copy(diver.position).add(direction);
+              if (atLookout && gap < 7.2) rendezvous.copy(lookout);
+              if (!calfWaiting) loopPhase = Math.atan2(routeCalf.x - rendezvous.x, routeCalf.z - rendezvous.z);
+              loopPhase += dt * .85;
+              future.copy(rendezvous);
+              future.x += 2.1 * Math.sin(loopPhase + .9);
+              future.z += 2.1 * Math.cos(loopPhase + .9);
+            } else {
+              future.copy(lookout);
+            }
+            future.y = T.MathUtils.clamp(future.y + .15 * Math.sin(t * .85), 2.8, 7.5);
+            calfWaiting = circling;
+            pace = circling ? .9 : .78;
           } else if (wh && !["talk","still"].includes(s.step)) {
             camera.getWorldDirection(direction);
             future.copy(diver.position);
@@ -1077,8 +1101,14 @@ export async function makeOcean(host, onCompanion) {
           info.arrived = activeGate
             ? direction.lengthSq() < 2.5 ** 2
             : direction.length() <= (s.leg === "mother" ? 5.8 : 3.6);
+          // A follower can pass the waypoint to either side of the whale. Count the
+          // channel opening as a passage, even when the exact point is missed.
+          if (activeGate && lookouts[s.leg] && direction.z >= 0 &&
+              Math.abs(direction.x) < 4.3 && Math.abs(direction.y) < 2.8) {
+            info.arrived = true;
+          }
           info.range = direction.length();
-          if (s.leg === "gate1") {
+          if (lookouts[s.leg]) {
             direction.subVectors(routeCalf, camera.position);
             info.calfWaiting = calfWaiting;
           }
