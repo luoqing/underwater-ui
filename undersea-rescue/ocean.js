@@ -593,6 +593,9 @@ export async function makeOcean(host, onCompanion) {
   );
   scene.add(ripple);
   const routeCalf = new T.Vector3();
+  // Wait beyond the crossing so a diver following the tail can enter the trigger.
+  const crossingLookout = gates.gate1.clone().add(new T.Vector3(0, 0.35, -3.8));
+  let calfWaiting = false;
   function targetFor(leg) {
     if (leg === "calf") return calf.position;
     if (leg === "mother") return mother.position;
@@ -618,7 +621,7 @@ export async function makeOcean(host, onCompanion) {
   const candidate = new T.Vector3(),
     center = new T.Vector3(),
     desiredEye = new T.Vector3();
-  function composeCamera(mode, dt) {
+  function composeCamera(mode, dt, lowering = 0) {
     const changed = mode !== shot.mode;
     if (changed) {
       shot.from.copy(shot.last);
@@ -634,8 +637,8 @@ export async function makeOcean(host, onCompanion) {
           .set(cageTarget.x, cageTarget.y + 1, cageTarget.z)
           .lerp(
             ray.position,
-            0.44 +
-              0.46 * (1 - Math.exp(-Math.max(0, cageTarget.z - ray.position.z) * 0.35)),
+            (0.44 + 0.46 * (1 - Math.exp(-Math.max(0, cageTarget.z - ray.position.z) * 0.35)))
+                * (1 - 0.55 * T.MathUtils.smoothstep(lowering, 0, 1)),
           );
       if (changed) {
         // Choose a clear sightline down the canyon once, then keep the same side of the action.
@@ -832,7 +835,7 @@ export async function makeOcean(host, onCompanion) {
       diver.clear();
     },
     faceWaypoint(leg) {
-      if (leg) diver.face(targetFor(leg));
+      if (leg) diver.face(leg === "gate1" ? routeCalf : targetFor(leg));
     },
     enterWater(inPlace) {
       diveActive = true;
@@ -842,7 +845,14 @@ export async function makeOcean(host, onCompanion) {
       );
     },
     diverPosition() { return diver.position.toArray(); },
-    restoreEscort() { routeCalf.copy(diver.position); routeCalf.x -= 2.8; },
+    restoreEscort(leg) {
+      routeCalf.copy(diver.position);
+      if (leg === "gate1") {
+        direction.subVectors(crossingLookout, routeCalf).clampLength(0, 4.8);
+        routeCalf.add(direction);
+        reef.separate(routeCalf, 1.75);
+      } else routeCalf.x -= 2.8;
+    },
     restoreDiver(position) {
       diver.reset(new T.Vector3(...position), new T.Vector3(0, 0, -1));
     },
@@ -867,6 +877,7 @@ export async function makeOcean(host, onCompanion) {
       pitch = 0;
       snap = true;
       clock = 0;
+      calfWaiting = false;
       lastSpecimen = -1;
       for (const w of whales) w.motion.reset();
       shot.mode = null;
@@ -905,7 +916,7 @@ export async function makeOcean(host, onCompanion) {
         s.line === "mother" || s.step === "still" || s.line === "knock" || (s.step === "done" && wh)
           ? "reunion"
           : !wh &&
-              (s.step === "escape" ||
+              (s.step === "escape" || s.step === "lower" ||
                 s.line === "clear" ||
                 (s.step === "lift" && s.lift > 0.65) ||
                 (s.step === "done" && s.lift >= 1))
@@ -933,7 +944,7 @@ export async function makeOcean(host, onCompanion) {
         cageTarget.y - .82 +
           0.046 * Math.sin(t * 0.8) +
           1.35 * T.MathUtils.smoothstep(freed, 0.52, 1),
-        cageTarget.z - 7.5 * freed,
+        cageTarget.z - 7.5 * freed - 1.8 * s.lowering,
       );
       ray.rotation.set(
         0.02 * Math.cos(t),
@@ -954,7 +965,15 @@ export async function makeOcean(host, onCompanion) {
           reef.separate(calf.position, 1.75);
           routeCalf.copy(calf.position);
         } else {
-          if (wh && !["talk","still"].includes(s.step)) {
+          let pace = 1;
+          if (s.leg === "gate1" || s.step === "cross") {
+            const gap = routeCalf.distanceTo(diver.position);
+            const ahead = routeCalf.distanceToSquared(crossingLookout) < diver.position.distanceToSquared(crossingLookout);
+            calfWaiting = ahead && gap > (calfWaiting ? 5.8 : 7.5);
+            pace = calfWaiting ? 0 : 0.72;
+            future.copy(crossingLookout);
+            future.y += 0.12 * Math.sin(t * 0.8);
+          } else if (wh && !["talk","still"].includes(s.step)) {
             camera.getWorldDirection(direction);
             future.copy(diver.position);
             future.x += 2.8 * direction.z - 1.7 * direction.x;
@@ -963,7 +982,7 @@ export async function makeOcean(host, onCompanion) {
           } else {
             motherFlank(future);
           }
-          whales[0].motion.follow(routeCalf, future, dt);
+          young.motion.follow(routeCalf, future, dt, pace);
           reef.separate(routeCalf, 1.75);
           calf.position.copy(routeCalf);
         }
@@ -1059,6 +1078,10 @@ export async function makeOcean(host, onCompanion) {
             ? direction.lengthSq() < 2.5 ** 2
             : direction.length() <= (s.leg === "mother" ? 5.8 : 3.6);
           info.range = direction.length();
+          if (s.leg === "gate1") {
+            direction.subVectors(routeCalf, camera.position);
+            info.calfWaiting = calfWaiting;
+          }
           camera.getWorldDirection(future);
           const angle = Math.atan2(
             direction.x * future.z - direction.z * future.x,
@@ -1078,7 +1101,7 @@ export async function makeOcean(host, onCompanion) {
                       ? "前方偏上"
                       : "正前方";
         }
-        composeCamera(sceneShot, dt);
+        composeCamera(sceneShot, dt, s.lowering);
         garden.update(t, camera);
         diveLamp.intensity = T.MathUtils.damp(
           diveLamp.intensity,
@@ -1141,7 +1164,7 @@ export async function makeOcean(host, onCompanion) {
       }
       reef.cameraArm(look, camera.position, observatory ? 0.05 : 0.28);
       camera.lookAt(look);
-      composeCamera(sceneShot, dt);
+      composeCamera(sceneShot, dt, s.lowering);
       garden.update(t, camera);
       diveLamp.intensity = observatory ? 0.65 : 22;
       diveLamp.position.copy(camera.position);

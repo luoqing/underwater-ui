@@ -10,7 +10,7 @@ const recordings = { reef, escort, reunion, cage, lift, safe };
 function chapter(s) {
   if (s.leg === "song" || s.step === "still") return null;
   if (s.step === "listen" || s.step === "tune") return null;
-  if (s.line === "clear" || s.step === "done") return "safe";
+  if (s.line === "clear" || s.step === "lower" || s.step === "done") return "safe";
   if (s.step === "escape") return s.escape < .66 ? "lift" : "safe";
   if (s.step === "lift") return "lift";
   if (s.story === "manta" && (s.route || !s.roaming)) return "cage";

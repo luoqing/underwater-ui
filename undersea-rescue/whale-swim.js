@@ -60,7 +60,7 @@ export function whaleMotion(animal, index, waterMaterial) {
         0.18 * this.effort * Math.cos(this.phase * 0.999);
       this.distance += dt * (index ? 2.85 : 2.55) * this.stride;
     },
-    follow(position, target, dt) {
+    follow(position, target, dt, pace = 1) {
       const dx = target.x - position.x,
         dz = target.z - position.z,
         gap = Math.hypot(dx, dz);
@@ -70,7 +70,7 @@ export function whaleMotion(animal, index, waterMaterial) {
       const speed =
         Math.min(gap * 1.08, 4.65) *
         (0.2 + 0.8 * Math.max(0, Math.cos(turn))) *
-        this.stride;
+        this.stride * pace;
       this.speed = T.MathUtils.damp(this.speed, speed, 1.5, dt);
       position.x += Math.sin(heading) * this.speed * dt;
       position.z += Math.cos(heading) * this.speed * dt;

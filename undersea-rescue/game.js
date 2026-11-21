@@ -143,7 +143,7 @@ function meter(name, l, r) {
 const legs = {
   song: "沿声纹游向礁口",
   calf: "游近那头小鲸",
-  gate1: "陪泡泡游到峡口",
+  gate1: "跟着泡泡游到峡口",
   gate2: "顺着缓流穿过去",
   lee: "贴着右侧礁壁绕行",
   mother: "游向鲸鱼妈妈",
@@ -160,7 +160,7 @@ function checkpoint() {
   return null;
 }
 function refreshMenu() {
-  buttons[0].querySelector("strong").textContent = checkpoint() ? "继续潜水" : "开始潜水";
+  document.querySelector('[data-story="route"] strong').textContent = checkpoint() ? "继续海底救援" : "海底救援";
   $("load").textContent = "";
 }
 function startLeg(leg) {
@@ -178,6 +178,7 @@ function startLeg(leg) {
   $("swim-tip").hidden = true;
   $("dive-hud").hidden = false;
   $("route-guide").textContent = legs[leg];
+  if (leg === "gate1") ocean.faceWaypoint(leg);
 }
 function arrive() {
   releaseStick();
@@ -504,6 +505,7 @@ async function start(story, route = false) {
       time: 0,
       travel: 0,
       escape: 0,
+      lowering: 0,
       lift: 0,
       tide: 0,
       flow: 0,
@@ -528,7 +530,7 @@ async function start(story, route = false) {
       if (saved) {
         ocean.restoreDiver(saved.position);
         state.escorting = !["song","calf"].includes(saved.leg);
-        if (state.escorting) ocean.restoreEscort();
+        if (state.escorting) ocean.restoreEscort(saved.leg);
         state.foundCage = saved.leg === "cage";
         if (["ridge","cage"].includes(saved.leg)) state.story = "manta";
         state.gate = saved.gate || 0;
@@ -568,7 +570,7 @@ function frame(now, id) {
       const firstListen = state.leg === "song" && state.time - state.legStart < 3;
       const label = firstListen ? "礁石后面，传来一声鲸鸣…" :
         state.leg === "song" ? ((navigator.maxTouchPoints > 0 || matchMedia("(pointer: coarse)").matches) ? "推摇杆，游向声纹" : "按 W，游向声纹") + " · " + read.bearing :
-        legs[state.leg] + " · " + read.bearing;
+        (read.calfWaiting ? "泡泡在等你" : legs[state.leg]) + " · " + read.bearing;
       if (label !== guide.textContent) guide.textContent = label;
       if (read.arrived) arrive();
     }
@@ -619,7 +621,14 @@ function tickMission(dt) {
   }
   if (state.step === "escape") {
     state.escape = Math.min(1, state.escape + dt / 8.5);
-    if (state.escape >= 1) finish();
+    if (state.escape >= 1) {
+      state.step = "lower";
+      $("objective").textContent = "小翼游远了，笼架缓缓落下";
+    }
+  } else if (state.step === "lower") {
+    state.lowering = Math.min(1, state.lowering + dt / 4);
+    state.lift = 1 - state.lowering ** 2 * (3 - 2 * state.lowering);
+    if (state.lowering >= 1) finish();
   }
 }
 const held = new Set();

@@ -600,9 +600,14 @@ button:disabled {
 
 #missions { display:flex; flex-flow:column; align-items:flex-start; gap:.65rem; }
 #missions button { width:auto; min-height:44px; }
-#missions [data-story="route"] { display:flex; gap:2.2rem; align-items:center; padding:.72em 1.3em; }
-#menu #missions [data-story="route"] b { display:inline; font-size:1em; }
+#missions [data-story="route"], #missions [data-story="roam"] { padding:.6em 1.3em; }
 #menu #missions [data-story="observe"] { padding:.35em .25em; background:transparent; border:0; color:#ecf7ef; text-decoration:underline; text-underline-offset:.35em; font-size:1rem; }
 #load:empty { display:none; }
 
 #panel.dialogue h2:empty { display:none; }
+
+.depth-line { flex-direction:column; align-items:flex-start; gap:4px; }
+.keyboard-guide { display:none; }
+@media (hover:hover) and (pointer:fine) {
+  .keyboard-guide { display:block; padding:3px 7px; background:#082d35a8; border-radius:4px; font-size:13px; line-height:1.55; }
+}
