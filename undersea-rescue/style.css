@@ -612,3 +612,6 @@ button:disabled {
   #dive-readout { display:none; }
   .keyboard-guide { display:block; padding:3px 7px; background:#082d35a8; border-radius:4px; font-size:13px; line-height:1.55; }
 }
+
+.at-helm #face-target:disabled { opacity:1; cursor:default; }
+.at-helm #face-target:disabled span[aria-hidden] { display:none; }

@@ -33,7 +33,7 @@ function schoolBatch(source, count, length, rotate, light, mobileMeshes) {
 export function makeShoal(sources, reef, mobileMeshes, light) {
   const batches = [
     schoolBatch(sources.anthias, 17, 0.16, false, light, mobileMeshes),
-    schoolBatch(sources.tang, 34, 0.245, true, light, mobileMeshes),
+    schoolBatch(sources.tang, 34, 0.245, false, light, mobileMeshes),
     schoolBatch(sources.mackerel, 17, 0.4, false, light, mobileMeshes),
   ];
   const featuredTang = new T.Object3D();
@@ -50,7 +50,7 @@ export function makeShoal(sources, reef, mobileMeshes, light) {
     velocity: new T.Vector3(),
     spawned: false,
   }));
-  function update(t, dt, flow, large, eye) {
+  function update(t, dt, flow, large, eye, observingTang) {
     for (let i = 0; i < animals.length; i++) {
       const a = animals[i],
         g = a.group,
@@ -99,7 +99,7 @@ export function makeShoal(sources, reef, mobileMeshes, light) {
           a.velocity,
           delta,
         );
-      outsideBall(a.position, eye, 0.76, a.velocity, delta);
+      if (!(observingTang && i === 17)) outsideBall(a.position, eye, 0.76, a.velocity, delta);
       reef.separate(a.position, 0.26 * a.scale, a.velocity);
       object.position.copy(a.position);
       aim.copy(a.velocity).normalize();

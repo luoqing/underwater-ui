@@ -1,3 +1,4 @@
+import { boatLegs } from "./echo-sub.js";
 import { whaleCall, whaleCalling, quietWhale } from "./whale-call.js";
 import { createScore } from "./rescue-score.js";
 import lines from "./rescue-lines.json";
@@ -147,6 +148,11 @@ const legs = {
   gate2: "顺着缓流穿过去",
   lee: "贴着右侧礁壁绕行",
   mother: "游向鲸鱼妈妈",
+  hydro: "停艇听声 · 左右拨杆转舵",
+  fork: "驶向礁缝入口",
+  shoalPass: "从两只水母之间穿过",
+  reefPass: "下潜，沿右侧沙坡绕行",
+  armDock: "靠近笼架前方的横梁",
   ridge: "循着敲击声绕过礁肩",
   cage: "靠近横梁下的小翼",
 };
@@ -170,6 +176,9 @@ function startLeg(leg) {
   state.step = "navigate";
   state.nextSong = state.time + .3;
   state.legStart = state.time;
+  state.lockTime = 0;
+  if (leg === "hydro") state.nextPing=state.time+.25;
+  if (leg === "armDock") state.foundCage=true;
   if (leg !== "song") {
     try { localStorage.setItem(saveKey, JSON.stringify({leg, position:ocean.diverPosition(), gate:state.gate})); } catch {}
   }
@@ -177,10 +186,17 @@ function startLeg(leg) {
   $("swim-tip").hidden = true;
   $("dive-hud").hidden = false;
   $("route-guide").textContent = legs[leg];
+  $("face-target").disabled = state.boat && leg !== "hydro";
+  $("face-target").title = state.boat ? (leg==="hydro" ? "重听敲击" : "航向提示") : "转向当前救援目标";
+  $("face-target").setAttribute("aria-description",$("face-target").title);
+  $("dive-hud").classList.toggle("at-helm",!!state.boat);
+  document.querySelector(".keyboard-guide").innerHTML=state.boat ? "W 推进 · S 倒车 · A 左舵 · D 右舵<br>E 上浮 · Q 下潜" : "W 前进 · S 后退 · A 左移 · D 右移<br>E 上浮 · Q 下潜";
   if (leg === "gate1") ocean.faceWaypoint(leg);
 }
 function arrive() {
   const leg = state.leg;
+  if (leg === "hydro") return startLeg("fork");
+  if (leg === "shoalPass" || leg === "reefPass") return startLeg("armDock");
   if (leg === "lee") return startLeg("gate2");
   if (leg === "gate2") return startLeg("mother");
   releaseStick();
@@ -189,6 +205,14 @@ function arrive() {
   $("dive-hud").hidden = true;
   $("panel").hidden = false;
   quietWhale();
+  if (leg === "fork") {
+    state.step="choosePass";
+    page("", "从哪里穿过礁缝？", "上面有水母，右边的沙坡水流更缓。");
+    button("上层 · 水母间隙",()=>startLeg("shoalPass"),true);
+    button("下层 · 贴礁绕行",()=>startLeg("reefPass"));
+    return;
+  }
+  if (leg === "armDock") return conversation("cage");
   if (leg === "song") return startLeg("calf");
   if (leg === "ridge") { state.foundCage = true; return startLeg("cage"); }
   if (leg === "gate1") return crossing();
@@ -262,14 +286,18 @@ function conversation(id) {
       startLeg("gate1");
     }, true);
   } else if (id === "knock") {
-    button("去那边看看", () => { state.story = "manta"; startLeg("ridge"); }, true);
+    button("驾驶听潮号", () => {
+      state.story="manta"; state.boat=true; state.boardSince=state.time; ocean.boardSub();
+      startLeg("hydro");
+    },true);
   }
   else if (id === "cage") {
     button("哪边能动？", () => conversation("space"), true);
-    button("看看笼架", rigging);
-  } else if (id === "space") button("一起抬", rigging, true);
+    button(state.boat ? "对准横梁" : "看看笼架", state.boat ? armControl : rigging);
+  } else if (id === "space") button("一起抬", state.boat ? armControl : rigging, true);
   else if (id === "clear") {
     button("一起潜水", () => {
+      state.boat = false;
       state.story = "roam";
       state.route = false;
       state.leg = state.line = null;
@@ -312,6 +340,20 @@ function crossing() {
     startLeg("gate2");
   }, true);
   button("沿礁肩绕行", () => startLeg("lee"));
+}
+function armControl() {
+  page("", "托起横梁", "按住软爪慢慢抬，松手可以停。");
+  state.step="arm";
+  state.armReach=0;
+  const grip=button("按住机械臂",()=>{},true);
+  grip.style.touchAction="none";
+  const down=()=>{state.armHeld=true;grip.setAttribute("aria-pressed","true");};
+  const up=()=>{state.armHeld=false;grip.setAttribute("aria-pressed","false");};
+  up();
+  grip.onpointerdown=e=>{e.preventDefault();grip.setPointerCapture(e.pointerId);down();};
+  grip.onpointerup=grip.onpointercancel=grip.onlostpointercapture=up;
+  grip.onkeydown=e=>{if(["Space","Enter"].includes(e.code)){e.preventDefault();down();}};
+  grip.onkeyup=up;grip.onblur=up;
 }
 function rigging() {
   state.step = "rig";
@@ -371,6 +413,10 @@ function observe(index) {
 let hintTimer, companionTimer;
 function switchSwim(on, inPlace = true) {
   releaseStick();
+  if (!state.boat) {
+    $("dive-hud").classList.remove("at-helm");
+    document.querySelector(".keyboard-guide").innerHTML="W 前进 · S 后退 · A 左移 · D 右移<br>E 上浮 · Q 下潜";
+  }
   if (on) stopVoice();
   state.roaming = on;
   held.clear();
@@ -391,7 +437,10 @@ function switchSwim(on, inPlace = true) {
     ocean.leaveWater();
   }
 }
-$("face-target").onclick = () => ocean.faceWaypoint(state.leg);
+$("face-target").onclick = () => {
+  if (state.leg === "hydro") state.nextPing=state.time;
+  else if (!state.boat) ocean.faceWaypoint(state.leg);
+};
 $("roam-toggle").onclick = () => switchSwim(!state.roaming);
 const stick = $("swim-stick");
 const grip = stick.firstElementChild;
@@ -496,6 +545,7 @@ async function start(story, route = false) {
     if (session !== id) return;
     Object.assign(state, {
       story,
+      boat:false, boardSince:-8, armHeld:false, armReach:0, pingTime:-10,
       route,
       leg: null,
       gate: 0,
@@ -527,7 +577,11 @@ async function start(story, route = false) {
     if (route) {
       const saved = checkpoint();
       if (saved) {
-        ocean.restoreDiver(saved.position);
+        if (saved.leg==="ridge") saved.leg="fork";
+        if (saved.leg==="cage") saved.leg="armDock";
+        state.boat=boatLegs.has(saved.leg);
+        if (state.boat) state.story="manta";
+        if (saved.leg==="hydro") ocean.boardSub(); else ocean.restoreDiver(saved.position);
         state.escorting = !["song","calf"].includes(saved.leg);
         if (state.escorting) ocean.restoreEscort(saved.leg);
         state.foundCage = saved.leg === "cage";
@@ -558,7 +612,7 @@ function frame(now, id) {
   const read = ocean.render(state, dt);
   if (sound && !document.hidden) score?.update(state, read, captionStart !== null || whaleCalling());
   if (state.roaming) {
-    breathe();
+    if (!state.boat) breathe(); else if (breathing) stopBreath();
     if (state.leg) {
       const guide = $("route-guide");
       const listening = state.leg === "song" || state.leg === "calf" || state.leg === "mother";
@@ -570,7 +624,18 @@ function frame(now, id) {
       const label = firstListen ? "礁石后面，传来一声鲸鸣…" :
         state.leg === "song" ? ((navigator.maxTouchPoints > 0 || matchMedia("(pointer: coarse)").matches) ? "推摇杆，游向声纹" : "按 W，游向声纹") + " · " + read.bearing :
         (read.calfWaiting ? "泡泡游回来接你" : legs[state.leg]) + " · " + read.bearing;
-      if (label !== guide.textContent) guide.textContent = label;
+      let text=label;
+      if (state.leg==="hydro") {
+        if (state.time>=state.nextPing) {
+          state.pingTime=state.time; state.nextPing=state.time+2.8;
+          if (sound) score?.signal(read.signalPan,read.aligned ? .19 : .10);
+        }
+        const still=read.speed<.3;
+        state.lockTime=still && read.aligned ? state.lockTime+dt : 0;
+        text=still ? (read.aligned ? "正前方 · 听清三声" : "转动艇首听声 · "+read.bearing)+"　↻" : "松开摇杆，听三声敲击";
+        if (state.lockTime>=1.2 && state.time-state.pingTime>=.78 && state.time-state.pingTime<1.5) read.arrived=true;
+      }
+      if (text !== guide.textContent) guide.textContent=text;
       if (read.arrived) arrive();
     }
     if (!$("dive-hud").hidden) {
@@ -600,6 +665,16 @@ function tickMission(dt) {
   state.push = ease(state.push, 0, dt * 2);
   if (state.step === "cross") {
     state.showFlow(state.flow, (state.flow / 68).toFixed(1) + " 节");
+  }
+  if (state.step==="arm") {
+    state.armReach=Math.min(1,state.armReach+dt*1.45);
+    if (state.armHeld && state.armReach>=1) state.lift=Math.min(1,state.lift+dt*.20);
+    message(state.lift>0 ? Math.round(state.lift*100)+"% · "+(state.armHeld?"托举中":"止回扣已托稳") : "");
+    if (state.lift>=1) {
+      state.armHeld=false; state.step="escape";
+      page("","通道打开了","小翼正在收翅，等它游过去。");
+      $("panel").classList.add("watch-release");
+    }
   }
   if (state.step === "lift") {
     const center = 29 + 43 * state.lift + 6 * Math.sin(state.time * 0.75),
@@ -670,12 +745,14 @@ addEventListener("keyup", (e) => {
   ocean?.swimKey(e.code, false);
 });
 addEventListener("blur", () => {
+  state.armHeld=false;
   held.clear();
   releaseStick();
   ocean?.clearKeys();
 });
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) {
+    state.armHeld=false;
     quietWhale();
     score?.stop();
     held.clear();

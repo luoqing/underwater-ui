@@ -47,11 +47,14 @@ export function createDiver() {
     if (down) keys.add(code);
     else keys.delete(code);
   }
-  function move(dt, camera, reef, colonies, animals) {
+  function move(dt, camera, reef, colonies, animals, radius=.27) {
     if (keys.has("ArrowLeft")) yaw += dt * 1.35;
     if (keys.has("ArrowRight")) yaw -= dt * 1.35;
     if (keys.has("ArrowUp")) pitch = clamp(pitch + dt * 0.85, -1.35, 1.35);
     if (keys.has("ArrowDown")) pitch = clamp(pitch - dt * 0.85, -1.35, 1.35);
+    const piloting = radius > .3;
+    const helm = stick.x + Number(keys.has("KeyD")) - Number(keys.has("KeyA"));
+    if (piloting) yaw -= helm * 1.55 * dt;
     fwd.set(
       -Math.sin(yaw) * Math.cos(pitch),
       Math.sin(pitch),
@@ -65,7 +68,7 @@ export function createDiver() {
       )
       .addScaledVector(
         side,
-        stick.x + Number(keys.has("KeyD")) - Number(keys.has("KeyA")),
+        piloting ? 0 : helm,
       );
     desired.y +=
       Number(keys.has("Space") || keys.has("KeyE")) - Number(keys.has("KeyQ"));
@@ -83,8 +86,8 @@ export function createDiver() {
       position.z = clamp(position.z, -54, 13);
       position.y = clamp(position.y, -0.25, 9.2);
       for (const c of colonies) {
-        const rx = c.radius + 0.26,
-          ry = c.height + 0.25;
+        const rx = c.radius + radius,
+          ry = c.height + radius;
         offset.subVectors(position, c.center);
         if (
           Math.abs(offset.x) > rx ||
@@ -100,9 +103,10 @@ export function createDiver() {
           else position.copy(c.center).addScaledVector(offset, 1 / k);
         }
       }
-      reef.separate(position, 0.27, velocity);
+      reef.separate(position, radius, velocity);
+      if (radius>.3) position.y=Math.max(position.y,reef.ground(position.x,position.z)+radius);
       for (const a of animals)
-        outsideBall(position, a.center, a.radius + 0.34, velocity, offset);
+        outsideBall(position, a.center, a.radius + radius + .07, velocity, offset);
     }
     travel += origin.distanceTo(position);
     camera.position.copy(position);
@@ -110,6 +114,7 @@ export function createDiver() {
     camera.lookAt(offset.copy(position).add(fwd));
     return {
       depth: (10 - position.y).toFixed(1),
+      speed: velocity.length(),
       distance: travel.toFixed(1),
       zone:
         position.z > -9 ? "珊瑚花园" : position.z > -25 ? "水母湾" : "鲸游峡口",

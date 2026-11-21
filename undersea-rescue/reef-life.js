@@ -235,16 +235,16 @@ export function reefLife(sources, scene, reef, light) {
       if (index === 5) fish.rotation.z -= 0.38 * (1 - drive);
       if (index === 3) {
         fish.position.y =
-          floorHeight(fish.position.x, fish.position.z) + 0.023 + 0.115 * drive;
+          reef.ground(fish.position.x, fish.position.z) + 0.045 + 0.115 * drive;
         const { x, z } = fish.position,
           dx = tangent.x * 0.08,
           dz = tangent.z * 0.08;
         fish.rotation.z = Math.atan2(
-          floorHeight(x + dx, z + dz) - floorHeight(x - dx, z - dz),
+          reef.ground(x + dx, z + dz) - reef.ground(x - dx, z - dz),
           0.16,
         );
         fish.rotation.x = -Math.atan2(
-          floorHeight(x - dz, z + dx) - floorHeight(x + dz, z - dx),
+          reef.ground(x - dz, z + dx) - reef.ground(x + dz, z - dx),
           0.16,
         );
       }

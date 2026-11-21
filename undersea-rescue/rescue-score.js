@@ -8,6 +8,8 @@ import safe from "./assets/score/safe.m4a";
 const recordings = { reef, escort, reunion, cage, lift, safe };
 
 function chapter(s) {
+  if (s.leg === "hydro") return null;
+  if (s.step==="arm") return "lift";
   if (s.leg === "song" || s.step === "still") return null;
   if (s.step === "listen" || s.step === "tune") return null;
   if (s.line === "clear" || s.step === "lower" || s.step === "done") return "safe";
@@ -57,6 +59,7 @@ export function createScore(ctx) {
     current = null;
   }
   function stop() {
+    engine({},0);
     change++;
     wanted = undefined;
     nextCall = Infinity;
@@ -88,9 +91,24 @@ export function createScore(ctx) {
       tone.start(at); tone.stop(at + length + .01);
     });
   }
+  let motor, throttle;
+  function engine(s, speed) {
+    if (!s.boat || !s.leg) {
+      if (motor) {motor.stop();motor.disconnect();throttle.disconnect();motor=null;}
+      return;
+    }
+    if (!motor) {
+      motor=ctx.createOscillator(); throttle=ctx.createGain();
+      throttle.gain.value=0; motor.type="triangle";motor.connect(throttle).connect(ctx.destination);motor.start();
+    }
+    const power=Math.min(1,(speed||0)/2.65);
+    motor.frequency.setTargetAtTime(60+power*57,ctx.currentTime,.18);
+    throttle.gain.setTargetAtTime(.001+.021*power,ctx.currentTime,.13);
+  }
   let retryAt = 0;
   function update(s, location, foregroundPlaying) {
     if (ctx.state !== "running") return;
+    engine(s,location?.speed);
     const name = chapter(s), now = ctx.currentTime;
     if (name !== wanted && now >= retryAt) {
       const version = ++change;
@@ -122,10 +140,10 @@ export function createScore(ctx) {
     }
     duckMusic(foregroundPlaying || now < knockUntil);
   }
-  function signal() {
+  function signal(pan=.38, strength=.14) {
     const now = ctx.currentTime;
     for (const [delay, tail] of [[0,.14],[.28,.14],[.67,.51]])
-      knock(now + .025 + delay, tail, .14, .38);
+      knock(now + .025 + delay, tail, strength, pan);
   }
   return { update, stop, signal };
 }
