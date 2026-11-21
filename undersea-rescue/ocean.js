@@ -625,7 +625,7 @@ export async function makeOcean(host, onCompanion) {
   const candidate = new T.Vector3(),
     center = new T.Vector3(),
     desiredEye = new T.Vector3();
-  function composeCamera(mode, dt, lowering = 0) {
+  function composeCamera(mode, dt) {
     const changed = mode !== shot.mode;
     if (changed) {
       shot.from.copy(shot.last);
@@ -636,18 +636,14 @@ export async function makeOcean(host, onCompanion) {
     if (mode === "reunion" || mode === "release") {
       const reunion = mode === "reunion";
       if (reunion) center.copy(mother.position).lerp(calf.position, 0.38);
-      else
-        center
-          .set(cageTarget.x, cageTarget.y + 1, cageTarget.z)
-          .lerp(
-            ray.position,
-            (0.44 + 0.46 * (1 - Math.exp(-Math.max(0, cageTarget.z - ray.position.z) * 0.35)))
-                * (1 - 0.55 * T.MathUtils.smoothstep(lowering, 0, 1)),
-          );
+      else {
+        // Frame the raised cage and the whole exit lane from the same camera position.
+        center.set(cageTarget.x - .9, cageTarget.y + 1.15, cageTarget.z - 3.6);
+      }
       if (changed) {
         // Choose a clear sightline down the canyon once, then keep the same side of the action.
         shot.anchor.copy(center);
-        const radius = (reunion ? 14.5 : 8.5) * Math.max(1, 1 / camera.aspect);
+        const radius = (reunion ? 14.5 : 12) * Math.max(1, 1 / camera.aspect);
         const h = mother.rotation.y;
         const nearSide =
           Math.sign(
@@ -663,13 +659,13 @@ export async function makeOcean(host, onCompanion) {
               0.22,
               2.94,
             ]
-          : [1.15, -1.1, 0.72, -0.74, 2.55];
+          : [-.55, .55, -.32, .32, -.7, .7, 2.8];
         let best = -Infinity;
         for (const angle of angles) {
           candidate
             .set(
               Math.sin(angle) * radius,
-              reunion ? 3.1 : 2.3,
+              reunion ? 3.1 : 5.5,
               Math.cos(angle) * radius,
             )
             .add(center);
@@ -1131,7 +1127,7 @@ export async function makeOcean(host, onCompanion) {
                       ? "前方偏上"
                       : "正前方";
         }
-        composeCamera(sceneShot, dt, s.lowering);
+        composeCamera(sceneShot, dt);
         garden.update(t, camera);
         diveLamp.intensity = T.MathUtils.damp(
           diveLamp.intensity,
@@ -1194,7 +1190,7 @@ export async function makeOcean(host, onCompanion) {
       }
       reef.cameraArm(look, camera.position, observatory ? 0.05 : 0.28);
       camera.lookAt(look);
-      composeCamera(sceneShot, dt, s.lowering);
+      composeCamera(sceneShot, dt);
       garden.update(t, camera);
       diveLamp.intensity = observatory ? 0.65 : 22;
       diveLamp.position.copy(camera.position);
