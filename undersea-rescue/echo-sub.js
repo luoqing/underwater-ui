@@ -6,7 +6,7 @@ export const boatLegs = new Set(["hydro", "fork", "shoalPass", "reefPass", "armD
 export function rescueSub(model, scene) {
   const hull = new T.Group();
   const equip=fitSub(model);
-  equip("echo");
+  equip.select("echo");
   hull.add(model);
   scene.add(hull);
   const contact = new T.Vector3(), base = new T.Vector3(), elbow = new T.Vector3();
@@ -37,10 +37,15 @@ export function rescueSub(model, scene) {
     hull.add(lamp);
     return lamp;
   });
+  function poseArm(){
+    elbow.copy(base).lerp(contact,.51);elbow.y-=.24;
+    span(shoulder,base,elbow);span(forearm,elbow,contact);
+    jaws.forEach((jaw,i)=>{tip.copy(contact);tip.x+=.075;tip.z+=(i?1:-1)*.09;span(jaw,contact,tip)});
+  }
   hull.visible=false;
   return {
     select(id){
-      equip(id);
+      equip.select(id);
       lamps.forEach((lamp,i)=>{
         const side=i?1:-1;
         if(id==="swift")lamp.position.set(-.34,.255,side*.19);
@@ -48,6 +53,13 @@ export function rescueSub(model, scene) {
         else lamp.position.set(-.72,.68,side*.20);
       });
     },
+    exhibit(display){
+      display.add(hull);hull.visible=true;
+      hull.position.set(0,0,0);hull.rotation.set(0,0,0);
+      base.set(.31,-.28,.15);contact.set(.87,-.44,.15);poseArm();
+    },
+    leaveExhibit(){scene.add(hull);hull.visible=false},
+    spin:equip.spin,
     hide() { hull.visible=false; },
     drive(camera, diver, s, cage, reef, info) {
       hull.visible=true;
@@ -69,10 +81,7 @@ export function rescueSub(model, scene) {
         hull.worldToLocal(tip);
         contact.lerp(tip,T.MathUtils.smoothstep(s.armReach ?? 0,0,1));
       }
-      elbow.copy(base).lerp(contact,.51);
-      elbow.y-=.24;
-      span(shoulder,base,elbow);span(forearm,elbow,contact);
-      jaws.forEach((jaw,i)=>{tip.copy(contact);tip.x+=.075;tip.z+=(i?1:-1)*.09;span(jaw,contact,tip);});
+      poseArm();
       const age=s.time-(s.pingTime ?? -10);
       const flash=[0,.28,.67].some(at=>age>=at && age-at<.16);
       lamps.forEach((lamp,i)=>lamp.material.color.setHex(flash && (i ? info.signalPan>=-.2 : info.signalPan<=.2) ? 0xa0fff0:0x305151));

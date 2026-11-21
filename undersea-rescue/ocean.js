@@ -606,6 +606,22 @@ export async function makeOcean(host, onCompanion) {
   );
   scene.add(ripple);
   const sub = rescueSub(subSource.scene, scene);
+  const showroom=new T.Scene();
+  showroom.environment=scene.environment;showroom.environmentIntensity=.7;
+  const backdrop=document.createElement("canvas");backdrop.width=32;backdrop.height=256;
+  const brush=backdrop.getContext("2d"),wash=brush.createLinearGradient(0,0,0,256);
+  wash.addColorStop(0,"#387b85");wash.addColorStop(.55,"#21525e");wash.addColorStop(1,"#102d3b");
+  brush.fillStyle=wash;brush.fillRect(0,0,32,256);
+  showroom.background=new T.CanvasTexture(backdrop);showroom.background.colorSpace=T.SRGBColorSpace;
+  showroom.add(new T.HemisphereLight(0xe6fffa,0xacc5bb,1.65));
+  const keyLight=new T.DirectionalLight(0xffedcf,2.6),rimLight=new T.DirectionalLight(0xaeefff,2.0);
+  keyLight.position.set(3,6,-4);rimLight.position.set(-4,3,4);showroom.add(keyLight,rimLight);
+  let displayId=null,lastOrbit=-10,selectedBoat="echo";
+  function leaveShowroom(){
+    if(!displayId)return;
+    sub.leaveExhibit();sub.select(selectedBoat);
+    displayId=null;az=pitch=0;lastSpecimen=-1;snap=true;
+  }
   Object.assign(gates, {
     hydro: new T.Vector3(-.2, 4.1, -35),
     fork: new T.Vector3(-.2, 4.1, -35),
@@ -790,12 +806,13 @@ export async function makeOcean(host, onCompanion) {
       drag = [e.clientX, e.clientY];
       return;
     }
+    lastOrbit=clock;
     az -= (e.clientX - drag[0]) * 0.006;
     if (!orbitFree) az = T.MathUtils.clamp(az, -1.35, 1.35);
     pitch = T.MathUtils.clamp(
       pitch + (e.clientY - drag[1]) * 0.004,
-      -0.42,
-      0.58,
+      displayId?-1.42:-0.42,
+      displayId?1.42:0.58,
     );
     drag = [e.clientX, e.clientY];
   };
@@ -859,13 +876,14 @@ export async function makeOcean(host, onCompanion) {
       if (leg) diver.face(lookouts[leg] ? routeCalf : targetFor(leg));
     },
     enterWater(inPlace, explore) {
+      if(displayId){leaveShowroom();inPlace=false}
       diveActive = true;
       diver.reset(
         inPlace ? camera.position : explore ? new T.Vector3(0,3.3,12) : null,
         inPlace ? camera.getWorldDirection(direction) : explore ? new T.Vector3(.065,-.12,.99).normalize() : null,
       );
     },
-    selectVessel(id) { sub.select(id); },
+    selectVessel(id) { selectedBoat=id;sub.select(id); },
     diverPosition() { return diver.position.toArray(); },
     restoreEscort(leg) {
       routeCalf.copy(diver.position);
@@ -888,6 +906,7 @@ export async function makeOcean(host, onCompanion) {
       snap = true;
     },
     reset() {
+      leaveShowroom();
       companion.stop(true);
       firstTap = null;
       frameTimes = [];
@@ -931,6 +950,19 @@ export async function makeOcean(host, onCompanion) {
       waveTime.value = t;
       flow.value = diveActive ? Math.sin(t * 0.78 + 0.53) : s.tide;
       const observatory = s.story === "observe" && !diveActive;
+      if(observatory && s.exhibit){
+        orbitFree=true;canSwimTogether=false;frameSubject(true);
+        if(displayId!==s.exhibit){
+          companion.stop(true);displayId=s.exhibit;sub.select(displayId);sub.exhibit(showroom);
+          az=2.64;pitch=.28;lastOrbit=t;
+        }
+        if(!drag && t-lastOrbit>3 && !matchMedia("(prefers-reduced-motion: reduce)").matches)az+=dt*.17;
+        const radius=camera.aspect<1?4.1/camera.aspect:3.65;
+        camera.position.set(radius*Math.cos(pitch)*Math.sin(az),radius*Math.sin(pitch),radius*Math.cos(pitch)*Math.cos(az));
+        camera.lookAt(0,-.03,0);sub.spin(dt,.30);renderer.render(showroom,camera);recordFrame();
+        return {speed:0,depth:0};
+      }
+      leaveShowroom();
       const subject = observatory ? atlas[s.specimen] : null;
       calf.visible = s.route ? s.leg !== "song" : diveActive || subject?.key === "calf";
       mother.visible = s.route ? (s.leg === "mother" || s.line === "mother" || s.step === "still" || s.line === "knock" || !wh) : diveActive || subject?.key === "mother";
@@ -1074,6 +1106,7 @@ export async function makeOcean(host, onCompanion) {
         fauna.jellyBounds[i].center.copy(j.position);
       }
       if (!s.boat) sub.hide();
+      else sub.spin(dt,diveActive && !(s.foundCage && !s.leg) ? diver.throttle() : 0);
       const pelagic=offshore(t,diver.position,diveActive);
       const large = diveActive
         ? [

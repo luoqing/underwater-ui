@@ -87,15 +87,23 @@ function buildVessel(shark) {
       oval(lamps,.93,-.22,s*.59,.13,.035,.038);
     }
   }
+  const rotors=[];
   function duct(x,y,z,radius){
     const ring=new T.Mesh(new T.TorusGeometry(radius,.055,10,32),paint);
     ring.position.set(x,y,z);ring.rotation.y=Math.PI/2;group.add(ring);
     oval(trim,x+.017,y,z,.066,radius,radius);
+    const blades=[];
     for(let i=0;i<4;i++){
       const a=i*Math.PI/2;
       const blade=oval(cream,x-.056,y+radius*.48*Math.cos(a),z+radius*.48*Math.sin(a),.017,radius*.45,.026);
-      blade.rotation.x=a+.23;
+      blade.position.set(0,radius*.48*Math.cos(a),radius*.48*Math.sin(a));
+      blade.rotation.x=a+.23;blade.updateMatrix();
+      blades.push(blade.geometry.applyMatrix4(blade.matrix));
+      group.remove(blade);
+
     }
+    const rotor=new T.Mesh(mergeGeometries(blades),cream);
+    rotor.name="Propeller";rotor.position.set(x-.071,y,z);rotors.push(rotor);
   }
   if(shark)duct(-1.59,.07,0,.19);
   else for(const s of [-1,1]){oval(paint,-.40,-.34,s*.56,.44,.19,.20);duct(-.75,-.34,s*.56,.157)}
@@ -110,14 +118,42 @@ function buildVessel(shark) {
   }
   group.clear();
   for(const [mat,partsOfFinish] of parts)group.add(new T.Mesh(mergeGeometries(partsOfFinish),mat));
+  group.add(...rotors);
   return group;
 }
 
 export function fitSub(model) {
   const echo=new T.Group();
   echo.add(...model.children.slice());
+  const originalBlades=[];
+  echo.traverse(n=>{if(n.isMesh && /^Impeller[ _]vane/.test(n.name))originalBlades.push(n)});
+  for(const side of [-1,1]){
+    const blades=originalBlades.filter(b=>Math.sign(b.position.z)===side);
+    if(!blades.length)continue;
+    const rotor=new T.Group();
+    rotor.name="Propeller";
+    for(const b of blades)rotor.position.add(b.position);
+    rotor.position.divideScalar(blades.length);echo.add(rotor);
+    for(const b of blades)rotor.attach(b);
+  }
   const variants={echo,swift:buildVessel(true),stone:buildVessel(false)};
   model.add(...Object.values(variants));
   model.scale.setScalar(.69);
-  return id=>{for(const [key,node] of Object.entries(variants))node.visible=key===id};
+  const props={};
+  for(const [key,node] of Object.entries(variants)){
+    props[key]=[];
+    node.traverse(part=>{if(part.name==="Propeller")props[key].push(part)});
+  }
+  let selected="echo",rate=0;
+  return {
+    select(id){
+      selected=Object.hasOwn(variants,id)?id:"echo";rate=0;
+      for(const [key,node] of Object.entries(variants))node.visible=key===selected;
+    },
+    spin(dt,throttle){
+      rate=T.MathUtils.damp(rate,throttle*17,throttle===0?3.4:4.8,dt);
+      if(Math.abs(rate)<.01)rate=0;
+      props[selected].forEach((rotor,i)=>{rotor.rotation.x=(rotor.rotation.x+rate*dt*(i?-1:1))%(2*Math.PI)});
+    }
+  };
 }

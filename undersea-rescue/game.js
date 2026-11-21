@@ -414,20 +414,36 @@ function finish() {
   try { localStorage.removeItem(saveKey); } catch {}
   conversation("clear");
 }
-function observe(index) {
+function observe(index, exhibit = null) {
   state.step = "observe";
   state.specimen = index;
   const entry = atlas[index];
-  page("", entry.name, entry.note);
+  state.exhibit=exhibit;
+  const notes={
+    echo:"圆舱顶上，那对小小的听音器能帮你找到鲸歌。拖动看看艇尾的双桨。",
+    swift:"尖艇首划开海水，竖尾帮它拐弯。拖动转一圈，找找尾巴里的螺旋桨。",
+    stone:"宽宽的鲸尾下藏着双桨。拖到艇腹，看机械臂从哪里伸出来。"
+  };
+  page("",exhibit?fleet[exhibit].name:entry.name,exhibit?notes[exhibit]:entry.note);
   const picker = document.createElement("select");
   picker.setAttribute("aria-label", "选择观察的海洋动物");
   for (const [i, animal] of atlas.entries()) picker.add(new Option(animal.name, String(i)));
-  picker.value = String(index);
+  if(exhibit)picker.prepend(new Option("看动物","",true,true));
+  picker.value = exhibit?"":String(index);
   picker.onchange = () => {
     observe(Number(picker.value));
     $("controls").querySelector("select").focus({ preventScroll: true });
   };
-  $("controls").append(picker);
+  const vessels=document.createElement("select");
+  vessels.setAttribute("aria-label","选择观察的潜艇");
+  const prompt=new Option("看潜艇","");prompt.disabled=true;vessels.add(prompt);
+  for(const [id,boat] of Object.entries(fleet))vessels.add(new Option(boat.name,id));
+  vessels.value=exhibit || "";
+  vessels.onchange=()=>{
+    observe(index,vessels.value);
+    $("controls").querySelector('[aria-label="选择观察的潜艇"]').focus({preventScroll:true});
+  };
+  $("controls").append(picker,vessels);
 }
 let hintTimer, companionTimer;
 function switchSwim(on, inPlace = true, keepPosition = false) {
@@ -562,7 +578,7 @@ async function start(story, route = false) {
     ocean = await loading;
     if (session !== id) return;
     Object.assign(state, {
-      story,
+      story,exhibit:null,
       boat:route || story==="roam", vessel:fleet[vesselId], reunionSince:-8, armHeld:false, armReach:0, pingTime:-10,
       route,
       leg: null,

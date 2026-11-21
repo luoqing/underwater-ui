@@ -122,6 +122,7 @@ export function createDiver() {
   }
   return {
     position,
+    throttle(){return clamp(stick.y+Number(keys.has("KeyW"))-Number(keys.has("KeyS")),-1,1)},
     reset,
     move,
     turn,
