@@ -636,3 +636,12 @@ button:disabled {
  #menu #load:empty {display:none}
 }
 @media (max-height:330px) {#vessels small {display:none} #vessels label {width:76px}}
+
+.launch-actions {display:flex;align-items:center;gap:10px;margin-top:10px}
+.launch-actions button {min-height:44px;padding:.45em 1em}
+
+#sea-chart {position:absolute;top:calc(max(7px,env(safe-area-inset-top)) + 45px);right:max(12px,env(safe-area-inset-right));width:clamp(127px,min(19vw,36vh),184px);padding:2px;border:1px solid #a5cfbf80;border-radius:9px;background:#103c49db;box-shadow:0 2px 9px #06222d47;pointer-events:none}
+#chart-canvas {display:block;width:100%;height:auto;border-radius:6px}
+#dive #open-chart {display:flex;align-items:center;justify-content:center;gap:4px;width:auto;min-width:68px;border-radius:18px;background:linear-gradient(transparent 15%,#0b3845bd 15% 85%,transparent 85%);padding:0 6px}
+#dive #open-chart[aria-expanded="true"] {color:#ffedbd}
+#open-chart #dive-readout {display:inline;font-size:12px;font-variant-numeric:tabular-nums;white-space:nowrap}

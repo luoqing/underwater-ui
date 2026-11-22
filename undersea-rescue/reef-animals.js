@@ -40,9 +40,16 @@ export function reefAnimals(scene, actor, sources, garden, reef) {
     );
   };
   clownMaterial.customProgramCacheKey = () => "anemonefish-swim";
-  function update(t) {
-    const stroke = t * 2.0;
-    const a = t * 0.18 - 0.024 * Math.cos(stroke);
+  const clocks=new WeakMap();
+  function patrolTime(node,t,dt,wake,radius,response,seed) {
+    const extra=(clocks.get(node) || 0)+dt*wake.threat(node.position,radius,seed)*response;
+    clocks.set(node,extra);
+    return t+extra;
+  }
+  function update(t,dt,wake) {
+    const turtleTime=patrolTime(turtle,t,dt,wake,.73,1.3,.8);
+    const stroke = turtleTime * 2.0;
+    const a = turtleTime * 0.18 - 0.024 * Math.cos(stroke);
     const effort = 0.5 + 0.5 * Math.sin(0.66 * t);
     anchor.set(
       -0.65 + 2.3 * Math.sin(a),
@@ -61,15 +68,17 @@ export function reefAnimals(scene, actor, sources, garden, reef) {
         f.rotation.z = sign * (0.06 + 0.19 * effort * Math.cos(stroke));
       }
     });
+    wake.avoid(turtle,anchor,.73,dt,.8);
     reef.separate(anchor, 0.48);
     for (const { node, i, home } of clowns) {
-      const tempo = t * (0.61 + i * 0.055) + i * 2.2 + home.z * 0.15;
+      const tempo = patrolTime(node,t,dt,wake,.16,2.1,i*1.7) * (0.61 + i * 0.055) + i * 2.2 + home.z * 0.15;
       const b = tempo + 0.31 * Math.sin(tempo * 2);
       const radius = 0.46 + 0.16 * Math.sin(tempo);
       node.position.copy(home);
       node.position.x += radius * Math.sin(b);
       node.position.z += radius * 0.73 * Math.cos(b);
       node.position.y += 0.4 + 0.12 * Math.sin(2 * b);
+      wake.avoid(node,node.position,.16,dt,i*1.7);
       node.rotation.set(
         0,
         Math.atan2(0.73 * Math.sin(b), Math.cos(b)),
@@ -77,7 +86,8 @@ export function reefAnimals(scene, actor, sources, garden, reef) {
       );
     }
     for (const { node, i } of lions) {
-      const b = t * 0.22 + 0.32 * Math.sin(t * 0.49 + i) + i;
+      const local=patrolTime(node,t,dt,wake,.27,1.2,i*2.4);
+      const b = local * 0.22 + 0.32 * Math.sin(local * 0.49 + i) + i;
       node.position.set(
         (i % 2 ? -1 : 1) * (2.35 + 0.38 * Math.sin(b)),
         1.18 + 0.14 * Math.sin(b * 0.84),
@@ -87,11 +97,12 @@ export function reefAnimals(scene, actor, sources, garden, reef) {
         0.52 * Math.sin(b),
         (i % 2 ? -1 : 1) * 0.38 * Math.cos(b),
       );
+      wake.avoid(node,node.position,.27,dt,i*2.4);
       reef.separate(node.position, 0.22);
       node.traverse((m) => {
         if (m.morphTargetInfluences) {
-          m.morphTargetInfluences[0] = Math.max(0, Math.sin(t * 2 + i)) * 0.58;
-          m.morphTargetInfluences[1] = Math.max(0, -Math.sin(t * 2 + i)) * 0.58;
+          m.morphTargetInfluences[0] = Math.max(0, Math.sin(local * 2 + i)) * 0.58;
+          m.morphTargetInfluences[1] = Math.max(0, -Math.sin(local * 2 + i)) * 0.58;
         }
       });
     }
@@ -110,6 +121,7 @@ export function reefAnimals(scene, actor, sources, garden, reef) {
           0.09 * Math.sin(phase * 2 * Math.PI - 0.9),
         -13 - (i % 6) * 1.78 + 0.52 * Math.cos(b),
       );
+      wake.avoid(j,j.position,.60,dt,b);
       j.rotation.set(0.11 * Math.sin(b), b, 0.13 * Math.cos(b));
       const size = 0.62 + (i % 5) * 0.14;
       jellyBounds[i].radius = 0.54 * size;

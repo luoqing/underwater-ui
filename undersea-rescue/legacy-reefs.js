@@ -1,4 +1,4 @@
-import { habitats } from "./outer-ocean.js";
+import { habitats } from "./bluewater-layout.js";
 import * as T from "three";
 import { legacyPigment } from "./reef-pigment.js";
 import { MeshBVH } from "three-mesh-bvh";
@@ -23,7 +23,12 @@ export function legacyReefs(scene, reef, sources, light, mobileMeshes) {
       width = Math.max(extent.x, extent.y, extent.z);
     const tree = new MeshBVH(g, { maxLeafTris: 16 });
     light(model.material);
-    for (const [x, z, span, az, embed, tint] of layout) {
+    for (const [siteX, z, span, az, embed, tint] of layout) {
+      // Keep a clear swim lane through the outer reef, including the wide
+      // bases of the scanned colonies, not just their centre points.
+      const channel=(z-12)*.065, margin=span*.56+2.5;
+      const x=z>21 && z<138 && Math.abs(siteX-channel)<margin
+        ? channel+(siteX<channel?-margin:margin) : siteX;
       const scale = span / width,
         mesh = new T.Mesh(mobileMeshes.get(g) || g, model.material.clone());
       mesh.material.onBeforeCompile = model.material.onBeforeCompile;
@@ -90,10 +95,20 @@ export function legacyReefs(scene, reef, sources, light, mobileMeshes) {
     [-0.85, -42, 3.9, 1.7, 0.54, 0xf6ddd5],
   );
   for(const [i,h] of habitats.entries()){
+    if(h.bed==="open")continue;
+    if(i>=18){
+      const spread=h.bed==="wall"?7.1:3.2;
+      shelves.push([h.x-spread,h.z-2,5+i%4,i*1.41,.70,0xffffff]);
+      if(h.bed!=="grass")clusters.push([h.x+spread*.42,h.z+3,3.7,i*.81,.3,0xffffff]);
+      continue;
+    }
     reefs.push([h.x+4.7,h.z+3.2,6.8+i%4,i*1.41,.59,0xffffff]);
     shelves.push([h.x-3.8,h.z+1.4,4.4+i%3,i*1.67,.44,0xffffff]);
     clusters.push([h.x+3.1,h.z-2.7,2.3+i%2,i*2.19,.32,0xffffff]);
   }
+  // The wreck lies in a sandy clearing. Frame the outer rim, leaving the arm and exit lane open.
+  reefs.push([-8.3,-84,6.8,.9,.55,0xffffff],[10.8,-81,5.3,2.7,.48,0xffffff]);
+  shelves.push([-6.8,-87,4.7,1.8,.4,0xffffff],[-9.1,-76.8,3.8,2.6,.38,0xffffff]);
   plant(sources.garden, reefs);
   plant(sources.shelf, shelves);
   plant(sources.cluster, clusters);
@@ -154,5 +169,6 @@ export function legacyReefs(scene, reef, sources, light, mobileMeshes) {
       return !!o.tree.raycastFirst(ray, T.DoubleSide, .001, (distance-.015)/o.scale);
     });
   }
-  return { ground, separate, cameraArm, blocked };
+  const updateVisibility=p=>{for(const o of objects)o.mesh.visible=o.box.distanceToPoint(p)<60};
+  return { ground, separate, cameraArm, blocked,updateVisibility };
 }

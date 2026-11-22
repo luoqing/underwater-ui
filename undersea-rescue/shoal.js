@@ -1,7 +1,7 @@
 import * as T from "three";
 import { outsideBall } from "./collision.js";
 
-export function schoolBatch(source, count, length, rotate, light, mobileMeshes) {
+export function schoolBatch(source, count, length, rotate, light, mobileMeshes, individualStrokes=false) {
   const specimen = source.scene.getObjectByProperty("isMesh", true);
   const geometry = (
     mobileMeshes.get(specimen.geometry) || specimen.geometry
@@ -12,19 +12,24 @@ export function schoolBatch(source, count, length, rotate, light, mobileMeshes) 
   geometry.computeBoundingBox();
   const k = length / (geometry.boundingBox.max.x - geometry.boundingBox.min.x);
   geometry.scale(k, k, k);
+  const pectoral=individualStrokes && !!geometry.getAttribute("_pectoral");
   const material = specimen.material.clone();
   light(material);
   const illuminate = material.onBeforeCompile;
   material.onBeforeCompile = (shader) => {
     illuminate(shader);
+    if(pectoral)shader.vertexShader="attribute float _pectoral;\n"+shader.vertexShader;
+    if(individualStrokes)shader.vertexShader="attribute float strokePhase;\n"+shader.vertexShader;
     shader.vertexShader = shader.vertexShader.replace(
       "#include <begin_vertex>",
       `#include <begin_vertex>
        float rear=clamp(.5-position.x/${length},0.,1.);
-       transformed.z+=${length}*.105*rear*rear*sin(tideTime*7.+instanceMatrix[3].z+4.*position.x/${length});`,
+       transformed.z+=${length}*${pectoral?".04":".105"}*rear*rear*sin(${individualStrokes?"strokePhase":"tideTime*7.+instanceMatrix[3].z"}+4.*position.x/${length});
+       ${pectoral?"transformed.z+=.009*_pectoral*sin(strokePhase); transformed.y+=.003*abs(_pectoral)*cos(strokePhase);":""}`,
     );
   };
-  material.customProgramCacheKey = () => "reef-school-" + length;
+  material.customProgramCacheKey = () => "reef-school-" + length + (individualStrokes?"-stroke":"")+(pectoral?"-pectoral":"");
+  if(individualStrokes)geometry.setAttribute("strokePhase",new T.InstancedBufferAttribute(new Float32Array(count),1).setUsage(T.DynamicDrawUsage));
   const batch = new T.InstancedMesh(geometry, material, count);
   batch.frustumCulled = false;
   batch.receiveShadow = true;
@@ -32,9 +37,9 @@ export function schoolBatch(source, count, length, rotate, light, mobileMeshes) 
 }
 export function makeShoal(sources, reef, mobileMeshes, light) {
   const batches = [
-    schoolBatch(sources.anthias, 17, 0.16, false, light, mobileMeshes),
-    schoolBatch(sources.tang, 34, 0.245, false, light, mobileMeshes),
-    schoolBatch(sources.mackerel, 17, 0.4, false, light, mobileMeshes),
+    schoolBatch(sources.anthias, 17, 0.16, false, light, mobileMeshes,true),
+    schoolBatch(sources.tang, 34, 0.245, false, light, mobileMeshes,true),
+    schoolBatch(sources.mackerel, 17, 0.4, false, light, mobileMeshes,true),
   ];
   const featuredTang = new T.Object3D();
   const object = new T.Object3D(),
@@ -48,9 +53,11 @@ export function makeShoal(sources, reef, mobileMeshes, light) {
     scale: 0.76 + ((i * 31) % 67) / 100,
     position: new T.Vector3(),
     velocity: new T.Vector3(),
+    beat:i*2.39996,
     spawned: false,
+    clearance:{},
   }));
-  function update(t, dt, flow, large, eye, observingTang) {
+  function update(t, dt, flow, large, eye, observingTang,wake) {
     const visible=observingTang || (Math.abs(eye.x)<43 && eye.z<34 && eye.z>-63 && eye.y>-30);
     for (const b of batches)b.visible=visible;
     if(!visible)return;
@@ -76,6 +83,7 @@ export function makeShoal(sources, reef, mobileMeshes, light) {
         a.velocity.set(Math.cos(orbit), 0, -0.25 * Math.sin(orbit));
         a.spawned = true;
       }
+      wake.avoid(a,target,.24*a.scale,dt,q);
       desired.subVectors(target, a.position).multiplyScalar(1.6);
       desired.x += Math.cos(orbit) * radiusX * (0.19 + g * 0.018) + flow * 0.12;
       desired.z -= radiusZ * (0.19 + g * 0.018) * Math.sin(orbit);
@@ -92,7 +100,8 @@ export function makeShoal(sources, reef, mobileMeshes, light) {
         if (d > 0 && d < b.radius + 1)
           desired.addScaledVector(delta, ((b.radius + 1 - d) * 3) / d);
       }
-      a.velocity.lerp(desired.clampLength(0.16, 2.1), 1 - Math.exp(-dt * 2.8));
+      const alarm=wake.threat(a.position,.24*a.scale,q);
+      a.velocity.lerp(desired.clampLength(0.16, 1.8+alarm*2.2), 1 - Math.exp(-dt * (2.8+alarm*5)));
       a.position.addScaledVector(a.velocity, dt);
       for (const b of large)
         outsideBall(
@@ -105,6 +114,7 @@ export function makeShoal(sources, reef, mobileMeshes, light) {
       if (!(observingTang && i === 17)) outsideBall(a.position, eye, 0.76, a.velocity, delta);
       reef.separate(a.position, 0.26 * a.scale, a.velocity);
       object.position.copy(a.position);
+      wake.avoid(a.clearance,object.position,.24*a.scale,dt,q);
       aim.copy(a.velocity).normalize();
       object.rotation.order = "YXZ";
       object.rotation.set(
@@ -118,12 +128,15 @@ export function makeShoal(sources, reef, mobileMeshes, light) {
         featuredTang.position.copy(object.position);
         featuredTang.rotation.copy(object.rotation);
       }
-      batches[g === 3 ? 1 : g].setMatrixAt(
-        (i % 17) + (g === 3 ? 17 : 0),
-        object.matrix,
-      );
+      const batch=batches[g===3?1:g],index=(i%17)+(g===3?17:0);
+      a.beat+=dt*2*Math.PI*(silver?2.8:g===0?2.7:2.1)*(1+1.6*alarm);
+      batch.geometry.attributes.strokePhase.setX(index,a.beat);
+      batch.setMatrixAt(index,object.matrix);
     }
-    for (const batch of batches) batch.instanceMatrix.needsUpdate = true;
+    for (const batch of batches) {
+      batch.instanceMatrix.needsUpdate=true;
+      batch.geometry.attributes.strokePhase.needsUpdate=true;
+    }
   }
   return {
     batches,

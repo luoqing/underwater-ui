@@ -1,3 +1,4 @@
+import { habitats } from "./bluewater-layout.js";
 import * as T from "three";
 import stoneSkin from "./assets/sandstone.jpg";
 import acroporaSkin from "./assets/acropora.jpg";
@@ -555,6 +556,16 @@ export async function coralGarden(
   plant(0, 2.55, 1, 1.42);
   plant(2, -3.2, 0.1, 1.25);
   plant(2, -1.64, 5.35, 0.94);
+  plant(3,-7.2,-82.9,1.7,2.4);plant(1,-6.8,-85.8,1.4,.68);
+  plant(3,9.3,-82,1.5,.8);
+  for(const [i,h] of habitats.entries()){
+    if(h.bed==="open")continue;
+    const kind=h.bed==="grass"?2:h.bed==="fan"?3:1;
+    for(let j=0;j<4;j++){
+      const a=i*1.47+j*.77;
+      plant(j===3 && kind!==3?0:kind,h.x+3.4*Math.sin(a),h.z+3.7*Math.cos(a),.8+.7*(.5+.5*Math.sin(a*3)),a);
+    }
+  }
   distant = true;
   const low = [
     staghorn(),

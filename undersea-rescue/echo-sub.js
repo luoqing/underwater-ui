@@ -17,9 +17,11 @@ export function rescueSub(model, scene) {
   });
   const enamel = new T.MeshStandardMaterial({color:0xffb246,metalness:.45,roughness:.36});
   const metal = new T.MeshStandardMaterial({color:0x8babb1,metalness:.58,roughness:.36});
+  const arm=new T.Group();
+  arm.name="RescueArm";arm.visible=false;hull.add(arm);
   function link(material,radius) {
     const node = new T.Mesh(new T.CylinderGeometry(radius,radius,1,12), material);
-    hull.add(node);
+    arm.add(node);
     return node;
   }
   const shoulder = link(enamel,.07), forearm = link(metal,.045);
@@ -37,10 +39,10 @@ export function rescueSub(model, scene) {
     hull.add(lamp);
     return lamp;
   });
-  function poseArm(){
-    elbow.copy(base).lerp(contact,.51);elbow.y-=.24;
+  function poseArm(reach){
+    elbow.copy(base).lerp(contact,.51);elbow.y-=.24*reach;
     span(shoulder,base,elbow);span(forearm,elbow,contact);
-    jaws.forEach((jaw,i)=>{tip.copy(contact);tip.x+=.075;tip.z+=(i?1:-1)*.09;span(jaw,contact,tip)});
+    jaws.forEach((jaw,i)=>{tip.copy(contact);tip.x+=.075*reach;tip.z+=(i?1:-1)*.09*reach;span(jaw,contact,tip)});
   }
   hull.visible=false;
   return {
@@ -56,16 +58,20 @@ export function rescueSub(model, scene) {
     exhibit(display){
       display.add(hull);hull.visible=true;
       hull.position.set(0,0,0);hull.rotation.set(0,0,0);
-      base.set(.31,-.28,.15);contact.set(.87,-.44,.15);poseArm();
+      arm.visible=false;
     },
     leaveExhibit(){scene.add(hull);hull.visible=false},
+    leaveDock(diver) {
+      forward.set(1,0,0).applyQuaternion(hull.quaternion);
+      diver.reset(hull.position,forward);
+    },
     spin:equip.spin,
     hide() { hull.visible=false; },
     drive(camera, diver, s, cage, reef, info) {
       hull.visible=true;
       const docked = s.route && s.foundCage && !s.leg;
       if (docked) {
-        hull.position.set(cage.x, cage.y + .08, cage.z + 3.48);
+        hull.position.set(cage.x, Math.max(cage.y+.08,reef.ground(cage.x,cage.z+3.48)+.92), cage.z + 3.48);
         hull.rotation.set(0,Math.PI/2,0);
       } else {
         camera.getWorldDirection(forward);
@@ -74,14 +80,15 @@ export function rescueSub(model, scene) {
           Math.asin(T.MathUtils.clamp(forward.y,-.7,.7)),"YXZ");
       }
       hull.updateMatrixWorld();
-      base.set(.31,-.28,.15);
-      contact.set(.99,-.38,.15);
-      if (docked) {
+      const reach=docked ? T.MathUtils.smoothstep(s.armReach ?? 0,0,1) : 0;
+      arm.visible=reach>.001;
+      if (arm.visible) {
+        base.set(.31,-.22,.15);
         tip.set(cage.x,cage.y+.22+s.lift*3.3,cage.z+2.05);
         hull.worldToLocal(tip);
-        contact.lerp(tip,T.MathUtils.smoothstep(s.armReach ?? 0,0,1));
+        contact.copy(base).lerp(tip,reach);
+        poseArm(reach);
       }
-      poseArm();
       const age=s.time-(s.pingTime ?? -10);
       const flash=[0,.28,.67].some(at=>age>=at && age-at<.16);
       lamps.forEach((lamp,i)=>lamp.material.color.setHex(flash && (i ? info.signalPan>=-.2 : info.signalPan<=.2) ? 0xa0fff0:0x305151));
@@ -97,6 +104,7 @@ export function rescueSub(model, scene) {
       }
       eye.y=Math.max(eye.y,reef.ground(eye.x,eye.z)+.4);
       reef.cameraArm(hull.position,eye,.23);
+      eye.y=Math.max(eye.y,reef.ground(eye.x,eye.z)+.25);
       camera.position.copy(eye);camera.lookAt(aim);
     }
   };

@@ -8,6 +8,7 @@ import { playVoice, stopVoice } from "./rescue-voice.js";
 import { swimKeys } from "./dive-controls.js";
 import { atlas } from "./reef-life.js";
 import { makeOcean } from "./ocean.js";
+import { seaChart } from "./sea-chart.js";
 import cover from "./assets/reef-color-reference.jpg";
 const $ = (id) => document.getElementById(id);
 document.body.style.setProperty("--cover", `url("${cover}")`);
@@ -170,10 +171,10 @@ const legs = {
   lee: "贴着右侧礁壁绕行",
   mother: "靠近鲸鱼妈妈",
   hydro: "停艇听声 · 左右拨杆转舵",
-  fork: "驶向礁缝入口",
+  fork: "开到水母群前选路",
   shoalPass: "从两只水母之间穿过",
   reefPass: "下潜，沿右侧沙坡绕行",
-  armDock: "靠近笼架前方的横梁",
+  armDock: "靠近笼子，听小翼说",
   ridge: "循着敲击声绕过礁肩",
   cage: "靠近横梁下的小翼",
 };
@@ -226,7 +227,7 @@ function arrive() {
   quietWhale();
   if (leg === "fork") {
     state.step="choosePass";
-    page("", "从哪里穿过礁缝？", "上面有水母，右边的沙坡水流更缓。");
+    page("", "从哪边去救小翼？", "上面有水母，右边的沙坡水流更缓。");
     button("上层 · 水母间隙",()=>startLeg("shoalPass"),true);
     button("下层 · 贴礁绕行",()=>startLeg("reefPass"));
     return;
@@ -244,8 +245,8 @@ const cueStarts = {
   trust: [[1.9,"我要是"],[3.55,"你等等"]],
   mother: [[2.5,"慢慢游"]],
   knock: [],
-  cage: [[1.27,"我的右"],[3.21,"先别拉"],[4.6,"能把"]],
-  space: [[1.35,"你把"],[3.75,"我就能"]],
+  cage: [[1.87,"能帮我"]],
+  space: [[1.89,"我就能"]],
   clear: [[1.1,"你看"],[3.25,"泡泡"]]
 };
 let captionStart = null;
@@ -311,7 +312,7 @@ function conversation(id) {
     },true);
   }
   else if (id === "cage") {
-    button("哪边能动？", () => conversation("space"), true);
+    button("怎么救你？", () => conversation("space"), true);
     button(state.boat ? "对准横梁" : "看看笼架", state.boat ? armControl : rigging);
   } else if (id === "space") button("一起抬", state.boat ? armControl : rigging, true);
   else if (id === "clear") {
@@ -319,11 +320,12 @@ function conversation(id) {
       state.foundCage = false;
       state.story = "roam";
       state.route = false;
+      if (state.boat) ocean.leaveDock();
       state.leg = state.line = null;
       state.step = "";
       switchSwim(true, false, true);
     }, true);
-    button("回海图", exitDive);
+    button("返回首页", exitDive);
   }
   if (id === "mother") return;
   const replay = button("重听", () => {
@@ -422,7 +424,7 @@ function observe(index, exhibit = null) {
   const notes={
     echo:"圆舱顶上，那对小小的听音器能帮你找到鲸歌。拖动看看艇尾的双桨。",
     swift:"尖艇首划开海水，竖尾帮它拐弯。拖动转一圈，找找尾巴里的螺旋桨。",
-    stone:"宽宽的鲸尾下藏着双桨。拖到艇腹，看机械臂从哪里伸出来。"
+    stone:"宽宽的鲸尾下藏着双桨。拖动看看它的尾巴。"
   };
   page("",exhibit?fleet[exhibit].name:entry.name,exhibit?notes[exhibit]:entry.note);
   const picker = document.createElement("select");
@@ -448,6 +450,9 @@ function observe(index, exhibit = null) {
 let hintTimer, companionTimer;
 function switchSwim(on, inPlace = true, keepPosition = false) {
   releaseStick();
+  $("open-chart").hidden=!on;
+  if(!on)showChart(false);
+  else if(ocean)chart.prepare(ocean.chartFix(null).ground);
   $("dive-hud").classList.toggle("at-helm",!!state.boat);
   document.querySelector(".keyboard-guide").innerHTML=state.boat ? "W 推进 · S 倒车 · A 左舵 · D 右舵<br>E 上浮 · Q 下潜" : "W 前进 · S 后退 · A 左移 · D 右移<br>E 上浮 · Q 下潜";
   $("swim-tip").lastElementChild.textContent=state.boat ? "前后推杆控制航速 · 左右转舵 · 右侧升潜" : "左手摇杆游动 · 右手划动转向 · 双点动物同游";
@@ -531,7 +536,18 @@ for (const btn of document.querySelectorAll("[data-key]")) {
     btn.onlostpointercapture =
       () => ocean?.swimKey(btn.dataset.key, false);
 }
+const chart=seaChart($("chart-canvas"));
+let nextFix=0;
+function showChart(open){
+  $("sea-chart").hidden=!open;
+  $("open-chart").setAttribute("aria-expanded",String(open));
+  $("open-chart").title=open ? "收起海图" : "打开海图";
+  $("open-chart").setAttribute("aria-label",$("open-chart").title);
+  if(open && ocean)chart.draw(ocean.chartFix(state.leg));
+}
+$("open-chart").onclick=()=>{if(state.roaming)showChart($("sea-chart").hidden)};
 function exitDive() {
+  showChart(false);
   quietWhale();
   score?.stop();
   releaseStick();
@@ -548,6 +564,7 @@ function exitDive() {
   $("menu").hidden = false;
   $("dive").hidden = true;
   refreshMenu();
+  showFleet(false);
   buttons[0].focus();
 }
 $("exit").onclick = exitDive;
@@ -559,6 +576,7 @@ async function start(story, route = false) {
   stopVoice();
   const id = ++session;
   audioStart();
+  $("sail").disabled=$("back-menu").disabled=true;
   buttons.forEach((b) => (b.disabled = true));
   $("load").textContent = "正在装载峡谷与动物模型…";
   try {
@@ -579,7 +597,7 @@ async function start(story, route = false) {
     if (session !== id) return;
     Object.assign(state, {
       story,exhibit:null,
-      boat:route || story==="roam", vessel:fleet[vesselId], reunionSince:-8, armHeld:false, armReach:0, pingTime:-10,
+      boat:route, vessel:fleet[vesselId], reunionSince:-8, armHeld:false, armReach:0, pingTime:-10,
       route,
       leg: null,
       gate: 0,
@@ -633,6 +651,7 @@ async function start(story, route = false) {
     $("menu").hidden = false;
     $("load").textContent = "海域载入失败。请用支持 WebGL 2 的浏览器重新打开。";
   } finally {
+    $("sail").disabled=$("back-menu").disabled=false;
     buttons.forEach((b) => (b.disabled = false));
   }
 }
@@ -669,11 +688,15 @@ function frame(now, id) {
         if (state.lockTime>=1.2 && state.time-state.pingTime>=.78 && state.time-state.pingTime<1.5) read.arrived=true;
       }
       if (text !== guide.textContent) guide.textContent=text;
-      if (read.arrived) arrive();
+      if(state.leg!=="armDock" && (read.cageInReach || (state.leg!=="hydro" && read.pastFork))){
+        startLeg("armDock");
+        if(read.atCage)arrive();
+      }else if(read.arrived)arrive();
     }
     if (!$("dive-hud").hidden) {
       const depth = $("dive-readout");
-      const label = (state.story==="roam" ? read.zone+" · " : "") + "↓ " + read.depth + " m";
+      const label = read.depth+" m";
+      if(!$("sea-chart").hidden && now>=nextFix){chart.draw(ocean.chartFix(state.leg));nextFix=now+100;}
       if (depth.textContent !== label) depth.textContent = label;
     }
   }
@@ -700,7 +723,7 @@ function tickMission(dt) {
     state.showFlow(state.flow, (state.flow / 68).toFixed(1) + " 节");
   }
   if (state.step==="arm") {
-    state.armReach=Math.min(1,state.armReach+dt*1.45);
+    if(state.armHeld)state.armReach=Math.min(1,state.armReach+dt*1.15);
     if (state.armHeld && state.armReach>=1) state.lift=Math.min(1,state.lift+dt*state.vessel.lift);
     message(state.lift>0 ? Math.round(state.lift*100)+"% · "+(state.armHeld?"托举中":"止回扣已托稳") : "");
     if (state.lift>=1) {
@@ -726,6 +749,7 @@ function tickMission(dt) {
       $("panel").classList.add("watch-release");
     }
   }
+  if(state.step==="talk" && state.line==="clear")state.armReach=Math.max(0,state.armReach-dt*.95);
   if (state.step === "escape") {
     state.escape = Math.min(1, state.escape + dt / 8.5);
     if (state.escape >= 1) {
@@ -740,6 +764,7 @@ function tickMission(dt) {
 }
 const held = new Set();
 addEventListener("keydown", (e) => {
+  if(e.target===$("open-chart") && e.code==="Space")return;
   if (
     state.story &&
     !e.metaKey &&
@@ -793,10 +818,17 @@ document.addEventListener("visibilitychange", () => {
     ocean?.clearKeys();
   }
 });
-buttons.forEach((b) => (b.onclick = () => start(b.dataset.story)));
+function showFleet(open) {
+  $("fleet-picker").hidden=!open;
+  $("missions").hidden=open;
+  if (open) picker.querySelector("input:checked").focus();
+}
+$("back-menu").onclick=()=>{showFleet(false);document.querySelector('[data-story="route"]').focus()};
+$("sail").onclick=()=>start("route");
+buttons.forEach(b => b.onclick=()=>b.dataset.story==="route" ? showFleet(true) : start(b.dataset.story));
 refreshMenu();
 
 if (location.hash === "#dive") start("roam");
 if (location.hash === "#atlas") start("observe");
 
-if (location.hash === "#rescue") start("route");
+if (location.hash === "#rescue") showFleet(true);

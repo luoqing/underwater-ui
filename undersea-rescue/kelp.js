@@ -1,3 +1,4 @@
+import { habitats } from "./bluewater-layout.js";
 import * as T from "three";
 export function plantKelp(scene, reef, source, light) {
   const model = source.scene.getObjectByProperty("isMesh", true);
@@ -40,4 +41,18 @@ export function plantKelp(scene, reef, source, light) {
   }
   plants.receiveShadow = true;
   scene.add(plants);
+  const meadows=[];
+  for(const [index,h] of habitats.entries()){
+    if(h.bed!=="grass")continue;
+    const patch=new T.InstancedMesh(geo,mat,14);
+    for(let i=0;i<patch.count;i++){
+      const a=i*2.4+index,r=1+Math.sqrt(i)*.56;
+      const x=h.x+3.1+Math.cos(a)*r,z=h.z+3.4+Math.sin(a)*r*1.65;
+      tmp.position.set(x,reef.ground(x,z)-.11,z);
+      tmp.rotation.y=a;tmp.scale.setScalar(.63+.95*(.5+.5*Math.sin(i*1.88+index)));
+      tmp.updateMatrix();patch.setMatrixAt(i,tmp.matrix);
+    }
+    patch.computeBoundingSphere();scene.add(patch);meadows.push(patch);
+  }
+  return eye=>{for(const patch of meadows)patch.visible=patch.boundingSphere.center.distanceToSquared(eye)<48**2};
 }

@@ -16,6 +16,7 @@ const targets = {
   "sea-fan": 0.3,
   "sea-fan-distant": 0.25,
   "horse-mackerel": 0.16,
+  anthias:.19, "blue-tang":.22, threadfin:.28, "moon-wrasse":.25,
 };
 let offset = 0;
 const catalog = {},

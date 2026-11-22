@@ -54,7 +54,7 @@ export const atlas = [
   { key: "turtle", name: "海龟", length: 1.48, angle: 1.15, tilt: .24, note: "盯住前面两只像桨一样的鳍肢。划水后稍稍停一下，海龟还会往前滑。" },
   { key: "clown", name: "小丑鱼", length: .30, tilt: .22, note: "沿着橙白条纹找它。它绕着同一簇礁丛探头、转身，又游回同伴身边。" },
   { key: "lion", name: "狮子鱼", length: .46, note: "它把胸鳍张成两把扇子，缓缓沿礁游动。看它转身时，深浅相间的条纹怎样掠过岩石。" },
-  { key: "ray", name: "蝠鲼 · 小翼", length: 3.45, tilt: .35, note: "在开阔水里找小翼。它的两片大胸鳍像翅膀一样起伏，转弯时还能看见浅色的腹面。" },
+  { key: "ray", name: "蝠鲼 · 小翼", length: 3.45, angle: -1.12, tilt: .66, note: "在开阔水里找小翼。它的两片大胸鳍像翅膀一样起伏，转弯时还能看见浅色的腹面。" },
   { key: "tang", name: "蓝倒吊", length: .33, note: "蓝色鱼群里藏着一抹亮黄。跟住其中一条，看看转弯时它和邻居怎样错开。" },
   { key: "eel", name: "花园鳗", length: .68, tilt: .2, note: "看沙地上露出的小脑袋。身体在洞口轻轻摇摆，旁边还有一整群伙伴。" },
 ];
@@ -182,7 +182,7 @@ export function reefLife(sources, scene, reef, light) {
     ahead = new T.Vector3();
   let previousSpecimen = null,
     flatfishStart = -Infinity;
-  function update(t, dt, specimen) {
+  function update(t, dt, specimen,wake) {
     if (specimen === 3 && previousSpecimen !== 3) flatfishStart = t;
     previousSpecimen = specimen;
     for (const actor of actors) {
@@ -215,7 +215,8 @@ export function reefLife(sources, scene, reef, light) {
               : index === 5
                 ? 0.17 + 0.83 * T.MathUtils.smoothstep(cycle, 0.2, 0.86)
                 : 0.69 + 0.31 * cycle;
-      const speed = g.speed * drive;
+      const alarm=wake.threat(fish.position,species[index].length*.52,n*2.4);
+      const speed = g.speed * drive + alarm*species[index].length*(index===3?1.4:2.8);
       actor.distance = (actor.distance + speed * dt) % loop;
       const u = actor.distance / loop;
       path.getPointAt(u, fish.position).add(origin);
@@ -224,8 +225,8 @@ export function reefLife(sources, scene, reef, light) {
       const yaw = Math.atan2(-tangent.z, tangent.x);
       const next = Math.atan2(-ahead.z, ahead.x);
       turn.value = T.MathUtils.clamp(Math.sin(next - yaw) * drive, -0.65, 0.65);
-      effort.value = 0.18 + 0.82 * drive;
-      phase.value += dt * 2 * Math.PI * g.beat * (0.26 + 0.74 * drive);
+      effort.value = 0.18 + 0.82 * drive + .50*alarm;
+      phase.value += dt * 2 * Math.PI * g.beat * (0.26 + 0.74 * drive + .88*alarm);
       fish.rotation.set(
         index === 3 ? 0 : -0.29 * turn.value,
         yaw,
@@ -248,6 +249,8 @@ export function reefLife(sources, scene, reef, light) {
           0.16,
         );
       }
+      const dodge=wake.avoid(actor,fish.position,species[index].length*.52,dt,n*2.4);
+      if(Number.isFinite(dodge) && dodge!==0)fish.rotation.y+=.43*Math.sin(dodge-yaw);
       reef.separate(
         fish.position,
         index === 3 ? 0.032 : species[index].length * 0.32,

@@ -1,4 +1,5 @@
 import * as T from "three";
+import { seaBounds } from "./bluewater-layout.js";
 import { outsideBall } from "./collision.js";
 
 export const swimKeys = new Set([
@@ -17,6 +18,9 @@ export const swimKeys = new Set([
   "ArrowRight",
 ]);
 const clamp = T.MathUtils.clamp;
+export function diveZone(position) {
+  return position.y < -49 ? "远洋海沟" : position.y < -18 ? "深水海盆" : position.z > 32 || position.z < -70 || Math.abs(position.x)>41 ? "外礁斜坡" : position.z > 15 ? "海龟浅滩" : position.z > -9 ? "珊瑚花园" : position.z > -25 ? "水母湾" : "鲸游峡口";
+}
 export function createDiver() {
   const stick = new T.Vector2();
   const keys = new Set(),
@@ -24,7 +28,7 @@ export function createDiver() {
     desired = new T.Vector3(),
     fwd = new T.Vector3(),
     side = new T.Vector3(),
-    offset = new T.Vector3();
+    offset = new T.Vector3(), hullPoint=new T.Vector3();
   const position = new T.Vector3(),
     origin = new T.Vector3();
   let yaw = 0,
@@ -82,9 +86,9 @@ export function createDiver() {
     const steps = Math.max(1, Math.ceil((velocity.length() * dt) / 0.1));
     for (let i = 0; i < steps; i++) {
       position.addScaledVector(velocity, dt / steps);
-      position.x = clamp(position.x, -78, 78);
-      position.z = clamp(position.z, -117, 76);
-      position.y = clamp(position.y, -48, 9.2);
+      position.x = clamp(position.x, seaBounds.west,seaBounds.east);
+      position.z = clamp(position.z, seaBounds.north,seaBounds.south);
+      position.y = clamp(position.y, seaBounds.bottom, seaBounds.surface-.8);
       for (const c of colonies) {
         const rx = c.radius + radius,
           ry = c.height + radius;
@@ -104,9 +108,14 @@ export function createDiver() {
         }
       }
       reef.separate(position, radius, velocity);
-      if (radius>.3) position.y=Math.max(position.y,reef.ground(position.x,position.z)+radius);
-      for (const a of animals)
-        outsideBall(position, a.center, a.radius + radius + .07, velocity, offset);
+      position.y=Math.max(position.y,reef.ground(position.x,position.z)+radius);
+      for (const a of animals){
+        if(!piloting){outsideBall(position,a.center,a.radius+radius+.07,velocity,offset);continue}
+        const station=T.MathUtils.clamp(offset.subVectors(a.center,position).dot(fwd),-.79,.83);
+        hullPoint.copy(position).addScaledVector(fwd,station);
+        outsideBall(hullPoint,a.center,a.radius+radius+.07,velocity,offset);
+        position.copy(hullPoint).addScaledVector(fwd,-station);
+      }
     }
     travel += origin.distanceTo(position);
     camera.position.copy(position);
@@ -116,12 +125,13 @@ export function createDiver() {
       depth: (10 - position.y).toFixed(1),
       speed: velocity.length(),
       distance: travel.toFixed(1),
-      zone:
-        position.y < -18 ? "深水海盆" : position.z > 32 || position.z < -70 || Math.abs(position.x)>41 ? "外礁斜坡" : position.z > 15 ? "海龟浅滩" : position.z > -9 ? "珊瑚花园" : position.z > -25 ? "水母湾" : "鲸游峡口",
+      zone: diveZone(position),
     };
   }
   return {
     position,
+    velocity,
+    heading(out){return out.set(-Math.sin(yaw)*Math.cos(pitch),Math.sin(pitch),-Math.cos(yaw)*Math.cos(pitch))},
     throttle(){return clamp(stick.y+Number(keys.has("KeyW"))-Number(keys.has("KeyS")),-1,1)},
     reset,
     move,

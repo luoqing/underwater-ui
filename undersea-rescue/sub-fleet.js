@@ -122,20 +122,55 @@ function buildVessel(shark) {
   return group;
 }
 
+// The GLB pods taper to solid caps. Seat each rotor aft of its cap and
+// mount its bearing to the pod, on the same axis as the existing yellow lip.
+function fitEchoJets(echo) {
+  const vanes = [], shrouds = [];
+  echo.traverse(part => {
+    if (/^Impeller[ _]vane/.test(part.name)) vanes.push(part);
+    if (/^Pump[ _]jet[ _]shroud/.test(part.name)) shrouds.push(part);
+  });
+  for (const vane of vanes) vane.removeFromParent();
+  const steel = new T.MeshStandardMaterial({color:0xc3d6cd, metalness:.38, roughness:.36});
+  const liner = new T.MeshStandardMaterial({color:0x164653, metalness:.26, roughness:.44});
+  for (const ring of shrouds) {
+    const hand = Math.sign(ring.position.z);
+    // The lip has a .154 clear radius. Join both sides of the duct
+    // back to the pod and leave the mouth open behind the blades.
+    const profile = [[.156,-.038],[.194,-.042],[.210,.012],[.193,.135],[.156,.195],[.146,.184],[.170,.115],[.156,-.038]];
+    const duct = new T.Mesh(new T.LatheGeometry(profile.map(([r,x]) => new T.Vector2(r,x)),40),liner);
+    duct.rotation.z = -Math.PI/2;
+    duct.position.copy(ring.position);
+    echo.add(duct);
+
+    const sections = [[.027,-.23,.22],[.065,-.29,.28],[.112,-.14,.25],[.141,.08,.16],[.142,.22,.065]];
+    const points = [];
+    for (const [radius, sweep, halfChord] of sections) {
+      for (const edge of [-1,1]) {
+        const angle = hand * (sweep + edge * halfChord);
+        for (const skin of [-1,1]) {
+          points.push(new T.Vector3(edge * (.013-.048*radius) + skin*.0025,
+            radius*Math.cos(angle), radius*Math.sin(angle)));
+        }
+      }
+    }
+    const blade = new ConvexGeometry(points);
+    const hub = new T.SphereGeometry(1,20,12).toNonIndexed().scale(.037,.041,.041);
+    hub.deleteAttribute("uv");
+    const parts = [hub];
+    for (let i=0; i<5; i++) parts.push(blade.clone().rotateX(i*2*Math.PI/5));
+    const rotor = new T.Mesh(mergeGeometries(parts),steel);
+    rotor.name = "Propeller";
+    rotor.position.copy(ring.position);
+    rotor.position.x -= .036;
+    echo.add(rotor);
+  }
+}
+
 export function fitSub(model) {
   const echo=new T.Group();
   echo.add(...model.children.slice());
-  const originalBlades=[];
-  echo.traverse(n=>{if(n.isMesh && /^Impeller[ _]vane/.test(n.name))originalBlades.push(n)});
-  for(const side of [-1,1]){
-    const blades=originalBlades.filter(b=>Math.sign(b.position.z)===side);
-    if(!blades.length)continue;
-    const rotor=new T.Group();
-    rotor.name="Propeller";
-    for(const b of blades)rotor.position.add(b.position);
-    rotor.position.divideScalar(blades.length);echo.add(rotor);
-    for(const b of blades)rotor.attach(b);
-  }
+  fitEchoJets(echo);
   const variants={echo,swift:buildVessel(true),stone:buildVessel(false)};
   model.add(...Object.values(variants));
   model.scale.setScalar(.69);
