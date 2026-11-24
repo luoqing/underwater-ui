@@ -1,4 +1,6 @@
 import * as T from "three";
+import { seaBounds } from "./bluewater-layout.js";
+import { airlock } from "./airlock.js";
 import { fitSub } from "./sub-fleet.js";
 
 export const boatLegs = new Set(["hydro", "fork", "shoalPass", "reefPass", "armDock"]);
@@ -9,6 +11,7 @@ export function rescueSub(model, scene) {
   equip.select("echo");
   hull.add(model);
   scene.add(hull);
+  const crew=airlock(model);
   const contact = new T.Vector3(), base = new T.Vector3(), elbow = new T.Vector3();
   const eye = new T.Vector3(), aim = new T.Vector3(), forward = new T.Vector3();
   // Replace the fixed concept arm with jointed links that can reach the crossbar.
@@ -35,7 +38,8 @@ export function rescueSub(model, scene) {
   }
   const lamps = [-1,1].map(side=>{
     const lamp=new T.Mesh(new T.SphereGeometry(.051,10,8), new T.MeshBasicMaterial({color:0x385b60}));
-    lamp.position.set(-.72,.68,side*.20);
+    lamp.position.set(.966,-.117,side*.229);
+    lamp.scale.x=.27;
     hull.add(lamp);
     return lamp;
   });
@@ -44,18 +48,61 @@ export function rescueSub(model, scene) {
     span(shoulder,base,elbow);span(forearm,elbow,contact);
     jaws.forEach((jaw,i)=>{tip.copy(contact);tip.x+=.075*reach;tip.z+=(i?1:-1)*.09*reach;span(jaw,contact,tip)});
   }
+  const course=new T.Vector3(), starboard=new T.Vector3(), candidate=new T.Vector3();
+  let followYaw=null;
+  const aftQuarter = Math.atan2(.76, -.55);
+  const defaultElevation = .385;
+  let orbitAngle = aftQuarter, elevation = defaultElevation;
+  const alternativeAngles = [[0,0],[.44,.15],[-.44,.15],[.85,.30],[-.85,.30],[Math.PI,.18]];
+  function followCamera(camera,reef,dt){
+    const yaw=hull.rotation.y;
+    if(followYaw===null)followYaw=yaw;
+    const delta=Math.atan2(Math.sin(yaw-followYaw),Math.cos(yaw-followYaw));
+    followYaw+=delta*(1-Math.exp(-dt*4.5));
+    course.set(Math.cos(followYaw),0,-Math.sin(followYaw));
+    starboard.set(-course.z,0,course.x);
+    // Frame the full 2.8 m envelope with margin even on a narrow viewport.
+    const halfFov=T.MathUtils.degToRad(camera.fov*.5);
+    const fit=1.54/Math.sin(Math.min(halfFov,Math.atan(Math.tan(halfFov)*camera.aspect)));
+    const range=Math.max(4.15,fit+.40);
+    const origin=hull.position;
+    let best=-1;
+    for(const [offset,tilt] of alternativeAngles){
+      const azimuth = orbitAngle + offset;
+      const polar = elevation + tilt;
+      const aft = Math.cos(azimuth) * Math.cos(polar);
+      const side = Math.sin(azimuth) * Math.cos(polar);
+      const rise = Math.sin(polar);
+      candidate.copy(origin).addScaledVector(course,aft*range).addScaledVector(starboard,side*range);
+      candidate.y+=rise*range;
+      candidate.y=T.MathUtils.clamp(candidate.y,reef.ground(candidate.x,candidate.z)+.36,seaBounds.surface-.24);
+      reef.cameraArm(origin,candidate,.24);
+      const clearance=candidate.distanceTo(origin);
+      if(clearance>best){best=clearance;eye.copy(candidate)}
+      if(clearance>=fit+.32)break;
+    }
+    aim.copy(origin).addScaledVector(course,Math.min(.70,Math.max(0,best-fit)));
+    aim.y+=.15;
+  }
   hull.visible=false;
   return {
+    orbit(dx,dy){
+      orbitAngle -= dx;
+      elevation = T.MathUtils.clamp(elevation + dy, -.42, 1.12);
+    },
+    faceAhead(){orbitAngle = Math.PI; elevation = defaultElevation;},
     select(id){
-      equip.select(id);
+      equip.select(id);crew.select(id);followYaw=null;orbitAngle=aftQuarter;elevation=defaultElevation;
       lamps.forEach((lamp,i)=>{
         const side=i?1:-1;
-        if(id==="swift")lamp.position.set(-.34,.255,side*.19);
-        else if(id==="stone")lamp.position.set(-.32,.41,side*.19);
-        else lamp.position.set(-.72,.68,side*.20);
+        if(id==="swift")lamp.position.set(.635,-.019,side*.263);
+        else if(id==="stone")lamp.position.set(.635,-.069,side*.471);
+        else lamp.position.set(.966,-.117,side*.229);
+        lamp.scale.set(id==="echo"?.27:.82,.82,id==="echo"?1:.27);
       });
     },
     exhibit(display){
+      crew.update({boat:true,time:0});
       display.add(hull);hull.visible=true;
       hull.position.set(0,0,0);hull.rotation.set(0,0,0);
       arm.visible=false;
@@ -67,18 +114,19 @@ export function rescueSub(model, scene) {
     },
     spin:equip.spin,
     hide() { hull.visible=false; },
-    drive(camera, diver, s, cage, reef, info) {
+    drive(camera, diver, s, cage, reef, info, dt) {
       hull.visible=true;
       const docked = s.route && s.foundCage && !s.leg;
       if (docked) {
         hull.position.set(cage.x, Math.max(cage.y+.08,reef.ground(cage.x,cage.z+3.48)+.92), cage.z + 3.48);
         hull.rotation.set(0,Math.PI/2,0);
       } else {
-        camera.getWorldDirection(forward);
+        diver.heading(forward);
         hull.position.copy(diver.position);
         hull.rotation.set(0,Math.atan2(-forward.z,forward.x),
           Math.asin(T.MathUtils.clamp(forward.y,-.7,.7)),"YXZ");
       }
+      crew.update(s);
       hull.updateMatrixWorld();
       const reach=docked ? T.MathUtils.smoothstep(s.armReach ?? 0,0,1) : 0;
       arm.visible=reach>.001;
@@ -95,17 +143,12 @@ export function rescueSub(model, scene) {
       if (docked) {
         aim.copy(cage).addScaledVector(axis, .45+s.lift*.7);
         eye.set(cage.x+4.2,cage.y+2.65,cage.z+6.7);
-      } else {
-        camera.getWorldDirection(forward);
-        aim.copy(hull.position).addScaledVector(forward,3.4);
-        aim.y+=.4;
-        eye.copy(hull.position).addScaledVector(forward,-4.15);
-        eye.y+=1.48;
-      }
-      eye.y=Math.max(eye.y,reef.ground(eye.x,eye.z)+.4);
-      reef.cameraArm(hull.position,eye,.23);
-      eye.y=Math.max(eye.y,reef.ground(eye.x,eye.z)+.25);
+        followYaw=null;
+        eye.y=Math.max(eye.y,reef.ground(eye.x,eye.z)+.4);
+        reef.cameraArm(hull.position,eye,.23);
+      }else followCamera(camera,reef,dt);
       camera.position.copy(eye);camera.lookAt(aim);
+      crew.shot(s,camera,reef);
     }
   };
 }

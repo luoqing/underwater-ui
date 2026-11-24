@@ -58,8 +58,8 @@ function buildVessel(shark) {
       panel(trim,(u,v)=>{const a=-.18+v*(Math.PI+.36);
         return skin(-.96+i*.38+.20*Math.sin(a)+u*(.05+.12*Math.sin(a)),a,.011)},3,32);
     }
-    foil([[-.73,.29,0],[.13,.37,0],[-.72,1.00,0],[-.79,.78,0]],.05,true);
-    foil([[-1.31,.06,0],[-1.80,.83,0],[-1.73,.28,0],[-1.61,.03,0],[-1.76,-.49,0]],.044,true);
+    // A short rounded rudder behind the stern, clear of the canopy.
+    oval(paint,-1.48,.08,0,.16,.29,.052);
   }else{
     // Wrap the visor around the rounded bow; use the angular coordinate around X on each side.
     for(const side of [0,1]){
@@ -74,7 +74,7 @@ function buildVessel(shark) {
   }
   for(const s of [-1,1]){
     if(shark){
-      foil([[.39,-.07,s*.33],[-.27,-.13,s*.44],[-.84,-.29,s*1.22],[-.63,-.23,s*1.28]],.039);
+      oval(paint,-1.12,-.09,s*.22,.34,.045,.20);
       oval(lamps,1.15,-.038,s*.306,.16,.029,.035);
     }else{
       foil([[.12,-.09,s*.56],[-.54,-.13,s*.49],[-.84,-.28,s*1.06],[-.53,-.30,s*1.17]],.072);

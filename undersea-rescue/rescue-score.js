@@ -12,7 +12,7 @@ function chapter(s) {
   if (s.step==="arm") return "lift";
   if (s.leg === "song" || s.step === "still") return null;
   if (s.step === "listen" || s.step === "tune") return null;
-  if (s.line === "clear" || s.step === "lower" || s.step === "done") return "safe";
+  if (s.line === "clear" || s.step === "crewBack" || s.step === "lower" || s.step === "done") return "safe";
   if (s.step === "escape") return s.escape < .66 ? "lift" : "safe";
   if (s.step === "lift") return "lift";
   if (s.story === "manta" && (s.route || !s.roaming)) return "cage";
@@ -105,10 +105,28 @@ export function createScore(ctx) {
     motor.frequency.setTargetAtTime(60+power*57,ctx.currentTime,.18);
     throttle.gain.setTargetAtTime(.001+.021*power,ctx.currentTime,.13);
   }
+  let lockPhase="",previousLockTime=0;
+  function lockSounds(s){
+    if(s.step!=="crewOut" && s.step!=="crewBack"){lockPhase="";return}
+    const t=s.crewTime,prev=s.step===lockPhase?previousLockTime:-1;
+    const cues=s.step==="crewOut"?[[1.4,1.65,true],[4.45,1.6,false],[9.8,1.5,false]]:[[2,1.6,false],[8.65,1.65,false],[11,1.7,true]];
+    lockPhase=s.step;previousLockTime=t;
+    for(const [at,length,water] of cues){
+      if(t<at || prev>=at)continue;
+      const now=ctx.currentTime,buf=ctx.createBuffer(1,Math.ceil(ctx.sampleRate*length),ctx.sampleRate);
+      const samples=buf.getChannelData(0);
+      for(let i=0;i<samples.length;i++)samples[i]=Math.random()*2-1;
+      const noise=ctx.createBufferSource(),band=ctx.createBiquadFilter(),env=ctx.createGain();
+      noise.buffer=buf;band.type="bandpass";band.Q.value=water?.65:1.6;
+      band.frequency.setValueAtTime(water?510:210,now);band.frequency.linearRampToValueAtTime(water?920:155,now+length);
+      env.gain.setValueAtTime(.0001,now);env.gain.exponentialRampToValueAtTime(water?.068:.085,now+.18);env.gain.exponentialRampToValueAtTime(.0001,now+length);
+      noise.connect(band).connect(env).connect(ctx.destination);noise.onended=()=>{noise.disconnect();band.disconnect();env.disconnect()};noise.start(now);
+    }
+  }
   let retryAt = 0;
   function update(s, location, foregroundPlaying) {
     if (ctx.state !== "running") return;
-    engine(s,location?.speed);
+    engine(s,location?.speed);lockSounds(s);
     const name = chapter(s), now = ctx.currentTime;
     if (name !== wanted && now >= retryAt) {
       const version = ++change;

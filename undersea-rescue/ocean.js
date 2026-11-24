@@ -2,7 +2,7 @@ import { vesselClearance } from "./vessel-clearance.js";
 import { rockTerraces } from "./rock-terraces.js";
 import { oceanFloor, offshoreAnimals } from "./outer-ocean.js";
 import { rescueSub, boatLegs } from "./echo-sub.js";
-import subFile from "./assets/echo-sub.glb";
+import subFile from "./assets/echo-hull.glb";
 import { swimCompanion } from "./swim-companion.js";
 import { whaleClearance, whaleRockClearance } from "./whale-clearance.js";
 import { whaleMotion } from "./whale-swim.js";
@@ -807,7 +807,7 @@ export async function makeOcean(host, onCompanion) {
   addAnimal(ray,"蝠鲼 · 小翼",.85,1.75,"-x");
   const companion = swimCompanion(host,camera,reef,garden.colliders,companions,onCompanion);
   let trappedRay = false, canSwimTogether = false, onRoute = false, firstTap = null, press = null;
-  let viewPointer = null;
+  let viewPointer = null, pilotingView = false;
   let orbitFree = false,
     az = 0,
     pitch = 0,
@@ -833,7 +833,9 @@ export async function makeOcean(host, onCompanion) {
     }
     if (!drag || viewPointer !== e.pointerId) return;
     if (diveActive) {
-      diver.turn(e.clientX - drag[0], e.clientY - drag[1]);
+      const dx = e.clientX - drag[0], dy = e.clientY - drag[1];
+      if (pilotingView) sub.orbit(dx * 2 * Math.PI / host.clientWidth, dy * Math.PI / host.clientHeight);
+      else diver.turn(dx, dy);
       drag = [e.clientX, e.clientY];
       return;
     }
@@ -852,11 +854,12 @@ export async function makeOcean(host, onCompanion) {
     host.onlostpointercapture =
       (e) => {
         if (viewPointer === e.pointerId) {
-          if (e.type === "pointerup" && press && canSwimTogether && e.timeStamp-press.time<380) {
+          if (e.type === "pointerup" && press && (pilotingView || canSwimTogether) && e.timeStamp-press.time<380) {
             const close = firstTap && firstTap.kind===e.pointerType && e.timeStamp-firstTap.time<400 &&
               Math.hypot(e.clientX-firstTap.x,e.clientY-firstTap.y)<24;
             if (close) {
-              companion.toggle(e.clientX,e.clientY, a => !(trappedRay && a.node === ray) && !(onRoute && (a.node === calf || a.node === mother)));
+              if (pilotingView) sub.faceAhead();
+              else companion.toggle(e.clientX,e.clientY, a => !(trappedRay && a.node === ray) && !(onRoute && (a.node === calf || a.node === mother)));
               firstTap=null;
             } else firstTap={x:e.clientX,y:e.clientY,time:e.timeStamp,kind:e.pointerType};
           } else firstTap=null;
@@ -919,6 +922,12 @@ export async function makeOcean(host, onCompanion) {
     chartFix(leg) {
       return {position:diver.position,forward:diver.heading(new T.Vector3()),ground:reef.ground,zone:diveZone(diver.position),
         target:leg ? targetFor(leg) : null};
+    },
+    dockApproach(fromChannel){
+      const p=gates.armDock.clone();
+      if(fromChannel)p.z+=22;
+      p.y=Math.max(p.y,reef.ground(p.x,p.z)+1.15);
+      return p.toArray();
     },
     diverPosition() { return diver.position.toArray(); },
     restoreEscort(leg) {
@@ -983,6 +992,7 @@ export async function makeOcean(host, onCompanion) {
         lastShadow = t;
       }
       const underway=diveActive && !(s.route && s.foundCage && !s.leg);
+      pilotingView = underway && !!s.boat;
       wake.update(underway && (s.boat?"boat":"diver"),diver,dt);
       for(const w of whales){
         const alarm=wake.threat(w.animal.position,w.animal===mother?4.6:2.7);
@@ -1281,7 +1291,7 @@ export async function makeOcean(host, onCompanion) {
                       ? "前方偏上"
                       : "正前方";
         }
-        if (s.boat) sub.drive(camera, diver, s, cageTarget, reef, info);
+        if (s.boat) sub.drive(camera, diver, s, cageTarget, reef, info, dt);
         composeCamera(sceneShot, dt);
         garden.update(t, camera);
         diveLamp.intensity = T.MathUtils.damp(

@@ -1,4 +1,4 @@
-import fleetPreview from "./assets/rescue-fleet.jpg";
+import fleetPreview from "./assets/fleet-cabin-cards.jpg";
 import { fleet } from "./sub-fleet.js";
 import { boatLegs } from "./echo-sub.js";
 import { whaleCall, whaleCalling, quietWhale } from "./whale-call.js";
@@ -98,7 +98,7 @@ $("audio").onclick = () => {
       speakLine(state.line);
   } else {
     quietWhale();
-    stopVoice();
+    stopVoice();state.crewSpeaking=false;
     score?.stop();
     ctx?.suspend().catch(() => {});
     if (state.line) showReplies(state.line, false);
@@ -201,7 +201,7 @@ function startLeg(leg) {
   state.lockTime = 0;
   if (leg === "hydro") state.nextPing=state.time+.25;
   if (leg === "armDock") state.foundCage=true;
-  if (leg !== "song") {
+  if (leg !== "song" && !state.chapterPreview) {
     try { localStorage.setItem(saveKey, JSON.stringify({leg, position:ocean.diverPosition(), gate:state.gate})); } catch {}
   }
   $("panel").hidden = true;
@@ -312,8 +312,12 @@ function conversation(id) {
     },true);
   }
   else if (id === "cage") {
-    button("怎么救你？", () => conversation("space"), true);
-    button(state.boat ? "对准横梁" : "看看笼架", state.boat ? armControl : rigging);
+    if (state.boat) {
+      button("皮医生，准备出舱",()=>crewTransit(false),true);
+    } else {
+      button("怎么救你？", () => conversation("space"), true);
+      button("看看笼架",rigging);
+    }
   } else if (id === "space") button("一起抬", state.boat ? armControl : rigging, true);
   else if (id === "clear") {
     button("一起潜水", () => {
@@ -362,11 +366,32 @@ function crossing() {
   }, true);
   button("沿礁肩绕行", () => startLeg("lee"));
 }
+const medicLines={
+  depart:"你稳住艇，我去小翼身边看看。",
+  ready:"这里看得清！你来抬，我帮你看着。",
+  safe:"尾巴也出来啦，可以放下了。",
+  home:"我回来啦！咱们跟上小翼吧。"
+};
+function medicLine(id){
+  page("","皮医生",medicLines[id]);
+  $("panel").classList.add("dialogue");
+  state.crewSpeaking=sound;
+  if(sound)playVoice(ctx,id,()=>{},()=>{state.crewSpeaking=false});
+}
+function crewTransit(returning){
+  state.step=returning?"crewBack":"crewOut";
+  state.crewTime=0;
+  if(returning){
+    page("","","");
+    $("panel").hidden=true;
+  }else medicLine("depart");
+}
 function armControl() {
-  page("", "托起横梁", "按住软爪慢慢抬，松手可以停。");
+  medicLine("ready");
+  $("panel").hidden=false;
   state.step="arm";
   state.armReach=0;
-  const grip=button("按住机械臂",()=>{},true);
+  const grip=button("按住机械臂 · 松手暂停",()=>{},true);
   grip.style.touchAction="none";
   const down=()=>{state.armHeld=true;grip.setAttribute("aria-pressed","true");};
   const up=()=>{state.armHeld=false;grip.setAttribute("aria-pressed","false");};
@@ -413,7 +438,7 @@ function ballast() {
 }
 function finish() {
   state.step = "done";
-  try { localStorage.removeItem(saveKey); } catch {}
+  if(!state.chapterPreview)try { localStorage.removeItem(saveKey); } catch {}
   conversation("clear");
 }
 function observe(index, exhibit = null) {
@@ -422,7 +447,7 @@ function observe(index, exhibit = null) {
   const entry = atlas[index];
   state.exhibit=exhibit;
   const notes={
-    echo:"圆舱顶上，那对小小的听音器能帮你找到鲸歌。拖动看看艇尾的双桨。",
+    echo:"听潮号能听出鲸歌的方向。转到艇尾，看看并排转动的两只螺旋桨。",
     swift:"尖艇首划开海水，竖尾帮它拐弯。拖动转一圈，找找尾巴里的螺旋桨。",
     stone:"宽宽的鲸尾下藏着双桨。拖动看看它的尾巴。"
   };
@@ -455,7 +480,8 @@ function switchSwim(on, inPlace = true, keepPosition = false) {
   else if(ocean)chart.prepare(ocean.chartFix(null).ground);
   $("dive-hud").classList.toggle("at-helm",!!state.boat);
   document.querySelector(".keyboard-guide").innerHTML=state.boat ? "W 推进 · S 倒车 · A 左舵 · D 右舵<br>E 上浮 · Q 下潜" : "W 前进 · S 后退 · A 左移 · D 右移<br>E 上浮 · Q 下潜";
-  $("swim-tip").lastElementChild.textContent=state.boat ? "前后推杆控制航速 · 左右转舵 · 右侧升潜" : "左手摇杆游动 · 右手划动转向 · 双点动物同游";
+  $("swim-tip").firstElementChild.textContent=state.boat ? "左键拖动环视 · 双击看前方" : "拖动转向 · 双击动物同游";
+  $("swim-tip").lastElementChild.textContent=state.boat ? "左手驾艇 · 右侧拖动环视 · 双点看前方" : "左手摇杆游动 · 右手划动转向 · 双点动物同游";
   if (on) stopVoice();
   state.roaming = on;
   held.clear();
@@ -569,6 +595,7 @@ function exitDive() {
 }
 $("exit").onclick = exitDive;
 async function start(story, route = false) {
+  const chapter=new URLSearchParams(location.search).get("chapter");
   if (story === "route") {
     story = "whale";
     route = true;
@@ -598,7 +625,8 @@ async function start(story, route = false) {
     Object.assign(state, {
       story,exhibit:null,
       boat:route, vessel:fleet[vesselId], reunionSince:-8, armHeld:false, armReach:0, pingTime:-10,
-      route,
+      route, crewTime:0, crewSpeaking:false,
+      chapterPreview:route && ["airlock","approach"].includes(chapter),
       leg: null,
       gate: 0,
       escorting: false,
@@ -628,12 +656,13 @@ async function start(story, route = false) {
     if (story === "observe") observe(0);
     switchSwim(story === "roam" || route, false);
     if (route) {
-      const saved = checkpoint();
+      const saved = state.chapterPreview ? {leg:"armDock",position:ocean.dockApproach(chapter==="approach")} : checkpoint();
       if (saved) {
         if (saved.leg==="ridge") saved.leg="fork";
         if (saved.leg==="cage") saved.leg="armDock";
         if (boatLegs.has(saved.leg)) state.story="manta";
         ocean.restoreDiver(saved.position);
+        if(chapter==="approach")ocean.faceWaypoint("armDock");
         state.escorting = !["song","calf"].includes(saved.leg);
         if (state.escorting) ocean.restoreEscort(saved.leg);
 
@@ -662,7 +691,7 @@ function frame(now, id) {
   if (state.route || !state.roaming) tickMission(dt);
   updateCaption();
   const read = ocean.render(state, dt);
-  if (sound && !document.hidden) score?.update(state, read, captionStart !== null || whaleCalling());
+  if (sound && !document.hidden) score?.update(state, read, captionStart !== null || state.crewSpeaking || whaleCalling());
   if (state.roaming) {
     if (!state.boat) breathe(); else if (breathing) stopBreath();
     if (state.leg) {
@@ -722,6 +751,20 @@ function tickMission(dt) {
   if (state.step === "cross") {
     state.showFlow(state.flow, (state.flow / 68).toFixed(1) + " 节");
   }
+  if(state.step==="crewOut" || state.step==="crewBack"){
+    const previous=state.crewTime;
+    state.crewTime+=dt;
+    if(state.step==="crewOut"){
+      if(previous<3.4 && state.crewTime>=3.4)$("panel").hidden=true;
+      if(state.crewTime>=14.05)armControl();
+    }else{
+      state.armReach=Math.max(0,state.armReach-dt*1.1);
+      if(previous<16.3 && state.crewTime>=16.3){
+        $("panel").hidden=false;medicLine("home");
+      }
+      if(state.crewTime>=19.65 && !state.crewSpeaking)finish();
+    }
+  }
   if (state.step==="arm") {
     if(state.armHeld)state.armReach=Math.min(1,state.armReach+dt*1.15);
     if (state.armHeld && state.armReach>=1) state.lift=Math.min(1,state.lift+dt*state.vessel.lift);
@@ -754,12 +797,13 @@ function tickMission(dt) {
     state.escape = Math.min(1, state.escape + dt / 8.5);
     if (state.escape >= 1) {
       state.step = "lower";
-      $("objective").textContent = "小翼游远了，笼架缓缓落下";
+      if(state.boat)medicLine("safe");
+      else $("objective").textContent = "小翼游远了，笼架缓缓落下";
     }
   } else if (state.step === "lower") {
     state.lowering = Math.min(1, state.lowering + dt / 4);
     state.lift = 1 - state.lowering ** 2 * (3 - 2 * state.lowering);
-    if (state.lowering >= 1) finish();
+    if (state.lowering >= 1) { if(state.boat)crewTransit(true); else finish(); }
   }
 }
 const held = new Set();

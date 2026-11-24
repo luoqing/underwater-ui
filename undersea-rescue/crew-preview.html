@@ -1,0 +1,25 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>海底救援 · 队员造型</title>
+<style>*{box-sizing:border-box}body{margin:0;background:#e0ebe8;color:#1b4149;font:15px system-ui,sans-serif}main{width:min(1040px,96%);margin:0 auto}header{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #afc7c2;padding:16px 2% 8px}h1{font-size:20px;margin:0}a{font-size:14px;color:#17596a;text-underline-offset:.25em}.row{display:grid;grid-template-columns:repeat(3,1fr)}h2{font-size:16px;margin:10px 0 0 2%}figure{margin:0;text-align:center}canvas{display:block;width:100%;height:clamp(130px,30vh,250px)}figcaption{color:#3e6267;font-size:13px;margin-bottom:7px}.row + h2{border-top:1px solid #afc7c2;padding-top:8px}</style>
+<main><header><h1>海底救援 · 队员造型</h1><a href="./play.html?chapter=airlock#rescue">试玩笼边救援 ↗</a></header></main>
+<script type="importmap">{"imports":{"three":"./node_modules/three/build/three.module.js","three/addons/":"./node_modules/three/examples/jsm/"}}</script>
+<script type="module">
+import * as T from 'three';import {crewFigure} from './rescue-crew.js';
+const main=document.querySelector("main");
+for(const [kind,name] of [["captain","巴克队长"],["medic","皮医生"]]){
+  const title=document.createElement("h2"),row=document.createElement("div");
+  title.textContent=name;row.className="row";main.append(title,row);
+  for(const [label,yaw] of [["正面",0],["侧面",-Math.PI/2],["背面",Math.PI]]){
+    const figure=document.createElement("figure"),canvas=document.createElement("canvas"),caption=document.createElement("figcaption");
+    caption.textContent=label;figure.append(canvas,caption);row.append(figure);
+    const r=new T.WebGLRenderer({canvas,antialias:true});r.setPixelRatio(Math.min(2,devicePixelRatio));r.shadowMap.enabled=true;r.shadowMap.type=T.PCFSoftShadowMap;
+    const scene=new T.Scene();scene.background=new T.Color(0xe0ebe8);
+    scene.add(new T.HemisphereLight(0xfff8ee,0xbdc9c8,1.8));
+    const key=new T.DirectionalLight(0xfff7ec,2.0);key.position.set(-3,5,4);key.castShadow=true;key.shadow.normalBias=.012;scene.add(key);
+    const floor=new T.Mesh(new T.PlaneGeometry(200,200),new T.MeshStandardMaterial({color:0xd8e7e3,emissive:0x859997,emissiveIntensity:.28}));floor.rotation.x=-Math.PI/2;floor.receiveShadow=true;scene.add(floor);
+    const person=crewFigure(kind);person.root.rotation.y=yaw;person.pose(0,0,0);scene.add(person.root);person.root.traverse(n=>{if(n.isMesh)n.castShadow=true});
+    function render(){const w=canvas.clientWidth,h=canvas.clientHeight,radius=1.02,ratio=w/h;
+      const c=new T.OrthographicCamera(-radius*ratio,radius*ratio,radius,-radius,.1,20);c.position.set(0,1.06,5);c.lookAt(0,.86,0);r.setSize(w,h,false);r.render(scene,c)}
+    new ResizeObserver(render).observe(canvas);render();
+  }
+}
+</script></html>
